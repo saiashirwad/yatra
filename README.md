@@ -2,7 +2,6 @@
 
 ## goals
 
-
 Define your schema like this:
 
 ```typescript
@@ -13,15 +12,42 @@ const db = schema((s) => ({
     email: string(),
     books: s.book()
   }),
-  book: table(t => ({
+  book: table((t) => ({
     id: string(),
     bookId: string(),
     owner: s.user(t.bookId).onDelete('cascade'),
-    meta: jsonObject({
+    meta: json({
       name: string()
     })
   })),
 }));
+```
+
+alternative syntax
+```typescript
+const db = pgSchema((s) => ({
+  user: s.table({
+    id: s.string().primaryKey().format("uuid"),
+    name: s.string(),
+    email: s.string(),
+    books: s.book()
+  }),
+  book: s.table((t) => ({
+    id: s.string(),
+    bookId: s.string(),
+    owner: s.user(t.bookId).onDelete('cascade'),
+      meta: s.json((j) => ({
+        name: j.string()
+      }))
+  })),
+}));
+```
+
+eventually, with arktype
+```typescript
+const db = pgSchema((s) => ({
+  user: s.table({})
+}))
 ```
 
 ```typescript
