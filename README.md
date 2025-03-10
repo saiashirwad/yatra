@@ -55,7 +55,6 @@ const db = arkSchema({
   book: {
     id: 'string',
     bookId: 'string',
-    // not sure i like this
     owner: 'user->bookId',
     meta: {
       name: 'string'
