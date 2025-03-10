@@ -62,7 +62,6 @@ type StringColumn<options extends StringColumnOptions = { type: "string" }> = Co
 }
 
 function string(): StringColumn {
-	const col = Column<"string", string>("string")
 	return {
 		...Column<"string", string>("string"),
 		minLength(value) {
