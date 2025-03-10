@@ -1,4 +1,5 @@
 type Clean<T> = { [k in keyof T]: T[k] } & unknown
+type Trim<T> = { [k in keyof T as T[k] extends undefined ? never : k]: T[k] }
 
 function updateOptions<
 	T extends { options: Record<string, unknown> },
@@ -13,22 +14,36 @@ type BaseColumnOptions<Type extends string, T> = {
 	__default?: T
 }
 
-type Merge<O, KV> = Clean<O & KV>
-
-type BaseColumn<
+interface BaseColumn<
 	Type extends string,
 	T,
 	options extends BaseColumnOptions<Type, T> = { type: Type },
-> = {
+> {
 	options: BaseColumnOptions<Type, T>
 	nullable: () => BaseColumn<Type, T, Clean<options & { __nullable: true }>>
 	default: <V extends T>(value: V) => BaseColumn<Type, T, Clean<options & { __default: V }>>
 }
 
-function BaseColumn<const Type extends string, T = unknown>(
-	type: Type,
-): BaseColumn<Type, T, { type: Type }> {
-	const options: BaseColumnOptions<Type, T> = { type }
+type Column<
+	Type extends string,
+	T,
+	options extends BaseColumnOptions<Type, T> = { type: Type },
+> = Type extends "string"
+	? StringColumn<Clean<options & StringColumnOptions>>
+	: Type extends "number"
+		? NumberColumn<Clean<options & NumberColumnOptions>>
+		: Type extends "literal"
+			? options extends { __literalValue: LiteralType }
+				? LiteralColumn<options["__literalValue"]>
+				: never
+			: never
+
+function Column<
+	const Type extends string,
+	T = unknown,
+	options extends BaseColumnOptions<Type, T> = { type: Type },
+>(type: Type, defaultOptions?: options): Column<Type, T, options> {
+	const options = { type, ...(defaultOptions ?? {}) }
 	return {
 		options,
 		nullable() {
@@ -46,7 +61,7 @@ type StringColumnOptions = BaseColumnOptions<"string", string> & {
 	__minLength?: number
 	__maxLength?: number
 	__format?: StringFormat
-	__enum?: string[]
+	__enum?: unknown[]
 }
 
 type StringColumn<options extends StringColumnOptions = { type: "string" }> = BaseColumn<
@@ -61,32 +76,39 @@ type StringColumn<options extends StringColumnOptions = { type: "string" }> = Ba
 }
 
 function string(): StringColumn {
-	const base = BaseColumn<"string", string>("string")
+	const base = Column<"string", string>("string")
 
 	return {
 		...base,
-		minLength(value: number) {
+		minLength(value) {
 			return updateOptions(this, { __minLength: value })
 		},
-		maxLength(value: number) {
+		maxLength(value) {
 			return updateOptions(this, { __maxLength: value })
 		},
-		format(format: StringFormat) {
+		format(format) {
 			return updateOptions(this, { __format: format })
 		},
-		enum<const T extends unknown[]>(values: T) {
-			return updateOptions(this, { __enum: values } as const)
+		enum(values) {
+			return updateOptions(this, { __enum: values })
 		},
 	}
 }
 
 type LiteralType = string | number | boolean
 
-type LiteralColumn<T extends LiteralType> = BaseColumn<`${T}`, T>
-function literal<const T extends LiteralType>(value: T) {
-	const base = BaseColumn<`${T}`, T>(`${value}`)
-
-	return base
+type LiteralColumn<T extends LiteralType> = BaseColumn<"literal", T>
+function literal<const T extends LiteralType>(value: T): LiteralColumn<T> {
+	const base = Column<`literal`, T, { type: "literal"; __literalValue: T }>("literal", {
+		type: "literal",
+		__literalValue: value,
+	})
+	return {
+		...base,
+		options: {
+			...base.options,
+		},
+	}
 }
 
 type NumberColumnOptions = BaseColumnOptions<"number", number> & {
@@ -106,14 +128,14 @@ type NumberColumn<options extends NumberColumnOptions = { type: "number" }> = Ba
 }
 
 function number(): NumberColumn {
-	const base = BaseColumn<"number", number>("number")
+	const base = Column<"number", number>("number")
 
 	return {
 		...base,
-		min(value: number) {
+		min(value) {
 			return updateOptions(this, { __min: value })
 		},
-		max(value: number) {
+		max(value) {
 			return updateOptions(this, { __max: value })
 		},
 		integer() {
@@ -137,5 +159,5 @@ console.log(age.options)
 const price = number().max(2).min(-2)
 console.log(price.options)
 
-const enumTest = string().enum(["admin", "user", "guest"]).options
-console.log(enumTest)
+const enumTest = string().enum(["admin", "user", "guest"])
+console.log(enumTest.options)
