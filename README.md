@@ -29,7 +29,6 @@ const user = db.user.parse({
 })
 ```
 
-
 Internal representation type
 ```typescript
 TableDef<DB, {
@@ -64,3 +63,11 @@ Table<{
 }>
 ```
 
+Clean data type
+```typescript
+{
+  id: string 
+  name: string
+  email: string
+}
+```
