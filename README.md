@@ -23,7 +23,7 @@ const db = schema((s) => ({
 }));
 ```
 
-alternative syntax
+eventually, we want
 ```typescript
 const db = pgSchema((s) => ({
   user: s.table({
@@ -36,17 +36,30 @@ const db = pgSchema((s) => ({
     id: s.string(),
     bookId: s.string(),
     owner: s.user(t.bookId).onDelete('cascade'),
-      meta: s.json((j) => ({
-        name: j.string()
-      }))
+    meta: s.json((j) => ({
+      name: j.string()
+    }))
   })),
 }));
 ```
 
-eventually, with arktype
+even more eventually, with arktype
 ```typescript
-const db = pgSchema((s) => ({
-  user: s.table({})
+const db = arkSchema({
+  user: {
+    id: 'string.primaryKey.uuid',
+    name: 'string',
+    email: 'string.email',
+    books: 'book[]'
+  },
+  book: {
+    id: 'string',
+    bookId: 'string',
+    owner: 'user->bookId',
+    meta: {
+      name: 'string'
+    }
+  }
 }))
 ```
 
