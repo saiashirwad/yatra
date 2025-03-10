@@ -1,21 +1,25 @@
 type Clean<T> = { [k in keyof T]: T[k] } & unknown;
 
-type BaseColumnOptions<T> = {
-	type: string;
+type BaseColumnOptions<T, Type extends string> = {
+	type: Type;
 	__nullable?: boolean;
 	__default?: T;
 };
 
-type BaseColumn<T, options extends BaseColumnOptions<T>> = {
-	options: BaseColumnOptions<T>;
-	nullable: () => BaseColumn<T, Clean<options & { __nullable: true }>>;
-	default: (value: T) => BaseColumn<T, Clean<options & { __default: T }>>;
+type BaseColumn<
+	T,
+	Type extends string,
+	options extends BaseColumnOptions<T, Type> = { type: Type },
+> = {
+	options: BaseColumnOptions<T, Type>;
+	nullable: () => BaseColumn<T, Type, Clean<options & { __nullable: true }>>;
+	default: (value: T) => BaseColumn<T, Type, Clean<options & { __default: T }>>;
 };
 
-function BaseColumn<const type extends string, T = unknown>(
-	type: type,
-): BaseColumn<T, { type: type }> {
-	const options: BaseColumnOptions<T> = { type };
+function BaseColumn<const Type extends string, T = unknown>(
+	type: Type,
+): BaseColumn<T, Type, { type: Type }> {
+	const options: BaseColumnOptions<T, Type> = { type };
 	return {
 		options,
 		nullable() {
@@ -33,16 +37,16 @@ function BaseColumn<const type extends string, T = unknown>(
 	};
 }
 
-function StringColumn() {
+function string() {
 	return { ...BaseColumn<"string", string>("string") };
 }
 
-function NumberColumn() {
+function number() {
 	return { ...BaseColumn<"number", number>("number") };
 }
 
-const nullableName = StringColumn().nullable();
+const nullableName = string().nullable();
 console.log(nullableName);
 
-const name = StringColumn().nullable().default("5");
+const name = string().nullable().default("5");
 console.log(name);
