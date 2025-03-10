@@ -4,7 +4,7 @@ type Trim<T> = { [k in keyof T as T[k] extends undefined ? never : k]: T[k] }
 function updateOptions<
 	T extends { options: Record<string, unknown> },
 	KV extends { [k: string]: unknown },
->(r: T, kv: KV): Clean<T & { options: KV }> {
+>(r: T, kv: KV): Clean<Omit<T, "options"> & { options: T["options"] & KV }> {
 	return { ...r, options: { ...r.options, ...kv } }
 }
 
@@ -75,6 +75,12 @@ function string(): StringColumn {
 		},
 		enum(values) {
 			return updateOptions(this, { __enum: values })
+		},
+		nullable() {
+			return updateOptions(this, { __nullable: true }) as StringColumn<any>
+		},
+		default<U extends string>(value: U) {
+			return updateOptions(this, { __default: value }) as StringColumn<any>
 		},
 	}
 }
