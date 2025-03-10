@@ -13,6 +13,8 @@ type BaseColumnOptions<T, Type extends string> = {
 	__default?: T;
 };
 
+type Merge<O, KV> = Clean<O & KV>;
+
 type BaseColumn<
 	T,
 	Type extends string,
@@ -20,50 +22,10 @@ type BaseColumn<
 > = {
 	options: BaseColumnOptions<T, Type>;
 	nullable: () => BaseColumn<T, Type, Clean<options & { __nullable: true }>>;
-	default: (value: T) => BaseColumn<T, Type, Clean<options & { __default: T }>>;
+	default: <V extends T>(
+		value: V,
+	) => BaseColumn<T, Type, Clean<options & { __default: V }>>;
 };
-
-type StringColumnOptions = BaseColumnOptions<string, "string"> & {
-	__minLength?: number;
-	__maxLength?: number;
-	__format?: "email" | "url" | "uuid" | "date";
-	__enum?: string[];
-};
-
-type StringColumn<options extends StringColumnOptions = { type: "string" }> =
-	BaseColumn<string, "string", options> & {
-		minLength: (
-			length: number,
-		) => StringColumn<Clean<options & { __minLength: number }>>;
-		maxLength: (
-			length: number,
-		) => StringColumn<Clean<options & { __maxLength: number }>>;
-		format: (
-			format: "email" | "url" | "uuid" | "date",
-		) => StringColumn<
-			Clean<options & { __format: "email" | "url" | "uuid" | "date" }>
-		>;
-		enum: (
-			values: string[],
-		) => StringColumn<Clean<options & { __enum: string[] }>>;
-	};
-
-type NumberColumnOptions = BaseColumnOptions<number, "number"> & {
-	__min?: number;
-	__max?: number;
-	__integer?: boolean;
-	__positive?: boolean;
-	__negative?: boolean;
-};
-
-type NumberColumn<options extends NumberColumnOptions = { type: "number" }> =
-	BaseColumn<number, "number", options> & {
-		min: (value: number) => NumberColumn<Clean<options & { __min: number }>>;
-		max: (value: number) => NumberColumn<Clean<options & { __max: number }>>;
-		integer: () => NumberColumn<Clean<options & { __integer: true }>>;
-		positive: () => NumberColumn<Clean<options & { __positive: true }>>;
-		negative: () => NumberColumn<Clean<options & { __negative: true }>>;
-	};
 
 function BaseColumn<const Type extends string, T = unknown>(
 	type: Type,
@@ -80,7 +42,32 @@ function BaseColumn<const Type extends string, T = unknown>(
 	};
 }
 
-function string() {
+type StringFormat = "uuid" | "json";
+
+type StringColumnOptions = BaseColumnOptions<string, "string"> & {
+	__minLength?: number;
+	__maxLength?: number;
+	__format?: StringFormat;
+	__enum?: string[];
+};
+
+type StringColumn<options extends StringColumnOptions = { type: "string" }> =
+	BaseColumn<string, "string", options> & {
+		minLength: <T extends number>(
+			length: T,
+		) => StringColumn<Clean<options & { __minLength: T }>>;
+		maxLength: <T extends number>(
+			length: T,
+		) => StringColumn<Clean<options & { __maxLength: T }>>;
+		format: <T extends StringFormat>(
+			format: T,
+		) => StringColumn<Clean<options & { __format: T }>>;
+		enum: <T extends unknown[]>(
+			values: T,
+		) => StringColumn<Clean<options & { __enum: T }>>;
+	};
+
+function string(): StringColumn {
 	const base = BaseColumn<"string", string>("string");
 
 	return {
@@ -91,11 +78,11 @@ function string() {
 		maxLength(value: number) {
 			return updateOptions(this, { __maxLength: value });
 		},
-		format(format: "email" | "url" | "uuid" | "date") {
+		format(format: StringFormat) {
 			return updateOptions(this, { __format: format });
 		},
-		enum(values: string[]) {
-			return updateOptions(this, { __enum: values });
+		enum<const T extends unknown[]>(values: T) {
+			return updateOptions(this, { __enum: values } as const);
 		},
 	};
 }
@@ -108,7 +95,24 @@ function literal<const T extends LiteralType>(value: T) {
 	return base;
 }
 
-function number() {
+type NumberColumnOptions = BaseColumnOptions<number, "number"> & {
+	__min?: number;
+	__max?: number;
+	__integer?: boolean;
+};
+
+type NumberColumn<options extends NumberColumnOptions = { type: "number" }> =
+	BaseColumn<number, "number", options> & {
+		min: <V extends number>(
+			value: V,
+		) => NumberColumn<Clean<options & { __min: V }>>;
+		max: <V extends number>(
+			value: V,
+		) => NumberColumn<Clean<options & { __max: V }>>;
+		integer: () => NumberColumn<Clean<options & { __integer: true }>>;
+	};
+
+function number(): NumberColumn {
 	const base = BaseColumn<"number", number>("number");
 
 	return {
@@ -122,17 +126,11 @@ function number() {
 		integer() {
 			return updateOptions(this, { __integer: true });
 		},
-		positive() {
-			return updateOptions(this, { __positive: true, __negative: false });
-		},
-		negative() {
-			return updateOptions(this, { __positive: false, __negative: true });
-		},
 	};
 }
 
-const emailField = string().format("email").nullable().default("");
-console.log(emailField.options);
+const uuidField = string().format("uuid").nullable().default("something");
+console.log(uuidField.options);
 
 const something = literal("hi");
 console.log(something.options.type);
@@ -143,8 +141,41 @@ console.log(username.options);
 const age = number().min(0).max(120).integer();
 console.log(age.options);
 
-const price = number().positive().min(0.01);
+const price = number().max(2).min(-2);
 console.log(price.options);
 
 const enumTest = string().enum(["admin", "user", "guest"]).options;
 console.log(enumTest);
+
+//Table<{
+//	id: string & PrimaryKey & Format<'uuid'>
+//	name: string
+//	email: string
+//	books: Table<{
+//		id: string
+//		ownerId: string
+//		owner: TableRef<'User'>
+//		meta: Json<{
+//			name: string
+//		}>
+//	}>
+//}>
+
+//const db = schema((s) => ({
+//	user: table({
+//		id: string().primaryKey().format("uuid"),
+//		name: string(),
+//		email: string(),
+//		books: s.book()
+//	}),
+//	book: table({
+//		id: string(),
+//		owner: s.user('book_id'),
+//		meta: jsonObject({
+//			name: string()
+//		})
+//	}),
+//}));
+
+//const user = db.user.parse({
+//})
