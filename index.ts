@@ -14,29 +14,15 @@ type BaseColumnOptions<Type extends string, T> = {
 	__default?: T
 }
 
-interface BaseColumn<
+interface Column<
 	Type extends string,
 	T,
 	options extends BaseColumnOptions<Type, T> = { type: Type },
 > {
 	options: BaseColumnOptions<Type, T>
-	nullable: () => BaseColumn<Type, T, Clean<options & { __nullable: true }>>
-	default: <V extends T>(value: V) => BaseColumn<Type, T, Clean<options & { __default: V }>>
+	nullable: () => Column<Type, T, Clean<options & { __nullable: true }>>
+	default: <V extends T>(value: V) => Column<Type, T, Clean<options & { __default: V }>>
 }
-
-type Column<
-	Type extends string,
-	T,
-	options extends BaseColumnOptions<Type, T> = { type: Type },
-> = Type extends "string"
-	? StringColumn<Clean<options & StringColumnOptions>>
-	: Type extends "number"
-		? NumberColumn<Clean<options & NumberColumnOptions>>
-		: Type extends "literal"
-			? options extends { __literalValue: LiteralType }
-				? LiteralColumn<options["__literalValue"]>
-				: never
-			: never
 
 function Column<
 	const Type extends string,
@@ -64,7 +50,7 @@ type StringColumnOptions = BaseColumnOptions<"string", string> & {
 	__enum?: unknown[]
 }
 
-type StringColumn<options extends StringColumnOptions = { type: "string" }> = BaseColumn<
+type StringColumn<options extends StringColumnOptions = { type: "string" }> = Column<
 	"string",
 	string,
 	options
@@ -76,10 +62,8 @@ type StringColumn<options extends StringColumnOptions = { type: "string" }> = Ba
 }
 
 function string(): StringColumn {
-	const base = Column<"string", string>("string")
-
 	return {
-		...base,
+		...Column<"string", string>("string"),
 		minLength(value) {
 			return updateOptions(this, { __minLength: value })
 		},
@@ -97,7 +81,8 @@ function string(): StringColumn {
 
 type LiteralType = string | number | boolean
 
-type LiteralColumn<T extends LiteralType> = BaseColumn<"literal", T>
+type LiteralColumn<T extends LiteralType> = Column<"literal", T>
+
 function literal<const T extends LiteralType>(value: T): LiteralColumn<T> {
 	const base = Column<`literal`, T, { type: "literal"; __literalValue: T }>("literal", {
 		type: "literal",
@@ -117,7 +102,7 @@ type NumberColumnOptions = BaseColumnOptions<"number", number> & {
 	__integer?: boolean
 }
 
-type NumberColumn<options extends NumberColumnOptions = { type: "number" }> = BaseColumn<
+type NumberColumn<options extends NumberColumnOptions = { type: "number" }> = Column<
 	"number",
 	number,
 	options
