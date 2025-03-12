@@ -1,233 +1,424 @@
-type Clean<T> = { [k in keyof T]: T[k] } & unknown
-type Trim<T> = {
-	[k in keyof T as T[k] extends undefined
-		? never
-		: k]: T[k]
+/***** 1) Basic HKT/URI/Field Definitions (same as your original) *****/
+interface HKT<URI, A> {}
+
+interface SchemaURI {
+	readonly _URI: unique symbol
 }
 
-function updateOptions<
-	T extends { options: Record<string, unknown> },
-	KV extends { [k: string]: unknown },
->(r: T, kv: KV): Clean<T & { options: KV }> {
-	return {
-		...r,
-		options: { ...r.options, ...kv },
-	}
+// Field type URIs
+interface StringFieldURI extends SchemaURI {
+	readonly StringField: unique symbol
+}
+interface NumberFieldURI extends SchemaURI {
+	readonly NumberField: unique symbol
+}
+interface JsonFieldURI extends SchemaURI {
+	readonly JsonField: unique symbol
+}
+interface RelationFieldURI extends SchemaURI {
+	readonly RelationField: unique symbol
 }
 
-type BaseColumnOptions<Type extends string, T> = {
-	type: Type
-	__nullable?: boolean
-	__default?: T
-}
+// Kind type definition
+type Kind<
+	URI,
+	A,
+	Ctx extends Record<string, any> = {},
+> = URI extends StringFieldURI
+	? StringFieldF<Ctx>
+	: URI extends NumberFieldURI
+		? NumberFieldF<Ctx>
+		: URI extends JsonFieldURI
+			? JsonFieldF<Ctx>
+			: URI extends RelationFieldURI
+				? RelationFieldF<Ctx>
+				: FieldF<URI & SchemaURI, A, Ctx>
 
-interface Column<
-	Type extends string,
-	T,
-	options extends BaseColumnOptions<Type, T> = {
-		type: Type
-	},
+// Base field interface
+interface FieldF<
+	URI extends SchemaURI,
+	A,
+	Ctx extends Record<string, any> = {},
 > {
-	options: BaseColumnOptions<Type, T>
-	nullable: () => Column<
-		Type,
-		T,
-		Clean<options & { __nullable: true }>
-	>
-	default: <V extends T>(
-		value: V,
-	) => Column<
-		Type,
-		T,
-		Clean<options & { __default: V }>
-	>
+	readonly _URI: URI["_URI"]
+	readonly _A: A
+	readonly _Ctx: Ctx
+
+	primaryKey(): Kind<URI, A, Ctx & { __primaryKey: true }>
+	notNull(): Kind<URI, A, Ctx & { __notNull: true }>
+	unique(): Kind<URI, A, Ctx & { __unique: true }>
+	default<V extends A>(value: V): Kind<URI, A, Ctx & { __default: V }>
 }
 
-function Column<
-	const Type extends string,
-	T = unknown,
-	options extends BaseColumnOptions<Type, T> = {
-		type: Type
-	},
+/***** 2) Concrete Field Interfaces *****/
+interface StringFieldF<Ctx extends Record<string, any> = {}>
+	extends FieldF<StringFieldURI, string, Ctx> {
+	format<F extends string>(format: F): StringFieldF<Ctx & { __format: F }>
+	minLength(length: number): StringFieldF<Ctx & { __minLength: number }>
+	maxLength(length: number): StringFieldF<Ctx & { __maxLength: number }>
+}
+
+interface NumberFieldF<Ctx extends Record<string, any> = {}>
+	extends FieldF<NumberFieldURI, number, Ctx> {
+	min(value: number): NumberFieldF<Ctx & { __min: number }>
+	max(value: number): NumberFieldF<Ctx & { __max: number }>
+	integer(): NumberFieldF<Ctx & { __integer: true }>
+	autoIncrement(): NumberFieldF<Ctx & { __autoIncrement: true }>
+}
+
+interface JsonFieldF<Ctx extends Record<string, any> = {}>
+	extends FieldF<JsonFieldURI, object, Ctx> {
+	_jsonSchema?: Record<string, any>
+}
+
+interface RelationFieldF<Ctx extends Record<string, any> = {}>
+	extends FieldF<RelationFieldURI, any, Ctx> {
+	onDelete(
+		action: "cascade" | "restrict" | "set null" | "set default",
+	): RelationFieldF<Ctx & { __onDelete: string }>
+	onUpdate(
+		action: "cascade" | "restrict" | "set null" | "set default",
+	): RelationFieldF<Ctx & { __onUpdate: string }>
+}
+
+/***** 3) Helpers to add constraints to fields *****/
+function createMethod<
+	URI extends SchemaURI,
+	A,
+	Ctx extends Record<string, any>,
+	PropName extends string,
+	PropValue,
 >(
-	type: Type,
-	defaultOptions?: options,
-): Column<Type, T, options> {
-	const options = {
-		type,
-		...(defaultOptions ?? {}),
-	}
+	self: FieldF<URI, A, Ctx>,
+	propName: PropName,
+	propValue: PropValue,
+): Kind<URI, A, Ctx & { [K in PropName]: PropValue }> {
+	return Object.create(
+		Object.getPrototypeOf(self),
+		Object.getOwnPropertyDescriptors({
+			...self,
+			_Ctx: { ...self._Ctx, [propName]: propValue },
+		}),
+	) as Kind<URI, A, Ctx & { [K in PropName]: PropValue }>
+}
+
+function createBaseFieldMethods<URI extends SchemaURI, A>() {
 	return {
-		options,
-		nullable() {
-			return updateOptions(this, {
-				__nullable: true,
-			})
+		primaryKey<Ctx extends Record<string, any>>(this: FieldF<URI, A, Ctx>) {
+			return createMethod(this, "__primaryKey", true)
 		},
-		default<U extends T>(value: U) {
-			return updateOptions(this, {
-				__default: value,
-			})
+		notNull<Ctx extends Record<string, any>>(this: FieldF<URI, A, Ctx>) {
+			return createMethod(this, "__notNull", true)
+		},
+		unique<Ctx extends Record<string, any>>(this: FieldF<URI, A, Ctx>) {
+			return createMethod(this, "__unique", true)
+		},
+		default<Ctx extends Record<string, any>, V extends A>(
+			this: FieldF<URI, A, Ctx>,
+			value: V,
+		) {
+			return createMethod(this, "__default", value)
 		},
 	}
 }
 
-type StringFormat = "uuid" | "json"
+/***** 4) Concrete Field Constructors *****/
+function stringField(): StringFieldF<{}> {
+	const base = createBaseFieldMethods<StringFieldURI, string>()
+	const methods = {
+		...base,
+		format<Ctx extends Record<string, any>, F extends string>(
+			this: StringFieldF<Ctx>,
+			f: F,
+		) {
+			return createMethod(this, "__format", f)
+		},
+		minLength<Ctx extends Record<string, any>>(
+			this: StringFieldF<Ctx>,
+			len: number,
+		) {
+			return createMethod(this, "__minLength", len)
+		},
+		maxLength<Ctx extends Record<string, any>>(
+			this: StringFieldF<Ctx>,
+			len: number,
+		) {
+			return createMethod(this, "__maxLength", len)
+		},
+	}
 
-type StringColumnOptions = BaseColumnOptions<
-	"string",
-	string
-> & {
-	__minLength?: number
-	__maxLength?: number
-	__format?: StringFormat
-	__enum?: unknown[]
+	return Object.create(methods, {
+		_URI: { value: Symbol("StringField"), writable: false },
+		_A: { value: undefined, writable: false },
+		_Ctx: { value: {}, writable: true },
+	}) as StringFieldF<{}>
 }
 
-type StringColumn<
-	options extends StringColumnOptions = {
-		type: "string"
-	},
-> = Column<"string", string, options> & {
-	minLength: <T extends number>(
-		length: T,
-	) => StringColumn<
-		Clean<options & { __minLength: T }>
-	>
-	maxLength: <T extends number>(
-		length: T,
-	) => StringColumn<
-		Clean<options & { __maxLength: T }>
-	>
-	format: <T extends StringFormat>(
-		format: T,
-	) => StringColumn<
-		Clean<options & { __format: T }>
-	>
-	enum: <T extends unknown[]>(
-		values: T,
-	) => StringColumn<
-		Clean<options & { __enum: T }>
-	>
+function numberField(): NumberFieldF<{}> {
+	const base = createBaseFieldMethods<NumberFieldURI, number>()
+	const methods = {
+		...base,
+		min<Ctx extends Record<string, any>>(this: NumberFieldF<Ctx>, val: number) {
+			return createMethod(this, "__min", val)
+		},
+		max<Ctx extends Record<string, any>>(this: NumberFieldF<Ctx>, val: number) {
+			return createMethod(this, "__max", val)
+		},
+		integer<Ctx extends Record<string, any>>(this: NumberFieldF<Ctx>) {
+			return createMethod(this, "__integer", true)
+		},
+		autoIncrement<Ctx extends Record<string, any>>(this: NumberFieldF<Ctx>) {
+			return createMethod(this, "__autoIncrement", true)
+		},
+	}
+
+	return Object.create(methods, {
+		_URI: { value: Symbol("NumberField"), writable: false },
+		_A: { value: undefined, writable: false },
+		_Ctx: { value: {}, writable: true },
+	}) as NumberFieldF<{}>
 }
 
-function string(): StringColumn {
+type JsonSchemaBuilder = {
+	string(): StringFieldF<{}>
+	number(): NumberFieldF<{}>
+	json<S extends Record<string, any>>(
+		schemaBuilder: (j: JsonSchemaBuilder) => S,
+	): JsonFieldF<{}>
+}
+
+function createJsonSchemaBuilder(): JsonSchemaBuilder {
 	return {
-		...Column<"string", string>("string"),
-		minLength(value) {
-			return updateOptions(this, {
-				__minLength: value,
-			})
+		string: stringField,
+		number: numberField,
+		json: jsonField,
+	}
+}
+
+function jsonField<Schema extends Record<string, any>>(
+	schemaBuilder?: (j: JsonSchemaBuilder) => Schema,
+): JsonFieldF<{}> {
+	const base = createBaseFieldMethods<JsonFieldURI, object>()
+	const methods = { ...base }
+
+	const field = Object.create(methods, {
+		_URI: { value: Symbol("JsonField"), writable: false },
+		_A: { value: undefined, writable: false },
+		_Ctx: { value: {}, writable: true },
+	}) as JsonFieldF<{}>
+
+	if (schemaBuilder) {
+		const b = createJsonSchemaBuilder()
+		const schema = schemaBuilder(b)
+		Object.defineProperty(field, "_jsonSchema", {
+			value: schema,
+			writable: false,
+			enumerable: true,
+		})
+	}
+
+	return field
+}
+
+function relationField<T extends string>(tableName: T, foreignKey?: string) {
+	const base = createBaseFieldMethods<RelationFieldURI, any>()
+	const methods = {
+		...base,
+		onDelete<Ctx extends Record<string, any>>(
+			this: RelationFieldF<Ctx>,
+			action: "cascade" | "restrict" | "set null" | "set default",
+		) {
+			return createMethod(this, "__onDelete", action)
 		},
-		maxLength(value) {
-			return updateOptions(this, {
-				__maxLength: value,
-			})
+		onUpdate<Ctx extends Record<string, any>>(
+			this: RelationFieldF<Ctx>,
+			action: "cascade" | "restrict" | "set null" | "set default",
+		) {
+			return createMethod(this, "__onUpdate", action)
 		},
-		format(format) {
-			return updateOptions(this, {
-				__format: format,
-			})
+	}
+
+	return Object.create(methods, {
+		_URI: { value: Symbol("RelationField"), writable: false },
+		_A: { value: undefined, writable: false },
+		_Ctx: {
+			value: { __tableName: tableName, __foreignKey: foreignKey },
+			writable: true,
 		},
-		enum(values) {
-			return updateOptions(this, {
-				__enum: values,
-			})
+	}) as RelationFieldF<{ __tableName: T; __foreignKey?: string }>
+}
+
+/***** 5) Table Definition *****/
+type TableDefinition<T extends Record<string, FieldF<any, any, any>>> = {
+	__fields: T
+}
+
+/***** 6) A “Chained” Schema Builder That Accumulates Tables *****/
+type AnyTableMap = Record<string, TableDefinition<any>>
+
+/**
+ * The final schema we get after calling .build():
+ * - `__tables`: the map of table definitions
+ * - `table("someTableName")` for direct access
+ * - and dynamic properties named after each table
+ *   (which produce a typed RelationField).
+ */
+type FinalSchema<Tables extends AnyTableMap> = {
+	__tables: Tables
+	table<K extends keyof Tables>(name: K): Tables[K]
+} & {
+	[K in keyof Tables & string]: (
+		foreignKey?: string,
+	) => RelationFieldF<{ __tableName: K; __foreignKey?: string }>
+}
+
+/**
+ * The intermediate builder that allows:
+ *   - .string(), .number(), .json() for making columns
+ *   - .table("tableName", { ...columns... }) to add a table
+ *   - .build() to finalize the schema
+ */
+interface SchemaBuilderWithTables<Tables extends AnyTableMap> {
+	// Field constructors so we can do builder.string(), etc.
+	string(): StringFieldF<{}>
+	number(): NumberFieldF<{}>
+	json<S extends Record<string, any>>(
+		fn: (j: JsonSchemaBuilder) => S,
+	): JsonFieldF<{}>
+
+	/**
+	 * Add a table:
+	 *   .table("user", { name: stringField(), ...})
+	 * or
+	 *   .table("book", (t) => ({ id: stringField(), authorId: stringField(), ... }))
+	 * (the "t" would be a simple placeholder if you want to retrieve fields for that table)
+	 */
+	table<
+		Name extends string,
+		Fields extends Record<string, FieldF<any, any, any>>,
+	>(
+		name: Name,
+		fieldsOrBuilder: Fields | ((t: Record<string, string>) => Fields),
+	): SchemaBuilderWithTables<Tables & { [K in Name]: TableDefinition<Fields> }>
+
+	build(): FinalSchema<Tables>
+}
+
+/**
+ * Create an empty builder (no tables yet).
+ */
+function makeSchemaBuilder(): SchemaBuilderWithTables<{}> {
+	return makeSchemaBuilderWithTables({})
+}
+
+/**
+ * The engine that accumulates table definitions in `tables`,
+ * returning a new builder type each time we add a table.
+ */
+function makeSchemaBuilderWithTables<Tables extends AnyTableMap>(
+	tables: Tables,
+): SchemaBuilderWithTables<Tables> {
+	return {
+		// Provide field constructors
+		string: stringField,
+		number: numberField,
+		json: jsonField,
+
+		table<
+			Name extends string,
+			Fields extends Record<string, FieldF<any, any, any>>,
+		>(
+			name: Name,
+			fieldsOrBuilder: Fields | ((t: Record<string, string>) => Fields),
+		) {
+			// If the user passes a function (like (t) => ...),
+			// we supply a simple object proxy where each property
+			// is just `prop` (like your original TableHelper).
+			let fields: Fields
+			if (typeof fieldsOrBuilder === "function") {
+				const tableHelper = new Proxy(
+					{},
+					{
+						get(_target, propKey) {
+							// Return the property name itself
+							return typeof propKey === "string" ? propKey : undefined
+						},
+					},
+				)
+				fields = fieldsOrBuilder(tableHelper as Record<string, string>)
+			} else {
+				fields = fieldsOrBuilder
+			}
+
+			const next: Tables & { [K in Name]: TableDefinition<Fields> } = {
+				...tables,
+				[name]: { __fields: fields },
+			}
+			return makeSchemaBuilderWithTables(next)
+		},
+
+		build(): FinalSchema<Tables> {
+			// Use a Proxy to handle dynamic property access: db.user(...) => relation
+			return new Proxy(
+				// @ts-ignore
+				{
+					__tables: tables,
+					table(name: keyof Tables) {
+						return tables[name]
+					},
+				},
+				{
+					get(target, prop: string) {
+						// if it's one of the known keys (like "user"), return a function that creates a relation
+						if (prop in tables) {
+							return (foreignKey?: string) => relationField(prop, foreignKey)
+						}
+						// else fall back to actual properties on target:
+						if (prop in target) {
+							return (target as any)[prop]
+						}
+						return undefined
+					},
+				},
+			) as FinalSchema<Tables>
 		},
 	}
 }
 
-type LiteralType = string | number | boolean
-
-type LiteralColumn<T extends LiteralType> =
-	Column<"literal", T>
-
-function literal<const T extends LiteralType>(
-	value: T,
-): LiteralColumn<T> {
-	const base = Column<
-		`literal`,
-		T,
-		{ type: "literal"; __literalValue: T }
-	>("literal", {
-		type: "literal",
-		__literalValue: value,
+const db = makeSchemaBuilder()
+	.table("user", {
+		id: stringField().primaryKey().format("uuid"),
+		name: stringField(),
+		email: stringField().unique(),
+		createdAt: stringField().default("now()"),
 	})
-	return {
-		...base,
-		options: {
-			...base.options,
-		},
-	}
-}
+	.table("book", (t) => ({
+		id: stringField().primaryKey().format("uuid"),
+		title: stringField().notNull(),
+		authorId: stringField(),
+		author: relationField("user", t.authorId).onDelete("cascade"),
+		metadata: jsonField((j) => ({
+			publishedYear: j.number(),
+			publisher: j.string(),
+			tags: j.json((j2) => ({
+				name: j2.string(),
+			})),
+		})),
+	}))
+	.build()
 
-type NumberColumnOptions = BaseColumnOptions<
-	"number",
-	number
-> & {
-	__min?: number
-	__max?: number
-	__integer?: boolean
-}
+// Access the table definitions
+const userTable = db.table("user")
+const bookTable = db.table("book").__fields.author
 
-type NumberColumn<
-	options extends NumberColumnOptions = {
-		type: "number"
-	},
-> = Column<"number", number, options> & {
-	min: <V extends number>(
-		value: V,
-	) => NumberColumn<Clean<options & { __min: V }>>
-	max: <V extends number>(
-		value: V,
-	) => NumberColumn<Clean<options & { __max: V }>>
-	integer: () => NumberColumn<
-		Clean<options & { __integer: true }>
-	>
-}
+const someRelation = db.book("foreignKeyHere")
+console.log(db)
 
-function number(): NumberColumn {
-	const base = Column<"number", number>("number")
+/***** 8) Extracting Context Info Example *****/
+type ExtractContext<T> = T extends FieldF<any, any, infer Ctx> ? Ctx : never
 
-	return {
-		...base,
-		min(value) {
-			return updateOptions(this, { __min: value })
-		},
-		max(value) {
-			return updateOptions(this, { __max: value })
-		},
-		integer() {
-			return updateOptions(this, {
-				__integer: true,
-			})
-		},
-	}
-}
+type UserIdType = ExtractContext<typeof userTable.__fields.id>
+// e.g. { __primaryKey: true; __format: "uuid" } etc.
 
-const uuidField = string()
-	.format("uuid")
-	.nullable()
-	.default("something")
-console.log(uuidField.options)
-
-const something = literal("hi")
-console.log(something.options.type)
-
-const username = string()
-	.minLength(3)
-	.maxLength(20)
-console.log(username.options)
-
-const age = number().min(0).max(120).integer()
-console.log(age.options)
-
-const price = number().max(2).min(-2)
-console.log(price.options)
-
-const enumTest = string().enum([
-	"admin",
-	"user",
-	"guest",
-])
-console.log(enumTest.options)
+type BookAuthorType = ExtractContext<typeof bookTable.__fields.author>
+// e.g. { __tableName: "user"; __foreignKey: string; __onDelete: "cascade" } etc.
