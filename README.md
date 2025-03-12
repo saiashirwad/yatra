@@ -25,6 +25,7 @@ const db = schema((s) => ({
 
 eventually, we want
 ```typescript
+
 const db = pgSchema((s) => ({
   user: s.table({
     id: s.string().primaryKey().format("uuid"),
@@ -32,6 +33,7 @@ const db = pgSchema((s) => ({
     email: s.string(),
     books: s.book()
   }),
+
   book: s.table((t) => ({
     id: s.string(),
     bookId: s.string(),
@@ -41,6 +43,8 @@ const db = pgSchema((s) => ({
     }))
   })),
 }));
+
+
 ```
 
 even more eventually, with arktype
