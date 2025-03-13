@@ -1,5 +1,5 @@
 import { BaseColumn, string } from "./columns"
-import { type Class, type Clean, type Constructor } from "./utils"
+import { type Constructor } from "./utils"
 
 export function member<
 	Co extends Constructor,
@@ -51,7 +51,7 @@ type TableConstructor<F, R> = {
 
 function Table<
 	const TableName extends string,
-	const Fields extends Record<string, BaseColumn<any, any>>,
+	const Fields extends Record<string, BaseColumn<any, any, any>>,
 	const Relations extends Record<string, Relation>,
 >(tableName: TableName, _fields: Fields, _relations: Relations = {} as Relations) {
 	class TableClass {
@@ -86,3 +86,7 @@ class Book extends Table(
 		author: ManyToOne(() => User, "authorId", "id"),
 	},
 ) {}
+
+const userId = member(User, "fields")
+
+console.log(userId)

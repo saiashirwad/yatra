@@ -1,185 +1,181 @@
-export type Clean<T> = { [k in keyof T]: T[k] } & unknown
+import type { Clean } from "./utils"
 
-export type Constructor<Args = any, ReturnType = any> = new (...args: Args[]) => ReturnType
+function updateOptions<
+	T extends { options: Record<string, unknown> },
+	KV extends { [k: string]: unknown },
+>(r: T, kv: KV): Clean<T & { options: KV }> {
+	return {
+		...r,
+		options: { ...r.options, ...kv },
+	}
+}
 
-// Options for a generic column
-export interface BaseColumnOptions<FieldType extends string, DataType> {
+export type BaseColumnOptions<FieldType extends string, DataType> = {
 	name: FieldType
 	__nullable?: boolean
 	__default?: DataType
 }
 
-/****************************************************
- * 2) Abstract Column Class
- ****************************************************/
-
-export abstract class Column<
+export interface BaseColumn<
 	FieldType extends string,
 	DataType,
-	Options extends BaseColumnOptions<FieldType, DataType>,
+	options extends BaseColumnOptions<FieldType, DataType> = {
+		name: FieldType
+	},
 > {
-	constructor(public readonly options: Options) {}
+	options: BaseColumnOptions<FieldType, DataType>
+	nullable: () => BaseColumn<FieldType, DataType, Clean<options & { __nullable: true }>>
+	default: <V extends DataType>(
+		value: V,
+	) => BaseColumn<FieldType, DataType, Clean<options & { __default: V }>>
+}
 
-	// For immutability: produce a fresh instance with updated options
-	protected cloneWith(update: Partial<Options>): this {
-		const merged = {
-			...this.options,
-			...update,
-		}
-		// Creates a new instance using this class's constructor
-		return new (this.constructor as { new (opts: Options): this })(merged as Options)
+export function BaseColumn<
+	const FieldType extends string,
+	DataType = unknown,
+	Options extends BaseColumnOptions<FieldType, DataType> = {
+		name: FieldType
+	},
+>(name: FieldType, defaultOptions?: Options): BaseColumn<FieldType, DataType, Options> {
+	const options = {
+		name,
+		...(defaultOptions ?? {}),
 	}
-
-	// Make column nullable
-	nullable(): this {
-		return this.cloneWith({ __nullable: true } as Partial<Options>)
-	}
-
-	// Set a default value
-	default(value: DataType): this {
-		return this.cloneWith({ __default: value } as Partial<Options>)
+	return {
+		options,
+		nullable() {
+			return updateOptions(this, {
+				__nullable: true,
+			})
+		},
+		default<U extends DataType>(value: U) {
+			return updateOptions(this, {
+				__default: value,
+			})
+		},
 	}
 }
 
-/****************************************************
- * 3) Specific Column Subclasses
- ****************************************************/
-
-/*
-  A) StringColumn
-*/
 type StringFormat = "uuid" | "json"
-export interface StringColumnOptions extends BaseColumnOptions<"string", string> {
+
+type StringColumnOptions = BaseColumnOptions<"string", string> & {
 	__minLength?: number
 	__maxLength?: number
 	__format?: StringFormat
 	__enum?: unknown[]
 }
 
-export class StringColumn<Options extends StringColumnOptions = { name: "string" }> extends Column<
-	"string",
-	string,
-	Options
-> {
-	constructor(opts?: Partial<Options>) {
-		super({
-			name: "string",
-			...((opts as object) || {}),
-		} as Options)
-	}
+type StringColumn<
+	Options extends StringColumnOptions = {
+		name: "string"
+	},
+> = BaseColumn<"string", string, Options> & {
+	minLength: <T extends number>(length: T) => StringColumn<Clean<Options & { __minLength: T }>>
+	maxLength: <T extends number>(length: T) => StringColumn<Clean<Options & { __maxLength: T }>>
+	format: <T extends StringFormat>(format: T) => StringColumn<Clean<Options & { __format: T }>>
+	enum: <T extends unknown[]>(values: T) => StringColumn<Clean<Options & { __enum: T }>>
+}
 
-	minLength(value: number): this {
-		return this.cloneWith({ __minLength: value } as Partial<Options>)
-	}
-
-	maxLength(value: number): this {
-		return this.cloneWith({ __maxLength: value } as Partial<Options>)
-	}
-
-	format(fmt: StringFormat): this {
-		return this.cloneWith({ __format: fmt } as Partial<Options>)
-	}
-
-	enum(values: unknown[]): this {
-		return this.cloneWith({ __enum: values } as Partial<Options>)
+export function string(): StringColumn {
+	return {
+		...BaseColumn<"string", string>("string"),
+		minLength(value) {
+			return updateOptions(this, {
+				__minLength: value,
+			})
+		},
+		maxLength(value) {
+			return updateOptions(this, {
+				__maxLength: value,
+			})
+		},
+		format(format) {
+			return updateOptions(this, {
+				__format: format,
+			})
+		},
+		enum(values) {
+			return updateOptions(this, {
+				__enum: values,
+			})
+		},
 	}
 }
 
-/*
-  B) NumberColumn
-*/
-export interface NumberColumnOptions extends BaseColumnOptions<"number", number> {
+type LiteralFieldType = string | number | boolean
+
+type LiteralColumn<DataType extends LiteralFieldType> = BaseColumn<"literal", DataType>
+
+export function literal<const DataType extends LiteralFieldType>(
+	value: DataType,
+): LiteralColumn<DataType> {
+	const base = BaseColumn<`literal`, DataType, { name: "literal"; __literalValue: DataType }>(
+		"literal",
+		{
+			name: "literal",
+			__literalValue: value,
+		},
+	)
+	return {
+		...base,
+		options: {
+			...base.options,
+		},
+	}
+}
+
+type NumberColumnOptions = BaseColumnOptions<"number", number> & {
 	__min?: number
 	__max?: number
 	__integer?: boolean
 }
 
-export class NumberColumn<Options extends NumberColumnOptions = { name: "number" }> extends Column<
-	"number",
-	number,
-	Options
-> {
-	constructor(opts?: Partial<Options>) {
-		super({
-			name: "number",
-			...((opts as object) || {}),
-		} as Options)
-	}
-
-	min(value: number): this {
-		return this.cloneWith({ __min: value } as Partial<Options>)
-	}
-
-	max(value: number): this {
-		return this.cloneWith({ __max: value } as Partial<Options>)
-	}
-
-	integer(): this {
-		return this.cloneWith({ __integer: true } as Partial<Options>)
-	}
-}
-
-/*
-  C) DateColumn
-*/
-export type DateDataType = Date | number
-
-export interface DateColumnOptions extends BaseColumnOptions<"date", DateDataType> {}
-
-export class DateColumn<Options extends DateColumnOptions = { name: "date" }> extends Column<
-	"date",
-	DateDataType,
-	Options
-> {
-	constructor(opts?: Partial<Options>) {
-		super({
-			name: "date",
-			...((opts as object) || {}),
-		} as Options)
-	}
-}
-
-/*
-  D) LiteralColumn
-     (For an exact literal value: e.g. literal(true), literal("foo"), etc.)
-*/
-export type LiteralFieldType = string | number | boolean
-interface LiteralColumnOptions<DataType extends LiteralFieldType>
-	extends BaseColumnOptions<"literal", DataType> {
-	__literalValue?: DataType
-}
-
-export class LiteralColumn<
-	DataType extends LiteralFieldType,
-	Options extends LiteralColumnOptions<DataType> = {
-		name: "literal"
-		__literalValue: DataType
+type NumberColumn<
+	Options extends NumberColumnOptions = {
+		name: "number"
 	},
-> extends Column<"literal", DataType, Options> {
-	constructor(value: DataType) {
-		super({
-			name: "literal",
-			__literalValue: value,
-		} as Options)
+> = BaseColumn<"number", number, Options> & {
+	min: <V extends number>(value: V) => NumberColumn<Clean<Options & { __min: V }>>
+	max: <V extends number>(value: V) => NumberColumn<Clean<Options & { __max: V }>>
+	integer: () => NumberColumn<Clean<Options & { __integer: true }>>
+}
+
+export function number(): NumberColumn {
+	const base = BaseColumn<"number", number>("number")
+
+	return {
+		...base,
+		min(value) {
+			return updateOptions(this, {
+				__min: value,
+			})
+		},
+		max(value) {
+			return updateOptions(this, {
+				__max: value,
+			})
+		},
+		integer() {
+			return updateOptions(this, {
+				__integer: true,
+			})
+		},
 	}
 }
 
-/****************************************************
- * 4) Convenience Constructors
- ****************************************************/
+type DateDataType = Date | number
+type DateColumnOptions = BaseColumnOptions<"date", DateDataType> & {}
 
-export function stringColumn() {
-	return new StringColumn()
-}
+type DateColumn<
+	Options extends DateColumnOptions = {
+		name: "date"
+	},
+> = BaseColumn<"date", DateDataType, Options> & {}
 
-export function numberColumn() {
-	return new NumberColumn()
-}
+export function date(): DateColumn {
+	const base = BaseColumn<"date", DateDataType>("date")
 
-export function dateColumn() {
-	return new DateColumn()
-}
-
-export function literalColumn<const V extends LiteralFieldType>(value: V) {
-	return new LiteralColumn<V>(value)
+	return {
+		...base,
+	}
 }
