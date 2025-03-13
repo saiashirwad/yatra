@@ -10,10 +10,20 @@ function Dict<const O extends Record<string, unknown>>(obj: O) {
   } as Class<O>;
 }
 
+function member<
+  T extends new (...args: any[]) => any,
+  Instance extends InstanceType<T>,
+  K extends keyof Instance,
+>(cls: T, key: K): Instance[K] {
+  return new cls()[key];
+}
+
 export class Person extends Dict({
   name: "hi",
   wrote: () => Book,
 }) {}
+
+const haha = member(Person, "name");
 
 export class Book extends Dict({
   name: "what",
