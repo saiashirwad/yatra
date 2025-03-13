@@ -1,5 +1,3 @@
-import type { Completion } from "@ark/util";
-
 type Class<O extends Record<string, unknown>> = {
   new (): InstanceType<new () => O>;
 };
@@ -41,20 +39,6 @@ export class Something extends Dict({
 
 const b = new Book();
 console.log(b.name);
-
-type ValidateSchema<T extends Record<string, unknown>> = {
-  [K in keyof T]: T[K] extends () => infer R
-    ? R extends new (...args: any[]) => any
-      ? true
-      : "Invalid reference type"
-    : true;
-};
-
-type Validation = ValidateSchema<{
-  name: string;
-  badRef: () => 2;
-  goodRef: () => typeof Person;
-}>;
 
 type ModelMap = {
   person: typeof Person;
