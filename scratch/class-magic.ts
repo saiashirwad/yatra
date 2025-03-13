@@ -30,9 +30,7 @@ function ref<
 	Co extends Constructor,
 	Instance extends InstanceType<Co>,
 	K extends ValidKeys<Instance>,
->(c: () => Co, key: K) {
-	return c
-}
+>(c: () => Co, key: K) {}
 
 const personName = ref(() => Person, "name")
 
@@ -54,6 +52,8 @@ export class Something extends Dict({
 	age: 2,
 	owner: () => Person,
 }) {}
+
+const asdf = member(Something, "owner")
 
 const b = new Book()
 console.log(b.name)

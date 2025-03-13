@@ -1,40 +1,27 @@
 import { BaseColumn, string } from "./columns"
-import {
-	type Class,
-	type Clean,
-	type Constructor,
-	member,
-} from "./utils"
-
-type TableFields = Record<string, BaseColumn<any, any>>
-
-type Relationfields = Record<string, Relation<any, any, any, any>>
-
-type ValidKeys<D> = keyof {
-	[K in keyof D as D[K] extends string ? K : never]: D[K]
-}
+import { type Class, type Clean, member } from "./utils"
 
 type Relation<
 	VirtualField extends string,
-	Co extends Constructor,
-	Instance extends InstanceType<Co> = InstanceType<Co>,
-	FK extends ValidKeys<Instance> = ValidKeys<Instance>,
+	Ref extends () => any,
+	Table extends InstanceType<ReturnType<Ref>>,
+	FK extends keyof Table,
 > = {
-	ref: () => Co
+	ref: Ref
 	virtualField: VirtualField
 	foreignKey: FK
 }
 
 function relation<
 	VirtualField extends string,
-	Co extends Constructor,
-	Instance extends InstanceType<Co>,
-	FK extends ValidKeys<Instance>,
+	Ref extends () => any,
+	Table extends InstanceType<ReturnType<Ref>>,
+	FK extends keyof Table,
 >(
 	virtualField: VirtualField,
-	ref: () => Co,
+	ref: Ref,
 	foreignKey: FK,
-): Relation<VirtualField, Co, Instance, FK> {
+): Relation<VirtualField, Ref, Table, FK> {
 	return {
 		virtualField,
 		ref,
@@ -43,8 +30,11 @@ function relation<
 }
 
 function Table<
-	const Fields extends TableFields,
-	const Relations extends Relationfields,
+	const Fields extends Record<string, BaseColumn<any, any>>,
+	const Relations extends Record<
+		string,
+		Relation<any, any, any, any>
+	>,
 >(fields: Fields, relations: Relations = {} as Relations) {
 	return class {
 		constructor() {
@@ -63,7 +53,12 @@ class Book extends Table(
 		id: string(),
 		authorId: string(),
 	},
-	{ author: relation("author", () => User, "id") },
+	{ author: relation("authorId", () => User, "id") },
 ) {}
+
+const author = relation("authorId", () => User, "id")
+
+const asdf = () => User
+type asdf = InstanceType<ReturnType<typeof asdf>>
 
 const userName = member(Book, "author")
