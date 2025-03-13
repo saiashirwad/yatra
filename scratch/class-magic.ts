@@ -6,9 +6,7 @@ type Constructor<Args = any, ReturnType = any> = new (
 	...args: Args[]
 ) => ReturnType
 
-function Dict<const O extends Record<string, unknown>>(
-	obj: O,
-) {
+function Dict<const O extends Record<string, unknown>>(obj: O) {
 	return class {
 		constructor() {
 			Object.assign(this, obj)
@@ -82,9 +80,7 @@ function model<T extends ModelType>(
 	type: T,
 	data?: Partial<InstanceType<ModelMap[T]>>,
 ): InstanceType<ModelMap[T]> {
-	const instance = new ModelMap[type]() as InstanceType<
-		ModelMap[T]
-	>
+	const instance = new ModelMap[type]() as InstanceType<ModelMap[T]>
 	if (data) {
 		Object.assign(instance, data)
 	}
@@ -95,9 +91,7 @@ function create<T extends ModelType>(
 	type: T,
 	data?: ModelDataType<InstanceType<ModelMap[T]>>,
 ): InstanceType<ModelMap[T]> {
-	const instance = new ModelMap[type]() as InstanceType<
-		ModelMap[T]
-	>
+	const instance = new ModelMap[type]() as InstanceType<ModelMap[T]>
 	if (data) {
 		const processedData = Object.entries(data).reduce(
 			(acc, [key, value]) => {
@@ -132,9 +126,7 @@ const what = create("something", {
 
 console.log(what.name)
 
-function LazyDict<O extends Record<string, unknown>>(
-	obj: O,
-) {
+function LazyDict<O extends Record<string, unknown>>(obj: O) {
 	return class {
 		constructor() {
 			return new Proxy(this, {
