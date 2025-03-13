@@ -99,6 +99,7 @@ class Book extends Table(
 	{
 		id: string(),
 		authorId: string(),
+		description: string().default("what"),
 	},
 	(t) => ({
 		author: t.manyToOne(() => User, "authorId", "id"),
