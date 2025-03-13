@@ -52,11 +52,11 @@ type TableConstructor<F, R> = {
 function Table<
 	const Fields extends Record<string, BaseColumn<any, any>>,
 	const Relations extends Record<string, Relation>,
->(fields: Fields, relations: Relations = {} as Relations) {
+>(_fields: Fields, _relations: Relations = {} as Relations) {
 	class TableClass {
 		constructor(
-			public fields: Fields,
-			public relations: Relations,
+			public fields: Fields = _fields,
+			public relations: Relations = _relations,
 		) {}
 	}
 
@@ -83,5 +83,8 @@ class Book extends Table(
 	},
 ) {}
 
-const userFields = member(User, "fields")
+const userId = member(User, "fields").id
 const bookRelations = member(Book, "relations")
+
+console.log(userId)
+console.log(bookRelations)
