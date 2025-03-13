@@ -1,3 +1,5 @@
+import type { Completion } from "@ark/util";
+
 type Class<O extends Record<string, unknown>> = {
   new (): InstanceType<new () => O>;
 };
@@ -14,8 +16,8 @@ function member<
   T extends new (...args: any[]) => any,
   Instance extends InstanceType<T>,
   K extends keyof Instance,
->(cls: T, key: K): Instance[K] {
-  return new cls()[key];
+>(class_: T, key: K): Instance[K] {
+  return new class_()[key];
 }
 
 export class Person extends Dict({
@@ -39,3 +41,48 @@ export class Something extends Dict({
 
 const b = new Book();
 console.log(b.name);
+
+type ValidateSchema<T extends Record<string, unknown>> = {
+  [K in keyof T]: T[K] extends () => infer R
+    ? R extends new (...args: any[]) => any
+      ? true
+      : "Invalid reference type"
+    : true;
+};
+
+type Validation = ValidateSchema<{
+  name: string;
+  badRef: () => 2;
+  goodRef: () => typeof Person;
+}>;
+
+type ModelMap = {
+  person: typeof Person;
+  book: typeof Book;
+  something: typeof Something;
+};
+
+const ModelMapValues: ModelMap = {
+  person: Person,
+  book: Book,
+  something: Something,
+};
+
+type ModelType = keyof ModelMap;
+
+function createModel<T extends ModelType>(
+  type: T,
+  data?: Partial<InstanceType<ModelMap[T]>>,
+): InstanceType<ModelMap[T]> {
+  const instance = new ModelMapValues[type]() as InstanceType<ModelMap[T]>;
+  if (data) {
+    Object.assign(instance, data);
+  }
+  return instance;
+}
+
+const newBook = createModel("book", { name: "what" });
+const what = createModel("person", {
+  name: "hi",
+  wrote: () => Book,
+});
