@@ -29,7 +29,11 @@ interface Column<
 	},
 > {
 	options: BaseColumnOptions<Type, T>
-	nullable: () => Column<Type, T, Clean<options & { __nullable: true }>>
+	nullable: () => Column<
+		Type,
+		T,
+		Clean<options & { __nullable: true }>
+	>
 	default: <V extends T>(
 		value: V,
 	) => Column<Type, T, Clean<options & { __default: V }>>
@@ -41,7 +45,10 @@ function Column<
 	options extends BaseColumnOptions<Type, T> = {
 		type: Type
 	},
->(type: Type, defaultOptions?: options): Column<Type, T, options> {
+>(
+	type: Type,
+	defaultOptions?: options,
+): Column<Type, T, options> {
 	const options = {
 		type,
 		...(defaultOptions ?? {}),
@@ -63,7 +70,10 @@ function Column<
 
 type StringFormat = "uuid" | "json"
 
-type StringColumnOptions = BaseColumnOptions<"string", string> & {
+type StringColumnOptions = BaseColumnOptions<
+	"string",
+	string
+> & {
 	__minLength?: number
 	__maxLength?: number
 	__format?: StringFormat
@@ -117,16 +127,22 @@ function string(): StringColumn {
 
 type LiteralType = string | number | boolean
 
-type LiteralColumn<T extends LiteralType> = Column<"literal", T>
+type LiteralColumn<T extends LiteralType> = Column<
+	"literal",
+	T
+>
 
-function literal<const T extends LiteralType>(value: T): LiteralColumn<T> {
-	const base = Column<`literal`, T, { type: "literal"; __literalValue: T }>(
-		"literal",
-		{
-			type: "literal",
-			__literalValue: value,
-		},
-	)
+function literal<const T extends LiteralType>(
+	value: T,
+): LiteralColumn<T> {
+	const base = Column<
+		`literal`,
+		T,
+		{ type: "literal"; __literalValue: T }
+	>("literal", {
+		type: "literal",
+		__literalValue: value,
+	})
 	return {
 		...base,
 		options: {
@@ -135,7 +151,10 @@ function literal<const T extends LiteralType>(value: T): LiteralColumn<T> {
 	}
 }
 
-type NumberColumnOptions = BaseColumnOptions<"number", number> & {
+type NumberColumnOptions = BaseColumnOptions<
+	"number",
+	number
+> & {
 	__min?: number
 	__max?: number
 	__integer?: boolean
@@ -152,7 +171,9 @@ type NumberColumn<
 	max: <V extends number>(
 		value: V,
 	) => NumberColumn<Clean<options & { __max: V }>>
-	integer: () => NumberColumn<Clean<options & { __integer: true }>>
+	integer: () => NumberColumn<
+		Clean<options & { __integer: true }>
+	>
 }
 
 function number(): NumberColumn {
@@ -178,7 +199,10 @@ function number(): NumberColumn {
 	}
 }
 
-const uuidField = string().format("uuid").nullable().default("something")
+const uuidField = string()
+	.format("uuid")
+	.nullable()
+	.default("something")
 console.log(uuidField.options)
 
 const something = literal("hi")
