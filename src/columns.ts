@@ -24,18 +24,10 @@ export interface BaseColumn<
 	},
 > {
 	options: BaseColumnOptions<FieldType, DataType>
-	nullable: () => BaseColumn<
-		FieldType,
-		DataType,
-		Clean<options & { __nullable: true }>
-	>
+	nullable: () => BaseColumn<FieldType, DataType, Clean<options & { __nullable: true }>>
 	default: <V extends DataType>(
 		value: V,
-	) => BaseColumn<
-		FieldType,
-		DataType,
-		Clean<options & { __default: V }>
-	>
+	) => BaseColumn<FieldType, DataType, Clean<options & { __default: V }>>
 }
 
 export function BaseColumn<
@@ -44,10 +36,7 @@ export function BaseColumn<
 	Options extends BaseColumnOptions<FieldType, DataType> = {
 		name: FieldType
 	},
->(
-	name: FieldType,
-	defaultOptions?: Options,
-): BaseColumn<FieldType, DataType, Options> {
+>(name: FieldType, defaultOptions?: Options): BaseColumn<FieldType, DataType, Options> {
 	const options = {
 		name,
 		...(defaultOptions ?? {}),
@@ -81,18 +70,10 @@ type StringColumn<
 		name: "string"
 	},
 > = BaseColumn<"string", string, Options> & {
-	minLength: <T extends number>(
-		length: T,
-	) => StringColumn<Clean<Options & { __minLength: T }>>
-	maxLength: <T extends number>(
-		length: T,
-	) => StringColumn<Clean<Options & { __maxLength: T }>>
-	format: <T extends StringFormat>(
-		format: T,
-	) => StringColumn<Clean<Options & { __format: T }>>
-	enum: <T extends unknown[]>(
-		values: T,
-	) => StringColumn<Clean<Options & { __enum: T }>>
+	minLength: <T extends number>(length: T) => StringColumn<Clean<Options & { __minLength: T }>>
+	maxLength: <T extends number>(length: T) => StringColumn<Clean<Options & { __maxLength: T }>>
+	format: <T extends StringFormat>(format: T) => StringColumn<Clean<Options & { __format: T }>>
+	enum: <T extends unknown[]>(values: T) => StringColumn<Clean<Options & { __enum: T }>>
 }
 
 export function string(): StringColumn {
@@ -123,22 +104,18 @@ export function string(): StringColumn {
 
 type LiteralFieldType = string | number | boolean
 
-type LiteralColumn<DataType extends LiteralFieldType> = BaseColumn<
-	"literal",
-	DataType
->
+type LiteralColumn<DataType extends LiteralFieldType> = BaseColumn<"literal", DataType>
 
 export function literal<const DataType extends LiteralFieldType>(
 	value: DataType,
 ): LiteralColumn<DataType> {
-	const base = BaseColumn<
-		`literal`,
-		DataType,
-		{ name: "literal"; __literalValue: DataType }
-	>("literal", {
-		name: "literal",
-		__literalValue: value,
-	})
+	const base = BaseColumn<`literal`, DataType, { name: "literal"; __literalValue: DataType }>(
+		"literal",
+		{
+			name: "literal",
+			__literalValue: value,
+		},
+	)
 	return {
 		...base,
 		options: {
@@ -158,12 +135,8 @@ type NumberColumn<
 		name: "number"
 	},
 > = BaseColumn<"number", number, Options> & {
-	min: <V extends number>(
-		value: V,
-	) => NumberColumn<Clean<Options & { __min: V }>>
-	max: <V extends number>(
-		value: V,
-	) => NumberColumn<Clean<Options & { __max: V }>>
+	min: <V extends number>(value: V) => NumberColumn<Clean<Options & { __min: V }>>
+	max: <V extends number>(value: V) => NumberColumn<Clean<Options & { __max: V }>>
 	integer: () => NumberColumn<Clean<Options & { __integer: true }>>
 }
 
