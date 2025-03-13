@@ -151,6 +151,29 @@ function LazyDict<O extends Record<string, unknown>>(
 }
 
 export class LazyBook extends LazyDict({
-	title: "TypeScript Advanced Patterns",
+	title: "whaaat",
 	author: () => new Person(),
 }) {}
+
+const lb = new LazyBook()
+console.log(lb.title)
+
+type ValueType<T, K extends keyof T> = T[K] extends (
+	...args: any
+) => any
+	? ReturnType<T[K]> extends Constructor
+		? InstanceType<ReturnType<T[K]>>
+		: ReturnType<T[K]>
+	: T[K]
+
+type ClassStructure<
+	T extends Constructor,
+	I = {
+		-readonly [K in keyof InstanceType<T>]: ValueType<
+			InstanceType<T>,
+			K
+		>
+	},
+> = I
+
+type BookStructure = ClassStructure<typeof Book>
