@@ -1,5 +1,5 @@
 import { BaseColumn, string } from "./columns"
-import { type Constructor } from "./utils"
+import { type Constructor, type Clean } from "./utils"
 
 export function member<
 	Co extends Constructor,
@@ -9,24 +9,11 @@ export function member<
 	return new c()[key]
 }
 
-type ManyToOne<VirtualField, Ref, foreignKey> = {
+type ManyToOne<VirtualField, Ref, ForeignKey> = {
 	kind: "many-to-one"
 	virtualField: VirtualField
 	ref: Ref
-	foreignKey: foreignKey
-}
-
-function ManyToOne<
-	Ref extends () => { fields: any },
-	VirtualField extends string,
-	FK extends keyof ReturnType<Ref>["fields"],
->(ref: Ref, virtualField: VirtualField, foreignKey: FK): ManyToOne<VirtualField, Ref, FK> {
-	return {
-		kind: "many-to-one",
-		virtualField,
-		ref,
-		foreignKey,
-	}
+	foreignKey: ForeignKey
 }
 
 type OneToMany<Ref> = {
@@ -34,14 +21,21 @@ type OneToMany<Ref> = {
 	ref: Ref
 }
 
-function OneToMany<Ref extends () => any>(ref: Ref): OneToMany<Ref> {
-	return {
-		kind: "one-to-many",
-		ref,
-	}
-}
+export type Relation = ManyToOne<any, any, any> | OneToMany<any>
 
-type Relation = ManyToOne<any, any, any> | OneToMany<any>
+interface RelationBuilder<F extends Record<string, BaseColumn<any, any, any>>> {
+	manyToOne: <
+		Ref extends () => { fields: any },
+		VF extends keyof F,
+		FK extends keyof ReturnType<Ref>["fields"],
+	>(
+		ref: Ref,
+		virtualField: VF,
+		foreignKey: FK,
+	) => ManyToOne<VF, Ref, FK>
+	oneToMany: <Ref extends () => any>(ref: Ref) => OneToMany<Ref>
+	fields: F
+}
 
 type TableConstructor<F, R> = {
 	new (): { fields: F; relations: R }
@@ -49,17 +43,41 @@ type TableConstructor<F, R> = {
 	relations: R
 }
 
+function createRelationBuilder<F extends Record<string, BaseColumn<any, any, any>>>(
+	fields: F,
+): RelationBuilder<F> {
+	return {
+		manyToOne: (ref, virtualField, foreignKey) => ({
+			kind: "many-to-one" as const,
+			virtualField,
+			ref,
+			foreignKey,
+		}),
+		oneToMany: (ref) => ({
+			kind: "one-to-many" as const,
+			ref,
+		}),
+		fields,
+	}
+}
+
 function Table<
 	const TableName extends string,
 	const Fields extends Record<string, BaseColumn<any, any, any>>,
-	const Relations extends Record<string, Relation>,
->(tableName: TableName, _fields: Fields, _relations: Relations = {} as Relations) {
+	const Relations extends Record<string, Relation> = Record<string, never>,
+>(
+	tableName: TableName,
+	_fields: Fields,
+	relationsFn?: (rel: RelationBuilder<Fields>) => Relations,
+) {
 	class TableClass {
+		public relations: Relations
 		constructor(
 			public name: TableName = tableName,
 			public fields: Fields = _fields,
-			public relations: Relations = _relations,
-		) {}
+		) {
+			this.relations = relationsFn ? relationsFn(createRelationBuilder(_fields)) : ({} as Relations)
+		}
 	}
 
 	return TableClass as unknown as TableConstructor<Fields, Relations>
@@ -71,9 +89,9 @@ class User extends Table(
 		id: string(),
 		name: string().maxLength(5).nullable().default("texo"),
 	},
-	{
-		books: OneToMany(() => Book),
-	},
+	(t) => ({
+		books: t.oneToMany(() => Book),
+	}),
 ) {}
 
 class Book extends Table(
@@ -82,11 +100,9 @@ class Book extends Table(
 		id: string(),
 		authorId: string(),
 	},
-	{
-		author: ManyToOne(() => User, "authorId", "id"),
-	},
+	(t) => ({
+		author: t.manyToOne(() => User, "authorId", "id"),
+	}),
 ) {}
 
-const userId = member(User, "fields")
-
-console.log(userId)
+console.log(member(Book, "fields"))
