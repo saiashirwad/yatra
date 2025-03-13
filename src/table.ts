@@ -50,11 +50,13 @@ type TableConstructor<F, R> = {
 }
 
 function Table<
+	const TableName extends string,
 	const Fields extends Record<string, BaseColumn<any, any>>,
 	const Relations extends Record<string, Relation>,
->(_fields: Fields, _relations: Relations = {} as Relations) {
+>(tableName: TableName, _fields: Fields, _relations: Relations = {} as Relations) {
 	class TableClass {
 		constructor(
+			public name: TableName = tableName,
 			public fields: Fields = _fields,
 			public relations: Relations = _relations,
 		) {}
@@ -64,6 +66,7 @@ function Table<
 }
 
 class User extends Table(
+	"user",
 	{
 		id: string(),
 		name: string().maxLength(5).nullable(),
@@ -74,6 +77,7 @@ class User extends Table(
 ) {}
 
 class Book extends Table(
+	"book",
 	{
 		id: string(),
 		authorId: string(),
@@ -83,8 +87,8 @@ class Book extends Table(
 	},
 ) {}
 
-const userId = member(User, "fields").id
-const bookRelations = member(Book, "relations")
-
-console.log(userId)
-console.log(bookRelations)
+//const userId = member(User, "fields").id
+//const bookRelations = member(Book, "relations")
+//
+//console.log(userId)
+//console.log(bookRelations)
