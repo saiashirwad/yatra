@@ -1,0 +1,51 @@
+import type { Class, Clean } from "./utils"
+
+type Column<
+	Name extends string,
+	Options extends object,
+> = Class<Clean<{ name: Name } & Options>>
+
+function Column<
+	Name extends string,
+	Options extends object,
+>(_name: Name, _options: Options) {
+	class Inner<
+		N extends Name = Name,
+		O extends Options = Options,
+	> {
+		name: N
+		constructor(
+			name: N = _name as N,
+			options: O = _options as O,
+		) {
+			this.name = name
+			Object.assign(this, options)
+		}
+
+		nullable(): Inner<
+			N,
+			Clean<Options & { __nullable: true }>
+		> {
+			return new Inner(this.name, {
+				..._options,
+				__nullable: true,
+			})
+		}
+	}
+	return Inner
+}
+
+class StringColumn<Options> extends Column("string", {}) {
+	maxLength<N extends number>(
+		n: N,
+	): StringColumn<Clean<Options & { __maxLength: N }>> {
+		return new StringColumn(this.name, {
+			__maxLength: n,
+		} as const)
+	}
+}
+
+const str = new StringColumn()
+const a = str.maxLength(5)
+
+console.log(a)

@@ -36,7 +36,7 @@ function ref<
 	return c
 }
 
-const asd = ref(() => Person, "name")
+const personName = ref(() => Person, "name")
 
 export class Person extends Dict({
 	name: "hi",
