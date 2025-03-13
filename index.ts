@@ -385,6 +385,7 @@ function makeSchemaBuilderWithTables<Tables extends AnyTableMap>(
 	}
 }
 
+/***** 7) EXAMPLE USAGE *****/
 const db = makeSchemaBuilder()
 	.table("user", {
 		id: stringField().primaryKey().format("uuid"),
@@ -396,6 +397,7 @@ const db = makeSchemaBuilder()
 		id: stringField().primaryKey().format("uuid"),
 		title: stringField().notNull(),
 		authorId: stringField(),
+		// We can reference an existing table name ("user") for a relation:
 		author: relationField("user", t.authorId).onDelete("cascade"),
 		metadata: jsonField((j) => ({
 			publishedYear: j.number(),
@@ -407,18 +409,14 @@ const db = makeSchemaBuilder()
 	}))
 	.build()
 
-// Access the table definitions
 const userTable = db.table("user")
-const bookTable = db.table("book").__fields.author
+const bookTable = db.table("book")
 
 const someRelation = db.book("foreignKeyHere")
 console.log(db)
 
-/***** 8) Extracting Context Info Example *****/
 type ExtractContext<T> = T extends FieldF<any, any, infer Ctx> ? Ctx : never
 
 type UserIdType = ExtractContext<typeof userTable.__fields.id>
-// e.g. { __primaryKey: true; __format: "uuid" } etc.
 
 type BookAuthorType = ExtractContext<typeof bookTable.__fields.author>
-// e.g. { __tableName: "user"; __foreignKey: string; __onDelete: "cascade" } etc.

@@ -9,5 +9,9 @@
 	},
 	"peerDependencies": {
 		"typescript": "^5"
+	},
+	"dependencies": {
+		"arktype": "^2.1.9",
+		"effect": "^3.13.10"
 	}
 }
