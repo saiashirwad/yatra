@@ -69,7 +69,7 @@ class User extends Table(
 	"user",
 	{
 		id: string(),
-		name: string().maxLength(5).nullable(),
+		name: string().maxLength(5).nullable().default("texo"),
 	},
 	{
 		books: OneToMany(() => Book),
@@ -86,9 +86,3 @@ class Book extends Table(
 		author: ManyToOne(() => User, "authorId", "id"),
 	},
 ) {}
-
-//const userId = member(User, "fields").id
-//const bookRelations = member(Book, "relations")
-//
-//console.log(userId)
-//console.log(bookRelations)
