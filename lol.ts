@@ -131,3 +131,26 @@ const what = create("something", {
 })
 
 console.log(what.name)
+
+function LazyDict<O extends Record<string, unknown>>(
+	obj: O,
+) {
+	return class {
+		constructor() {
+			return new Proxy(this, {
+				get(target, prop) {
+					const value = obj[prop as string]
+					if (typeof value === "function") {
+						return value()
+					}
+					return value
+				},
+			})
+		}
+	} as unknown as Class<O>
+}
+
+export class LazyBook extends LazyDict({
+	title: "TypeScript Advanced Patterns",
+	author: () => new Person(),
+}) {}
