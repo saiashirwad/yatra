@@ -1,5 +1,5 @@
-type Class<O extends Record<string, unknown>> = new () => {
-  [K in keyof O]: O[K];
+type Class<O extends Record<string, unknown>> = {
+  new (): InstanceType<new () => O>;
 };
 
 function Dict<const O extends Record<string, unknown>>(obj: O) {
@@ -28,7 +28,7 @@ const haha = member(Person, "name");
 export class Book extends Dict({
   name: "what",
   otherBooks: () => new Array<Book>(),
-  ownedBy: () => Person,
+  ownedBy: () => member(Person, "name"),
 }) {}
 
 export class Something extends Dict({
