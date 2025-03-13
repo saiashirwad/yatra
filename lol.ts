@@ -1,30 +1,31 @@
-function Class<const Name extends string>(name: Name) {
-  return class {
-    public name: Name;
-    constructor() {
-      this.name = name;
-    }
-  };
-}
+type Class<O extends Record<string, unknown>> = new () => {
+  [K in keyof O]: O[K];
+};
 
-function Dict<const Obj extends Record<string, unknown>>(obj: Obj) {
+function Dict<const O extends Record<string, unknown>>(obj: O) {
   return class {
-    data: Obj;
     constructor() {
-      this.data = obj;
+      Object.assign(this, obj);
     }
-  };
+  } as Class<O>;
 }
 
 export class Person extends Dict({
   name: "hi",
-  wrote: () => new Book(),
+  wrote: () => Book,
 }) {}
 
 export class Book extends Dict({
   name: "what",
+  otherBooks: () => new Array<Book>(),
+  ownedBy: () => Person,
 }) {}
 
-const p = new Person();
-const a = p.data.wrote;
-console.log({ p, a });
+export class Something extends Dict({
+  name: "something",
+  age: 2,
+  owner: () => Person,
+}) {}
+
+const b = new Book();
+console.log(b.name);
