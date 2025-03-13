@@ -29,8 +29,8 @@ interface RelationBuilder<F extends Record<string, BaseColumn<any, any, any>>> {
 		VF extends keyof F,
 		FK extends keyof ReturnType<Ref>["fields"],
 	>(
-		ref: Ref,
 		virtualField: VF,
+		ref: Ref,
 		foreignKey: FK,
 	) => ManyToOne<VF, Ref, FK>
 	oneToMany: <Ref extends () => any>(ref: Ref) => OneToMany<Ref>
@@ -47,7 +47,7 @@ function createRelationBuilder<F extends Record<string, BaseColumn<any, any, any
 	fields: F,
 ): RelationBuilder<F> {
 	return {
-		manyToOne: (ref, virtualField, foreignKey) => ({
+		manyToOne: (virtualField, ref, foreignKey) => ({
 			kind: "many-to-one" as const,
 			virtualField,
 			ref,
@@ -102,7 +102,7 @@ class Book extends Table(
 		description: string().default("what"),
 	},
 	(t) => ({
-		author: t.manyToOne(() => User, "authorId", "id"),
+		author: t.manyToOne("authorId", () => User, "id"),
 	}),
 ) {}
 
