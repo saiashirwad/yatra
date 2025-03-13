@@ -1,18 +1,30 @@
 function Class<const Name extends string>(name: Name) {
-	return class {
-		public name: Name
-		constructor() {
-			this.name = name
-		}
-	}
+  return class {
+    public name: Name;
+    constructor() {
+      this.name = name;
+    }
+  };
 }
 
-class Haha extends Class("Hi") {
-	getName() {
-		return this.name
-	}
+function Dict<const Obj extends Record<string, unknown>>(obj: Obj) {
+  return class {
+    data: Obj;
+    constructor() {
+      this.data = obj;
+    }
+  };
 }
-const haha = new Haha()
-const lol = haha.getName()
 
-console.log(haha)
+export class Person extends Dict({
+  name: "hi",
+  wrote: () => new Book(),
+}) {}
+
+export class Book extends Dict({
+  name: "what",
+}) {}
+
+const p = new Person();
+const a = p.data.wrote;
+console.log({ p, a });
