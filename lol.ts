@@ -40,33 +40,67 @@ export class Something extends Dict({
 const b = new Book();
 console.log(b.name);
 
-type ModelMap = {
-  person: typeof Person;
-  book: typeof Book;
-  something: typeof Something;
-};
-
-const ModelMapValues: ModelMap = {
+const ModelMap = {
   person: Person,
   book: Book,
   something: Something,
-};
+} as const;
+
+type ModelMap = typeof ModelMap;
 
 type ModelType = keyof ModelMap;
 
-function createModel<T extends ModelType>(
+type ModelDataType<T> = {
+  [K in keyof T]: T[K] extends () => infer R
+    ? R extends new () => any
+      ? Partial<InstanceType<R>>
+      : T[K]
+    : T[K];
+};
+
+// function model<T extends ModelType>(
+//   type: T,
+//   data?: Partial<InstanceType<ModelMap[T]>>,
+// ): InstanceType<ModelMap[T]> {
+//   const instance = new ModelMap[type]() as InstanceType<ModelMap[T]>;
+//   if (data) {
+//     Object.assign(instance, data);
+//   }
+//   return instance;
+// }
+
+function model<T extends ModelType>(
   type: T,
-  data?: Partial<InstanceType<ModelMap[T]>>,
+  data?: ModelDataType<InstanceType<ModelMap[T]>>,
 ): InstanceType<ModelMap[T]> {
-  const instance = new ModelMapValues[type]() as InstanceType<ModelMap[T]>;
+  const instance = new ModelMap[type]() as InstanceType<ModelMap[T]>;
   if (data) {
-    Object.assign(instance, data);
+    // Handle nested models
+    const processedData = Object.entries(data).reduce((acc, [key, value]) => {
+      const propertyType = instance[key];
+      if (
+        typeof propertyType === "function" &&
+        propertyType.prototype?.constructor
+      ) {
+        // If it's a model reference, create an instance
+        acc[key] = model(key as ModelType, value as any);
+      } else {
+        acc[key] = value;
+      }
+      return acc;
+    }, {} as any);
+
+    Object.assign(instance, processedData);
   }
   return instance;
 }
 
-const newBook = createModel("book", { name: "what" });
-const what = createModel("person", {
-  name: "hi",
-  wrote: () => Book,
+const what = model("something", {
+  name: "something",
+  age: 2,
+  owner: {
+    name: "hi",
+  },
 });
+
+console.log(what);
