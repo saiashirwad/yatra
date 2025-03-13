@@ -1,106 +1,133 @@
 type Class<O extends Record<string, unknown>> = {
-  new (): InstanceType<new () => O>;
-};
+	new (): InstanceType<new () => O>
+}
 
-function Dict<const O extends Record<string, unknown>>(obj: O) {
-  return class {
-    constructor() {
-      Object.assign(this, obj);
-    }
-  } as Class<O>;
+type Constructor<Args = any, ReturnType = any> = new (
+	...args: Args[]
+) => ReturnType
+
+function Dict<const O extends Record<string, unknown>>(
+	obj: O,
+) {
+	return class {
+		constructor() {
+			Object.assign(this, obj)
+		}
+	} as Class<O>
 }
 
 function member<
-  T extends new (...args: any[]) => any,
-  Instance extends InstanceType<T>,
-  K extends keyof Instance,
->(class_: T, key: K): Instance[K] {
-  return new class_()[key];
+	Co extends Constructor,
+	Instance extends InstanceType<Co>,
+	K extends keyof Instance,
+>(c: Co, key: K): Instance[K] {
+	return new c()[key]
 }
 
+type ValidKeys<D> = keyof {
+	[K in keyof D as D[K] extends string ? K : never]: D[K]
+}
+
+function ref<
+	Co extends Constructor,
+	Instance extends InstanceType<Co>,
+	K extends ValidKeys<Instance>,
+>(c: () => Co, key: K) {
+	return c
+}
+
+const asd = ref(() => Person, "name")
+
 export class Person extends Dict({
-  name: "hi",
-  wrote: () => Book,
+	name: "hi",
+	wrote: () => Book,
 }) {}
 
-const haha = member(Person, "name");
+const haha = member(Person, "name")
 
 export class Book extends Dict({
-  name: "what",
-  otherBooks: () => new Array<Book>(),
-  ownedBy: () => member(Person, "name"),
+	name: "what",
+	otherBooks: () => new Array<Book>(),
+	ownedBy: member(Person, "name"),
 }) {}
 
 export class Something extends Dict({
-  name: "something",
-  age: 2,
-  owner: () => Person,
+	name: "something",
+	age: 2,
+	owner: () => Person,
 }) {}
 
-const b = new Book();
-console.log(b.name);
+const b = new Book()
+console.log(b.name)
 
 const ModelMap = {
-  person: Person,
-  book: Book,
-  something: Something,
-} as const;
+	person: Person,
+	book: Book,
+	something: Something,
+} as const
 
-type ModelMap = typeof ModelMap;
+type ModelMap = typeof ModelMap
 
-type ModelType = keyof ModelMap;
+type ModelType = keyof ModelMap
 
 type ModelDataType<T> = {
-  [K in keyof T]: T[K] extends () => infer R
-    ? R extends new () => any
-      ? Partial<InstanceType<R>>
-      : T[K]
-    : T[K];
-};
-
-// function model<T extends ModelType>(
-//   type: T,
-//   data?: Partial<InstanceType<ModelMap[T]>>,
-// ): InstanceType<ModelMap[T]> {
-//   const instance = new ModelMap[type]() as InstanceType<ModelMap[T]>;
-//   if (data) {
-//     Object.assign(instance, data);
-//   }
-//   return instance;
-// }
-
-function model<T extends ModelType>(
-  type: T,
-  data?: ModelDataType<InstanceType<ModelMap[T]>>,
-): InstanceType<ModelMap[T]> {
-  const instance = new ModelMap[type]() as InstanceType<ModelMap[T]>;
-  if (data) {
-    // Handle nested models
-    const processedData = Object.entries(data).reduce((acc, [key, value]) => {
-      const propertyType = instance[key];
-      if (
-        typeof propertyType === "function" &&
-        propertyType.prototype?.constructor
-      ) {
-        // If it's a model reference, create an instance
-        acc[key] = model(key as ModelType, value as any);
-      } else {
-        acc[key] = value;
-      }
-      return acc;
-    }, {} as any);
-
-    Object.assign(instance, processedData);
-  }
-  return instance;
+	[K in keyof T]: T[K] extends () => infer R
+		? R extends new () => any
+			? Partial<InstanceType<R>>
+			: T[K]
+		: T[K]
 }
 
-const what = model("something", {
-  name: "something",
-  age: 2,
-  owner: {
-    name: "hi",
-  },
-});
+function model<T extends ModelType>(
+	type: T,
+	data?: Partial<InstanceType<ModelMap[T]>>,
+): InstanceType<ModelMap[T]> {
+	const instance = new ModelMap[type]() as InstanceType<
+		ModelMap[T]
+	>
+	if (data) {
+		Object.assign(instance, data)
+	}
+	return instance
+}
 
-console.log(what);
+function create<T extends ModelType>(
+	type: T,
+	data?: ModelDataType<InstanceType<ModelMap[T]>>,
+): InstanceType<ModelMap[T]> {
+	const instance = new ModelMap[type]() as InstanceType<
+		ModelMap[T]
+	>
+	if (data) {
+		const processedData = Object.entries(data).reduce(
+			(acc, [key, value]) => {
+				// @ts-ignore
+				const propertyType = instance[key]
+				if (
+					typeof propertyType === "function" &&
+					propertyType.prototype?.constructor
+				) {
+					// If it's a model reference, create an instance
+					acc[key] = create(key as ModelType, value as any)
+				} else {
+					acc[key] = value
+				}
+				return acc
+			},
+			{} as any,
+		)
+
+		Object.assign(instance, processedData)
+	}
+	return instance
+}
+
+const what = create("something", {
+	name: "something",
+	age: 2,
+	owner: {
+		name: "hi",
+	},
+})
+
+console.log(what.name)
