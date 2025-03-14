@@ -4,9 +4,9 @@ export function generatePrismaSchema(tables: any[]): string {
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
+// generator client {
+//   provider = "prisma-client-js"
+// }
 
 `
 
