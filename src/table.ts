@@ -9,7 +9,6 @@ export function member<
 	return new c()[key]
 }
 
-// Updated relation types to support builder pattern
 type ManyToOneRelation<Ref, VirtualField, ForeignKey> = {
 	kind: "many-to-one"
 	ref: Ref
@@ -34,7 +33,6 @@ export type Relation =
 	| OneToManyRelation<any>
 	| OneToOneRelation<any, any, any>
 
-// Builder classes for the relationships
 class ManyToOneBuilder<
 	F extends Record<string, Column<any, any>>,
 	Ref extends () => { fields: any },
@@ -118,7 +116,6 @@ class OneToOneBuilder<
 	}
 }
 
-// Standalone relationship builder functions
 export function manyToOne<
 	F extends Record<string, Column<any, any>>,
 	Ref extends () => { fields: any },
@@ -140,7 +137,6 @@ export function oneToOne<
 	return new OneToOneBuilder(t, ref)
 }
 
-// Updated type for the relations function
 type RelationsFunction<
 	Fields extends Record<string, Column<any, any>>,
 	Relations extends Record<string, Relation>,
@@ -152,7 +148,6 @@ type TableConstructor<F, R> = {
 	relations: R
 }
 
-// Updated Table function to support builder pattern
 function Table<
 	const TableName extends string,
 	const Fields extends Record<string, Column<any, any>>,
