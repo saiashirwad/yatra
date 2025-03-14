@@ -1,5 +1,5 @@
-import { BaseColumn, string } from "./columns"
-import { type Constructor, type Clean } from "./utils"
+import { Column, string } from "./columns"
+import { type Constructor } from "./utils"
 
 export function member<
 	Co extends Constructor,
@@ -21,9 +21,16 @@ type OneToMany<Ref> = {
 	ref: Ref
 }
 
-export type Relation = ManyToOne<any, any, any> | OneToMany<any>
+type OneToOne<VirtualField, Ref, ForeignKey> = {
+	kind: "one-to-one"
+	virtualField: VirtualField
+	ref: Ref
+	foreignKey: ForeignKey
+}
 
-interface RelationBuilder<F extends Record<string, BaseColumn<any, any, any>>> {
+export type Relation = ManyToOne<any, any, any> | OneToMany<any> | OneToOne<any, any, any>
+
+interface RelationBuilder<F extends Record<string, Column<any, any>>> {
 	manyToOne: <
 		Ref extends () => { fields: any },
 		VF extends keyof F,
@@ -33,7 +40,19 @@ interface RelationBuilder<F extends Record<string, BaseColumn<any, any, any>>> {
 		ref: Ref,
 		foreignKey: FK,
 	) => ManyToOne<VF, Ref, FK>
+
 	oneToMany: <Ref extends () => any>(ref: Ref) => OneToMany<Ref>
+
+	oneToOne: <
+		Ref extends () => { fields: any },
+		VF extends keyof F,
+		FK extends keyof ReturnType<Ref>["fields"],
+	>(
+		virtualField: VF,
+		ref: Ref,
+		foreignKey: FK,
+	) => OneToOne<VF, Ref, FK>
+
 	fields: F
 }
 
@@ -43,7 +62,7 @@ type TableConstructor<F, R> = {
 	relations: R
 }
 
-function createRelationBuilder<F extends Record<string, BaseColumn<any, any, any>>>(
+function createRelationBuilder<F extends Record<string, Column<any, any>>>(
 	fields: F,
 ): RelationBuilder<F> {
 	return {
@@ -53,17 +72,26 @@ function createRelationBuilder<F extends Record<string, BaseColumn<any, any, any
 			ref,
 			foreignKey,
 		}),
+
 		oneToMany: (ref) => ({
 			kind: "one-to-many" as const,
 			ref,
 		}),
+
+		oneToOne: (virtualField, ref, foreignKey) => ({
+			kind: "one-to-one" as const,
+			virtualField,
+			ref,
+			foreignKey,
+		}),
+
 		fields,
 	}
 }
 
 function Table<
 	const TableName extends string,
-	const Fields extends Record<string, BaseColumn<any, any, any>>,
+	const Fields extends Record<string, Column<any, any>>,
 	const Relations extends Record<string, Relation> = Record<string, never>,
 >(
 	tableName: TableName,
@@ -83,17 +111,6 @@ function Table<
 	return TableClass as unknown as TableConstructor<Fields, Relations>
 }
 
-class User extends Table(
-	"user",
-	{
-		id: string(),
-		name: string().maxLength(5).nullable().default("texo"),
-	},
-	(t) => ({
-		books: t.oneToMany(() => Book),
-	}),
-) {}
-
 class Book extends Table(
 	"book",
 	{
@@ -106,4 +123,16 @@ class Book extends Table(
 	}),
 ) {}
 
-console.log(member(Book, "fields"))
+class User extends Table(
+	"user",
+	{
+		id: string(),
+		name: string().maxLength(5).nullable().default("texo"),
+		siblingId: string().nullable(),
+	},
+	(t) => ({
+		books: t.oneToMany(() => Book),
+	}),
+) {}
+
+console.log(new User())

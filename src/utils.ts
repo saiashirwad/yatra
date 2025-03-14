@@ -4,9 +4,7 @@ export type Class<O extends Record<string, unknown>> = {
 	new (): InstanceType<new () => O>
 }
 
-export type Constructor<Args = any, ReturnType = any> = new (
-	...args: Args[]
-) => ReturnType
+export type Constructor<Args = any, ReturnType = any> = new (...args: Args[]) => ReturnType
 
 export function member<
 	Co extends Constructor,

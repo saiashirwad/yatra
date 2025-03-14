@@ -1,181 +1,136 @@
-import type { Clean } from "./utils"
+type Nullable = { readonly __nullable: true }
+type Default<T> = { readonly default: T }
+type MinLength<T extends number> = { readonly minLength: T }
+type MaxLength<T extends number> = { readonly maxLength: T }
+type Format<T extends string> = { readonly format: T }
+type Enum<T extends unknown[]> = { readonly enum: T }
+type Min<T extends number> = { readonly min: T }
+type Max<T extends number> = { readonly max: T }
+type Integer = { readonly integer: true }
 
-function updateOptions<
-	T extends { options: Record<string, unknown> },
-	KV extends { [k: string]: unknown },
->(r: T, kv: KV): Clean<T & { options: KV }> {
-	return {
-		...r,
-		options: { ...r.options, ...kv },
+export function extend<This, Brand>(
+	instance: This,
+	propertyName: string,
+	propertyValue: unknown,
+): This & Brand {
+	const newInstance = Object.create(Object.getPrototypeOf(instance))
+
+	Object.assign(newInstance, instance)
+	;(newInstance as any)[propertyName] = propertyValue
+
+	return newInstance as This & Brand
+}
+
+export type ColumnType = "string" | "number" | "date" | "literal"
+
+export class Column<T extends ColumnType, DataType> {
+	readonly type: T
+
+	constructor(type: T) {
+		this.type = type
+	}
+
+	nullable(): this & Nullable {
+		return extend<this, Nullable>(this, "__nullable", true)
+	}
+
+	default<V extends DataType>(value: V): this & Default<V> {
+		return extend<this, Default<V>>(this, "default", value)
+	}
+
+	getConfig(): Record<string, unknown> {
+		const config: Record<string, unknown> = { type: this.type }
+
+		for (const key in this) {
+			if (key !== "type" && !key.startsWith("_") && typeof (this as any)[key] !== "function") {
+				config[key] = (this as any)[key]
+			}
+		}
+
+		return config
 	}
 }
 
-export type BaseColumnOptions<FieldType extends string, DataType> = {
-	name: FieldType
-	__nullable?: boolean
-	__default?: DataType
-}
+export type StringFormat = "uuid" | "json"
 
-export interface BaseColumn<
-	FieldType extends string,
-	DataType,
-	options extends BaseColumnOptions<FieldType, DataType> = {
-		name: FieldType
-	},
-> {
-	options: BaseColumnOptions<FieldType, DataType>
-	nullable: () => BaseColumn<FieldType, DataType, Clean<options & { __nullable: true }>>
-	default: <V extends DataType>(
-		value: V,
-	) => BaseColumn<FieldType, DataType, Clean<options & { __default: V }>>
-}
-
-export function BaseColumn<
-	const FieldType extends string,
-	DataType = unknown,
-	Options extends BaseColumnOptions<FieldType, DataType> = {
-		name: FieldType
-	},
->(name: FieldType, defaultOptions?: Options): BaseColumn<FieldType, DataType, Options> {
-	const options = {
-		name,
-		...(defaultOptions ?? {}),
+export class StringColumn extends Column<"string", string> {
+	constructor() {
+		super("string")
 	}
-	return {
-		options,
-		nullable() {
-			return updateOptions(this, {
-				__nullable: true,
-			})
-		},
-		default<U extends DataType>(value: U) {
-			return updateOptions(this, {
-				__default: value,
-			})
-		},
+
+	minLength<T extends number>(length: T): this & MinLength<T> {
+		return extend<this, MinLength<T>>(this, "minLength", length)
+	}
+
+	maxLength<T extends number>(length: T): this & MaxLength<T> {
+		return extend<this, MaxLength<T>>(this, "maxLength", length)
+	}
+
+	format<T extends StringFormat>(formatType: T): this & Format<T> {
+		return extend<this, Format<T>>(this, "format", formatType)
+	}
+
+	enum<T extends unknown[]>(values: T): this & Enum<T> {
+		return extend<this, Enum<T>>(this, "enum", values)
 	}
 }
 
-type StringFormat = "uuid" | "json"
+export class NumberColumn extends Column<"number", number> {
+	constructor() {
+		super("number")
+	}
 
-type StringColumnOptions = BaseColumnOptions<"string", string> & {
-	__minLength?: number
-	__maxLength?: number
-	__format?: StringFormat
-	__enum?: unknown[]
+	min<T extends number>(value: T): this & Min<T> {
+		return extend<this, Min<T>>(this, "min", value)
+	}
+
+	max<T extends number>(value: T): this & Max<T> {
+		return extend<this, Max<T>>(this, "max", value)
+	}
+
+	integer(): this & Integer {
+		return extend<this, Integer>(this, "integer", true)
+	}
 }
 
-type StringColumn<
-	Options extends StringColumnOptions = {
-		name: "string"
-	},
-> = BaseColumn<"string", string, Options> & {
-	minLength: <T extends number>(length: T) => StringColumn<Clean<Options & { __minLength: T }>>
-	maxLength: <T extends number>(length: T) => StringColumn<Clean<Options & { __maxLength: T }>>
-	format: <T extends StringFormat>(format: T) => StringColumn<Clean<Options & { __format: T }>>
-	enum: <T extends unknown[]>(values: T) => StringColumn<Clean<Options & { __enum: T }>>
+export type DateDataType = Date | number
+
+export class DateColumn extends Column<"date", DateDataType> {
+	constructor() {
+		super("date")
+	}
+}
+
+export type LiteralFieldType = string | number | boolean
+
+export class LiteralColumn<T extends LiteralFieldType> extends Column<"literal", T> {
+	readonly literalValue: T
+
+	constructor(value: T) {
+		super("literal")
+		this.literalValue = value
+	}
 }
 
 export function string(): StringColumn {
-	return {
-		...BaseColumn<"string", string>("string"),
-		minLength(value) {
-			return updateOptions(this, {
-				__minLength: value,
-			})
-		},
-		maxLength(value) {
-			return updateOptions(this, {
-				__maxLength: value,
-			})
-		},
-		format(format) {
-			return updateOptions(this, {
-				__format: format,
-			})
-		},
-		enum(values) {
-			return updateOptions(this, {
-				__enum: values,
-			})
-		},
-	}
-}
-
-type LiteralFieldType = string | number | boolean
-
-type LiteralColumn<DataType extends LiteralFieldType> = BaseColumn<"literal", DataType>
-
-export function literal<const DataType extends LiteralFieldType>(
-	value: DataType,
-): LiteralColumn<DataType> {
-	const base = BaseColumn<`literal`, DataType, { name: "literal"; __literalValue: DataType }>(
-		"literal",
-		{
-			name: "literal",
-			__literalValue: value,
-		},
-	)
-	return {
-		...base,
-		options: {
-			...base.options,
-		},
-	}
-}
-
-type NumberColumnOptions = BaseColumnOptions<"number", number> & {
-	__min?: number
-	__max?: number
-	__integer?: boolean
-}
-
-type NumberColumn<
-	Options extends NumberColumnOptions = {
-		name: "number"
-	},
-> = BaseColumn<"number", number, Options> & {
-	min: <V extends number>(value: V) => NumberColumn<Clean<Options & { __min: V }>>
-	max: <V extends number>(value: V) => NumberColumn<Clean<Options & { __max: V }>>
-	integer: () => NumberColumn<Clean<Options & { __integer: true }>>
+	return new StringColumn()
 }
 
 export function number(): NumberColumn {
-	const base = BaseColumn<"number", number>("number")
-
-	return {
-		...base,
-		min(value) {
-			return updateOptions(this, {
-				__min: value,
-			})
-		},
-		max(value) {
-			return updateOptions(this, {
-				__max: value,
-			})
-		},
-		integer() {
-			return updateOptions(this, {
-				__integer: true,
-			})
-		},
-	}
+	return new NumberColumn()
 }
-
-type DateDataType = Date | number
-type DateColumnOptions = BaseColumnOptions<"date", DateDataType> & {}
-
-type DateColumn<
-	Options extends DateColumnOptions = {
-		name: "date"
-	},
-> = BaseColumn<"date", DateDataType, Options> & {}
 
 export function date(): DateColumn {
-	const base = BaseColumn<"date", DateDataType>("date")
-
-	return {
-		...base,
-	}
+	return new DateColumn()
 }
+
+export function literal<T extends LiteralFieldType>(value: T): LiteralColumn<T> {
+	return new LiteralColumn(value)
+}
+
+export type GetColumnType<T> = T extends Column<infer Type, any> ? Type : never
+export type GetDataType<T> = T extends Column<any, infer DataType> ? DataType : never
+export type IsNullable<T> = T extends Nullable ? true : false
+export type GetDefault<T> = T extends Default<infer V> ? V : undefined
+export type GetMinLength<T> = T extends MinLength<infer V> ? V : undefined
+export type GetMaxLength<T> = T extends MaxLength<infer V> ? V : undefined
