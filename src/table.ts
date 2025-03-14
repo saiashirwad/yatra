@@ -191,7 +191,3 @@ class User extends Table(
 		books: oneToMany(fields, () => new Book()).build(),
 	}),
 ) {}
-
-const user = new User()
-
-const rels = user.relations
