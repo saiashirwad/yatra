@@ -9,52 +9,142 @@ export function member<
 	return new c()[key]
 }
 
-type ManyToOne<VirtualField, Ref, ForeignKey> = {
+// Updated relation types to support builder pattern
+type ManyToOneRelation<Ref, VirtualField, ForeignKey> = {
 	kind: "many-to-one"
-	virtualField: VirtualField
 	ref: Ref
+	virtualField: VirtualField
 	foreignKey: ForeignKey
 }
 
-type OneToMany<Ref> = {
+type OneToManyRelation<Ref> = {
 	kind: "one-to-many"
 	ref: Ref
 }
 
-type OneToOne<VirtualField, Ref, ForeignKey> = {
+type OneToOneRelation<Ref, VirtualField, ForeignKey> = {
 	kind: "one-to-one"
-	virtualField: VirtualField
 	ref: Ref
+	virtualField: VirtualField
 	foreignKey: ForeignKey
 }
 
-export type Relation = ManyToOne<any, any, any> | OneToMany<any> | OneToOne<any, any, any>
+export type Relation =
+	| ManyToOneRelation<any, any, any>
+	| OneToManyRelation<any>
+	| OneToOneRelation<any, any, any>
 
-interface RelationBuilder<F extends Record<string, Column<any, any>>> {
-	manyToOne: <
-		Ref extends () => { fields: any },
-		VF extends keyof F,
-		FK extends keyof ReturnType<Ref>["fields"],
-	>(
-		virtualField: VF,
-		ref: Ref,
-		foreignKey: FK,
-	) => ManyToOne<VF, Ref, FK>
+// Builder classes for the relationships
+class ManyToOneBuilder<
+	F extends Record<string, Column<any, any>>,
+	Ref extends () => { fields: any },
+> {
+	private virtualField?: keyof F
+	private foreignKey?: keyof ReturnType<Ref>["fields"]
 
-	oneToMany: <Ref extends () => any>(ref: Ref) => OneToMany<Ref>
+	constructor(
+		private fields: F,
+		private ref: Ref,
+	) {}
 
-	oneToOne: <
-		Ref extends () => { fields: any },
-		VF extends keyof F,
-		FK extends keyof ReturnType<Ref>["fields"],
-	>(
-		virtualField: VF,
-		ref: Ref,
-		foreignKey: FK,
-	) => OneToOne<VF, Ref, FK>
+	using<VF extends keyof F>(virtualField: VF) {
+		this.virtualField = virtualField
+		return this
+	}
 
-	fields: F
+	references<FK extends keyof ReturnType<Ref>["fields"]>(foreignKey: FK) {
+		this.foreignKey = foreignKey
+		return this
+	}
+
+	build(): ManyToOneRelation<Ref, keyof F, keyof ReturnType<Ref>["fields"]> {
+		if (!this.virtualField || !this.foreignKey) {
+			throw new Error("ManyToOne relation requires both virtualField and foreignKey")
+		}
+
+		return {
+			kind: "many-to-one",
+			ref: this.ref,
+			virtualField: this.virtualField,
+			foreignKey: this.foreignKey,
+		}
+	}
 }
+
+class OneToManyBuilder<Ref extends () => any> {
+	constructor(private ref: Ref) {}
+
+	build(): OneToManyRelation<Ref> {
+		return {
+			kind: "one-to-many",
+			ref: this.ref,
+		}
+	}
+}
+
+class OneToOneBuilder<
+	F extends Record<string, Column<any, any>>,
+	Ref extends () => { fields: any },
+> {
+	private virtualField?: keyof F
+	private foreignKey?: keyof ReturnType<Ref>["fields"]
+
+	constructor(
+		private fields: F,
+		private ref: Ref,
+	) {}
+
+	using<VF extends keyof F>(virtualField: VF) {
+		this.virtualField = virtualField
+		return this
+	}
+
+	references<FK extends keyof ReturnType<Ref>["fields"]>(foreignKey: FK) {
+		this.foreignKey = foreignKey
+		return this
+	}
+
+	build(): OneToOneRelation<Ref, keyof F, keyof ReturnType<Ref>["fields"]> {
+		if (!this.virtualField || !this.foreignKey) {
+			throw new Error("OneToOne relation requires both virtualField and foreignKey")
+		}
+
+		return {
+			kind: "one-to-one",
+			ref: this.ref,
+			virtualField: this.virtualField,
+			foreignKey: this.foreignKey,
+		}
+	}
+}
+
+// Standalone relationship builder functions
+export function manyToOne<
+	F extends Record<string, Column<any, any>>,
+	Ref extends () => { fields: any },
+>(t: F, ref: Ref): ManyToOneBuilder<F, Ref> {
+	return new ManyToOneBuilder(t, ref)
+}
+
+export function oneToMany<F extends Record<string, Column<any, any>>, Ref extends () => any>(
+	t: F,
+	ref: Ref,
+): OneToManyBuilder<Ref> {
+	return new OneToManyBuilder(ref)
+}
+
+export function oneToOne<
+	F extends Record<string, Column<any, any>>,
+	Ref extends () => { fields: any },
+>(t: F, ref: Ref): OneToOneBuilder<F, Ref> {
+	return new OneToOneBuilder(t, ref)
+}
+
+// Updated type for the relations function
+type RelationsFunction<
+	Fields extends Record<string, Column<any, any>>,
+	Relations extends Record<string, Relation>,
+> = (fields: Fields) => Relations
 
 type TableConstructor<F, R> = {
 	new (): { fields: F; relations: R }
@@ -62,52 +152,21 @@ type TableConstructor<F, R> = {
 	relations: R
 }
 
-function createRelationBuilder<F extends Record<string, Column<any, any>>>(
-	fields: F,
-): RelationBuilder<F> {
-	return {
-		manyToOne: (virtualField, ref, foreignKey) => ({
-			kind: "many-to-one" as const,
-			virtualField,
-			ref,
-			foreignKey,
-		}),
-
-		oneToMany: (ref) => ({
-			kind: "one-to-many" as const,
-			ref,
-		}),
-
-		oneToOne: (virtualField, ref, foreignKey) => ({
-			kind: "one-to-one" as const,
-			virtualField,
-			ref,
-			foreignKey,
-		}),
-
-		fields,
-	}
-}
-
+// Updated Table function to support builder pattern
 function Table<
 	const TableName extends string,
 	const Fields extends Record<string, Column<any, any>>,
 	const Relations extends Record<string, Relation> = Record<string, never>,
->(
-	tableName: TableName,
-	_fields: Fields,
-	relationsFn?: (rel: RelationBuilder<Fields>) => Relations,
-) {
+>(tableName: TableName, _fields: Fields, relationsFn?: RelationsFunction<Fields, Relations>) {
 	class TableClass {
 		public relations: Relations
 		constructor(
 			public name: TableName = tableName,
 			public fields: Fields = _fields,
 		) {
-			this.relations = relationsFn ? relationsFn(createRelationBuilder(_fields)) : ({} as Relations)
+			this.relations = relationsFn ? relationsFn(_fields) : ({} as Relations)
 		}
 	}
-
 	return TableClass as unknown as TableConstructor<Fields, Relations>
 }
 
@@ -118,10 +177,15 @@ class Book extends Table(
 		authorId: string(),
 		description: string().default("what"),
 	},
-	(t) => ({
-		author: t.manyToOne("authorId", () => User, "id"),
+	(fields) => ({
+		author: manyToOne(fields, () => User)
+			.using("authorId")
+			.references("id")
+			.build(),
 	}),
 ) {}
+
+type bookFields = Book["fields"]
 
 class User extends Table(
 	"user",
@@ -130,13 +194,10 @@ class User extends Table(
 		name: string().default("no name").unique(),
 		tags: array(_enum(["hi", "there"])).nullable(),
 	},
-	(t) => ({
-		books: t.oneToMany(() => Book),
+	(fields) => ({
+		books: oneToMany(fields, () => Book).build(),
 	}),
-) {
-	get name2() {
-		return this.fields.name
-	}
-}
+) {}
 
-type userFields = User["fields"]
+const a = new User()
+console.log(a)
