@@ -1,4 +1,4 @@
-import { Column, string } from "./columns"
+import { _enum, array, Column, string, uuid } from "./columns"
 import { type Constructor } from "./utils"
 
 export function member<
@@ -114,7 +114,7 @@ function Table<
 class Book extends Table(
 	"book",
 	{
-		id: string(),
+		id: uuid().primaryKey(),
 		authorId: string(),
 		description: string().default("what"),
 	},
@@ -126,13 +126,17 @@ class Book extends Table(
 class User extends Table(
 	"user",
 	{
-		id: string(),
-		name: string().maxLength(5).nullable().default("texo"),
-		siblingId: string().nullable(),
+		id: uuid().primaryKey(),
+		name: string().default("no name").unique(),
+		tags: array(_enum(["hi", "there"])).nullable(),
 	},
 	(t) => ({
 		books: t.oneToMany(() => Book),
 	}),
-) {}
+) {
+	get name2() {
+		return this.fields.name
+	}
+}
 
-console.log(new User())
+type userFields = User["fields"]
