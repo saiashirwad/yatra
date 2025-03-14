@@ -194,4 +194,4 @@ class User extends Table(
 
 const user = new User()
 
-const rels = user.fields
+const rels = user.relations
