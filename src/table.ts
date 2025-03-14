@@ -148,7 +148,7 @@ type TableConstructor<F, R> = {
 	relations: R
 }
 
-function Table<
+export function Table<
 	const TableName extends string,
 	const Fields extends Record<string, Column<any, any>>,
 	const Relations extends Record<string, Relation> = Record<string, never>,
