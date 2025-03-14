@@ -173,14 +173,12 @@ class Book extends Table(
 		description: string().default("what"),
 	},
 	(fields) => ({
-		author: manyToOne(fields, () => User)
+		author: manyToOne(fields, () => new User())
 			.using("authorId")
 			.references("id")
 			.build(),
 	}),
 ) {}
-
-type bookFields = Book["relations"]
 
 class User extends Table(
 	"user",
@@ -190,9 +188,10 @@ class User extends Table(
 		tags: array(_enum(["hi", "there"])).nullable(),
 	},
 	(fields) => ({
-		books: oneToMany(fields, () => Book).build(),
+		books: oneToMany(fields, () => new Book()).build(),
 	}),
 ) {}
 
-const a = new User()
-console.log(a)
+const user = new User()
+
+const rels = user.fields
