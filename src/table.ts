@@ -180,7 +180,7 @@ class Book extends Table(
 	}),
 ) {}
 
-type bookFields = Book["fields"]
+type bookFields = Book["relations"]
 
 class User extends Table(
 	"user",
