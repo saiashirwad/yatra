@@ -301,8 +301,6 @@ const user = new User({
 	],
 })
 
-console.log(user)
-
 //const author = book.relations.author
 //// @ts-ignore
 //const lol = Reflect.construct(author.ref(), ["init"])
