@@ -205,12 +205,16 @@ export function Table<
 	fields: Fields,
 	callback?: TableCallback<Fields, Relations>,
 ) {
+	type TableInstance = {
+		name: TableName
+		fields: Fields
+		relations: Relations
+	} & MakeObject<Fields>
+
 	class TableClass {
 		public name: TableName = tableName
 		public fields: Fields = fields
-		public relations: Relations = {} as Relations;
-
-		[key: string]: any
+		public relations: Relations = {} as Relations
 
 		constructor(args: TableConstructorArgs<Fields>) {
 			if (callback) {
@@ -227,7 +231,10 @@ export function Table<
 			}
 		}
 	}
-	return TableClass as typeof TableClass & { readonly isTable: true }
+	return TableClass as unknown as {
+		new (args: TableConstructorArgs<Fields>): TableInstance
+		readonly isTable: true
+	}
 }
 
 class Book extends Table(
@@ -269,7 +276,7 @@ const book = new Book({
 	price: 2,
 })
 
-console.log(book.authorId)
+console.log(book.relations)
 
 //const author = book.relations.author
 //// @ts-ignore
