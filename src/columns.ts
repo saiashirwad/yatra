@@ -213,9 +213,9 @@ export class Column<
         && !key.startsWith("_")
         && typeof (this as any)[key]
           !== "function"
-      ) 
+      ) {
         config[key] = (this as any)[key];
-      
+      }
     }
 
     return config;
@@ -622,7 +622,8 @@ export type IsPrimaryKey<T> = T extends PrimaryKey ? true
   : false;
 export type IsUnique<T> = T extends Unique ? true
   : false;
-export type GetReferences<T> = T extends References<infer Table> ? { table: Table; column: string }
+export type GetReferences<T> = T extends References<infer Table>
+  ? { table: Table; column: string }
   : undefined;
 export type IsAutoIncrement<T> = T extends AutoIncrement ? true
   : false;
@@ -635,7 +636,8 @@ export type GetPrecision<T> = T extends Precision<infer P> ? P
 export type GetScale<T> = T extends Scale<infer S> ? S
   : undefined;
 
-export type GetDataType<T> = T extends Column<infer Params> ? Params extends ColumnParams ? Params["DataType"]
+export type GetDataType<T> = T extends Column<infer Params>
+  ? Params extends ColumnParams ? Params["DataType"]
   : never
   : never;
 export type IsNullable<T> = T extends Nullable ? true

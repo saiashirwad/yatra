@@ -18,6 +18,10 @@ export function member<
   return new c()[key];
 }
 
+type FieldsRecord = Record<string, Column<any, any>>;
+type RelationsRecord = Record<string, Relation>;
+type DefaultRelations = Record<string, never>;
+
 type TableConstructor<F> = new(...args: any[]) => { fields: F };
 
 type ManyToOneRelation<Ref, VirtualField, ForeignKey> = {
@@ -40,13 +44,13 @@ export type Relation =
   | OneToOneRelation<any, any, any>;
 
 class ManyToOneBuilder<
-  F extends Record<string, Column<any, any>>,
+  Fields extends FieldsRecord,
   Ref extends () => TableConstructor<any>,
 > {
-  private virtualField?: keyof F;
+  private virtualField?: keyof Fields;
   private foreignKey?: keyof InstanceType<ReturnType<Ref>>["fields"];
-  constructor(private fields: F, private ref: Ref) {}
-  using<VF extends keyof F>(virtualField: VF) {
+  constructor(private fields: Fields, private ref: Ref) {}
+  using<VF extends keyof Fields>(virtualField: VF) {
     this.virtualField = virtualField;
     return this;
   }
@@ -58,7 +62,7 @@ class ManyToOneBuilder<
   }
   build(): ManyToOneRelation<
     Ref,
-    keyof F,
+    keyof Fields,
     keyof InstanceType<ReturnType<Ref>>["fields"]
   > {
     if (!this.virtualField || !this.foreignKey) {
@@ -83,13 +87,13 @@ class OneToManyBuilder<Ref extends () => any> {
 }
 
 class OneToOneBuilder<
-  F extends Record<string, Column<any, any>>,
+  Fields extends FieldsRecord,
   Ref extends () => TableConstructor<any>,
 > {
-  private virtualField?: keyof F;
+  private virtualField?: keyof Fields;
   private foreignKey?: keyof InstanceType<ReturnType<Ref>>["fields"];
-  constructor(private fields: F, private ref: Ref) {}
-  using<VF extends keyof F>(virtualField: VF) {
+  constructor(private fields: Fields, private ref: Ref) {}
+  using<VF extends keyof Fields>(virtualField: VF) {
     this.virtualField = virtualField;
     return this;
   }
@@ -101,7 +105,7 @@ class OneToOneBuilder<
   }
   build(): OneToOneRelation<
     Ref,
-    keyof F,
+    keyof Fields,
     keyof InstanceType<ReturnType<Ref>>["fields"]
   > {
     if (!this.virtualField || !this.foreignKey) {
@@ -119,45 +123,43 @@ class OneToOneBuilder<
 }
 
 export function manyToOne<
-  F extends Record<string, Column<any, any>>,
+  Fields extends FieldsRecord,
   Ref extends () => TableConstructor<any>,
 >(
-  t: F,
+  t: Fields,
   ref: Ref,
-): ManyToOneBuilder<F, Ref> {
+): ManyToOneBuilder<Fields, Ref> {
   return new ManyToOneBuilder(t, ref);
 }
 
 export function oneToMany<
-  F extends Record<string, Column<any, any>>,
+  Fields extends FieldsRecord,
   Ref extends () => any,
 >(
-  t: F,
+  t: Fields,
   ref: Ref,
 ): OneToManyBuilder<Ref> {
   return new OneToManyBuilder(ref);
 }
 
 export function oneToOne<
-  F extends Record<string, Column<any, any>>,
+  Fields extends FieldsRecord,
   Ref extends () => TableConstructor<any>,
 >(
-  t: F,
+  t: Fields,
   ref: Ref,
-): OneToOneBuilder<F, Ref> {
+): OneToOneBuilder<Fields, Ref> {
   return new OneToOneBuilder(t, ref);
 }
 
 type TableCallback<
-  Fields extends Record<string, Column<any, any>>,
-  Relations extends Record<string, Relation>,
-> = (
-  fields: Fields,
-) => { relations: Relations };
+  Fields extends FieldsRecord,
+  Relations extends RelationsRecord,
+> = (fields: Fields) => { relations: Relations };
 
 type MakeObject<
-  Fields = Record<string, Column<any, any>>,
-  Relations extends Record<string, Relation> = Record<string, never>,
+  Fields = FieldsRecord,
+  Relations extends RelationsRecord = DefaultRelations,
   Nullable = {
     -readonly [
       k in keyof Fields as IsNullable<Fields[k]> extends true ? k
@@ -185,25 +187,22 @@ type MakeObject<
 > = Clean<Nullable & NonNullable & Rels>;
 
 type TableConstructorArgs<
-  Fields extends Record<string, Column<any, any>>,
-  Relations extends Record<string, Relation>,
+  Fields extends FieldsRecord,
+  Relations extends RelationsRecord,
 > = MakeObject<Fields, Relations>;
 
 type TableInstance<
   TableName extends string,
-  Fields extends Record<string, Column<any, any>>,
-  Relations extends Record<string, Relation>,
+  Fields extends FieldsRecord,
+  Relations extends RelationsRecord,
 > =
   & { name: TableName; fields: Fields; relations: Relations }
   & MakeObject<Fields>;
 
 type Table<
   TableName extends string,
-  Fields extends Record<string, Column<any, any>>,
-  Relations extends Record<string, Relation> = Record<
-    string,
-    never
-  >,
+  Fields extends FieldsRecord,
+  Relations extends RelationsRecord = DefaultRelations,
 > = {
   new(
     args: TableConstructorArgs<Fields, Relations>,
@@ -212,11 +211,8 @@ type Table<
 
 export function Table<
   const TableName extends string,
-  const Fields extends Record<string, Column<any, any>>,
-  const Relations extends Record<string, Relation> = Record<
-    string,
-    never
-  >,
+  const Fields extends FieldsRecord,
+  const Relations extends RelationsRecord = DefaultRelations,
 >(
   tableName: TableName,
   fields: Fields,
