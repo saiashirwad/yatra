@@ -208,7 +208,9 @@ export function Table<
 	class TableClass {
 		public name: TableName = tableName
 		public fields: Fields = fields
-		public relations: Relations = {} as Relations
+		public relations: Relations = {} as Relations;
+
+		[key: string]: any
 
 		constructor(args: TableConstructorArgs<Fields>) {
 			if (callback) {
@@ -218,7 +220,11 @@ export function Table<
 			if (args === "init" && callback) {
 				return
 			}
-			Object.assign(this, args)
+			if (typeof args === "object") {
+				for (const key in args) {
+					;(this as any)[key] = (args as any)[key]
+				}
+			}
 		}
 	}
 	return TableClass as typeof TableClass & { readonly isTable: true }
@@ -263,8 +269,10 @@ const book = new Book({
 	price: 2,
 })
 
-const author = book.relations.author
-// @ts-ignore
-const lol = Reflect.construct(author.ref(), ["init"])
-// @ts-ignore
-console.log(lol)
+console.log(book.authorId)
+
+//const author = book.relations.author
+//// @ts-ignore
+//const lol = Reflect.construct(author.ref(), ["init"])
+//// @ts-ignore
+//console.log(lol)
