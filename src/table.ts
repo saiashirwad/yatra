@@ -133,10 +133,11 @@ class User extends Table(
   (fields) => ({
     relations: {
       books: oneToMany(fields, () => Book).build(),
-      tags: manyToMany(fields, () => Tag).build(),
     },
   }),
 ) {}
+
+const user = new User({});
 
 const book = new Book({
   id: "wa",
@@ -152,8 +153,6 @@ const book2 = new Book({
   authorId: "asdf",
   // author: {},
 });
-
-console.log(book2);
 
 // const user = new User({
 //  type: "user",
