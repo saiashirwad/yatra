@@ -283,24 +283,21 @@ class User extends Table(
 	}),
 ) {}
 
+const book = new Book({
+	id: "wa",
+	price: 23,
+	description: "asdf",
+	authorId: "asdf",
+})
+
 const user = new User({
 	type: "user",
 	id: "asdf",
 	name: "asdf",
 	tags: [],
 	books: [
-		{
-			description: "hi",
-			id: "what",
-			price: 2,
-			authorId: "asdf",
-		},
-		{
-			authorId: "asdf",
-			description: "wtf",
-			id: "asdf",
-			price: 2,
-		},
+		book,
+		{ authorId: "asdf", description: "wtf", id: "asdf", price: 2 },
 	],
 })
 
