@@ -8,7 +8,7 @@ import {
 	type GetColumnType,
 	type IsNullable,
 } from "./columns"
-import { type Constructor, type Clean } from "./utils"
+import { type Clean, type Constructor } from "./utils"
 
 export function member<
 	Co extends Constructor,
