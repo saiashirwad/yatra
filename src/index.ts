@@ -29,5 +29,4 @@ class User extends Table(
 	}),
 ) {}
 
-const prismaSchema = generatePrismaSchema([User, Book])
-console.log(prismaSchema)
+const user = User.relations
