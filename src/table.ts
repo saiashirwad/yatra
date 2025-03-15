@@ -10,6 +10,13 @@ import {
 } from "./columns"
 import { type Clean, type Constructor } from "./utils"
 
+type IfElse<Clause extends boolean, L, R> = Clause extends true
+	? L
+	: R
+
+type SomeCondition = true
+type something = IfElse<SomeCondition, 2, 5>
+
 export function member<
 	Co extends Constructor,
 	Instance extends InstanceType<Co>,
@@ -173,6 +180,7 @@ type TableCallback<
 
 type MakeObject<
 	Fields = Record<string, Column<any, any>>,
+	Relations extends Record<string, Relation> = Record<string, never>,
 	Nullable = {
 		-readonly [k in keyof Fields as IsNullable<Fields[k]> extends true
 			? k
@@ -185,11 +193,29 @@ type MakeObject<
 			? k
 			: never]: GetColumnType<Fields[k]>
 	},
-> = Clean<Nullable & NonNullable>
+	Rels = {
+		[k in keyof Relations]?: Relations[k]["kind"] extends "one-to-one"
+			?
+					| InstanceType<ReturnType<Relations[k]["ref"]>>
+					| MakeObject<
+							InstanceType<ReturnType<Relations[k]["ref"]>>["fields"]
+					  >
+			: Relations[k]["kind"] extends "many-to-one" | "one-to-many"
+				?
+						| InstanceType<ReturnType<Relations[k]["ref"]>>[]
+						| MakeObject<
+								InstanceType<
+									ReturnType<Relations[k]["ref"]>
+								>["fields"]
+						  >[]
+				: never
+	},
+> = Clean<Nullable & NonNullable & Rels>
 
 type TableConstructorArgs<
 	Fields extends Record<string, Column<any, any>>,
-> = "init" | MakeObject<Fields>
+	Relations extends Record<string, Relation>,
+> = MakeObject<Fields, Relations>
 
 type Table = InstanceType<ReturnType<typeof Table>>
 
@@ -216,7 +242,7 @@ export function Table<
 		public fields: Fields = fields
 		public relations: Relations = {} as Relations
 
-		constructor(args: MakeObject<Fields>) {
+		constructor(args: MakeObject<Fields, Relations>) {
 			if (callback) {
 				const result = callback(fields)
 				this.relations = result.relations
@@ -229,7 +255,7 @@ export function Table<
 		}
 	}
 	return TableClass as unknown as {
-		new (args: TableConstructorArgs<Fields>): TableInstance
+		new (args: TableConstructorArgs<Fields, Relations>): TableInstance
 		readonly isTable: true
 	}
 }
@@ -244,7 +270,7 @@ class Book extends Table(
 	},
 	(fields) => ({
 		relations: {
-			author: manyToOne(fields, () => User)
+			author: oneToOne(fields, () => User)
 				.using("authorId")
 				.references("id")
 				.build(),
@@ -258,6 +284,7 @@ class User extends Table(
 		id: uuid().primaryKey(),
 		name: string().default("no name").unique(),
 		tags: array(_enum(["hi", "there"])).nullable(),
+		type: _enum(["admin", "user"]),
 	},
 	(fields) => ({
 		relations: {
@@ -266,15 +293,25 @@ class User extends Table(
 	}),
 ) {}
 
-const book = new Book({
-	id: "hi",
-	authorId: "w",
-	description: "wh",
-	price: 2,
+const user = new User({
+	type: "user",
+	id: "asdf",
+	name: "asdf",
+	tags: [],
+	books: [
+		{
+			description: "hi",
+			id: "what",
+			price: 2,
+			authorId: "asdf",
+		},
+	],
 })
 
-const author = book.relations.author
-// @ts-ignore
-const lol = Reflect.construct(author.ref(), ["init"])
-// @ts-ignore
-console.log(lol)
+console.log(user)
+
+//const author = book.relations.author
+//// @ts-ignore
+//const lol = Reflect.construct(author.ref(), ["init"])
+//// @ts-ignore
+//console.log(lol)
