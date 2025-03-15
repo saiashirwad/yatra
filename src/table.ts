@@ -10,13 +10,6 @@ import {
 } from "./columns"
 import { type Clean, type Constructor } from "./utils"
 
-type IfElse<Clause extends boolean, L, R> = Clause extends true
-	? L
-	: R
-
-type SomeCondition = true
-type something = IfElse<SomeCondition, 2, 5>
-
 export function member<
 	Co extends Constructor,
 	Instance extends InstanceType<Co>,
