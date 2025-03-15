@@ -8,5 +8,9 @@
   },
   "peerDependencies": {
     "typescript": "^5.8.2"
+  },
+  "scripts": {
+    "typecheck": "bun tsc --noEmit --incremental",
+    "typecheck-watch": "bun tsc --noEmit --incremental --watch"
   }
 }

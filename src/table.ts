@@ -7,20 +7,14 @@ import {
   string,
   uuid,
 } from "./columns";
-import { oneToMany, oneToOne } from "./relations";
+import { manyToMany, oneToMany, oneToOne } from "./relations";
 import type {
   DefaultRelations,
   FieldsRecord,
-  Relation,
-  RelationKind,
   RelationsRecord,
+  TableCallback,
 } from "./types";
 import type { Clean } from "./utils";
-
-type TableCallback<
-  Fields extends FieldsRecord,
-  Relations extends RelationsRecord,
-> = (fields: Fields) => { relations: Relations };
 
 type NullableFields<
   Fields = FieldsRecord,
@@ -38,34 +32,20 @@ type NonNullableFields<Fields = FieldsRecord> = {
   ]: GetColumnType<Fields[k]>;
 };
 
-type HandleRelation<
-  Ref extends Relation["ref"],
-  Kind extends RelationKind,
-> = Kind extends "one-to-one" ?
-    | InstanceType<ReturnType<Relation["ref"]>>
-    | MakeObject<
-      InstanceType<ReturnType<Relation["ref"]>>["fields"]
-    >
-  : Relation["kind"] extends "many-to-one" | "one-to-many" ? Array<
-      | InstanceType<ReturnType<Relation["ref"]>>
-      | Record<string, any>
-    >
-  : never;
-
 type MakeObject<
   Fields = FieldsRecord,
   Relations extends RelationsRecord = DefaultRelations,
   Nullable = NullableFields<Fields>,
   NonNullable = NonNullableFields<Fields>,
-  Rels = {
-    [k in keyof Relations]?: Relations[k]["kind"] extends "one-to-one" ?
+  Rels = Relations extends never ? never : {
+    [k in keyof Relations]?: Relations[k]["kind"] extends
+      "one-to-one" | "many-to-one" ?
         | InstanceType<ReturnType<Relations[k]["ref"]>>
         | MakeObject<
           InstanceType<ReturnType<Relations[k]["ref"]>>["fields"]
         >
-      : Relations[k]["kind"] extends "many-to-one" | "one-to-many" ? Array<
-          | InstanceType<ReturnType<Relations[k]["ref"]>>
-          | Record<string, any>
+      : Relations[k]["kind"] extends "many-to-many" | "one-to-many" ? Array<
+          InstanceType<ReturnType<Relations[k]["ref"]>>
         >
       : never;
   },
@@ -107,6 +87,7 @@ export function Table<
     public name: TableName = tableName;
     public fields: Fields = fields;
     public relations: Relations = {} as Relations;
+
     constructor(args: MakeObject<Fields, Relations>) {
       if (callback) {
         const result = callback(fields);
@@ -138,16 +119,22 @@ class Book extends Table(
   }),
 ) {}
 
+class Tag extends Table("tag", {
+  id: uuid().primaryKey(),
+}) {}
+
 class User extends Table(
   "user",
   {
     id: uuid().primaryKey(),
     name: string().default("no name").unique(),
-    tags: array(_enum(["hi", "there"])).nullable(),
     type: _enum(["admin", "user"]),
   },
   (fields) => ({
-    relations: { books: oneToMany(fields, () => Book).build() },
+    relations: {
+      books: oneToMany(fields, () => Book).build(),
+      tags: manyToMany(fields, () => Tag).build(),
+    },
   }),
 ) {}
 
@@ -156,30 +143,24 @@ const book = new Book({
   price: 23,
   description: "asdf",
   authorId: "asdf",
+});
+
+const book2 = new Book({
+  id: "waasdf",
+  price: 26,
+  description: "asdf",
+  authorId: "asdf",
   // author: {},
 });
 
-const user = new User({
-  type: "user",
-  id: "asdf",
-  name: "asdf",
-  tags: [],
-  books: [
-    book,
-    {
-      description: "wtf",
-      id: "asdf",
-      price: 2,
-    },
-  ],
-});
+console.log(book2);
 
-console.log(user);
-
-// const something = [5, 1, 2, 3];
-// something.sort();
-// console.log(something);
-
-// const author = book.relations.author
-// @ts-ignore
-// const lol = Reflect.construct(author.ref(), ["init"])
+// const user = new User({
+//  type: "user",
+//  id: "asdf",
+//  name: "asdf",
+//  books: [
+//    book,
+//    book2,
+//  ],
+// });
