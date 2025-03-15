@@ -197,7 +197,6 @@ type Table<
   >,
 > = {
   new(args: TableConstructorArgs<Fields, Relations>): TableInstance<TableName, Fields, Relations>;
-  readonly isTable: true;
 };
 
 export function Table<
@@ -272,12 +271,14 @@ const user = new User({
   id: "asdf",
   name: "asdf",
   tags: [],
-  books: [book, {
-    authorId: "asdf",
-    description: "wtf",
-    id: "asdf",
-    price: 2,
-  }],
+  books: [
+    book,
+    {
+      description: "wtf",
+      id: "asdf",
+      price: 2,
+    },
+  ],
 });
 
 console.log(user);
