@@ -1,6 +1,5 @@
 import { _enum, array, Column, string, uuid } from "./columns"
 import { manyToOne, oneToMany, Table } from "./table"
-import { generatePrismaSchema } from "./transformer"
 
 class Book extends Table(
 	"book",
