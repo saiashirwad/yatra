@@ -194,13 +194,10 @@ type MakeObject<
 							InstanceType<ReturnType<Relations[k]["ref"]>>["fields"]
 					  >
 			: Relations[k]["kind"] extends "many-to-one" | "one-to-many"
-				?
-						| InstanceType<ReturnType<Relations[k]["ref"]>>[]
-						| MakeObject<
-								InstanceType<
-									ReturnType<Relations[k]["ref"]>
-								>["fields"]
-						  >[]
+				? Array<
+						| InstanceType<ReturnType<Relations[k]["ref"]>>
+						| Record<string, any>
+					>
 				: never
 	},
 > = Clean<Nullable & NonNullable & Rels>
@@ -297,6 +294,12 @@ const user = new User({
 			id: "what",
 			price: 2,
 			authorId: "asdf",
+		},
+		{
+			authorId: "asdf",
+			description: "wtf",
+			id: "asdf",
+			price: 2,
 		},
 	],
 })
