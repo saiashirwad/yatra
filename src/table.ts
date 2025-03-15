@@ -216,13 +216,10 @@ export function Table<
 		public fields: Fields = fields
 		public relations: Relations = {} as Relations
 
-		constructor(args: TableConstructorArgs<Fields>) {
+		constructor(args: MakeObject<Fields>) {
 			if (callback) {
 				const result = callback(fields)
 				this.relations = result.relations
-			}
-			if (args === "init" && callback) {
-				return
 			}
 			if (typeof args === "object") {
 				for (const key in args) {
@@ -276,10 +273,8 @@ const book = new Book({
 	price: 2,
 })
 
-console.log(book.relations)
-
-//const author = book.relations.author
-//// @ts-ignore
-//const lol = Reflect.construct(author.ref(), ["init"])
-//// @ts-ignore
-//console.log(lol)
+const author = book.relations.author
+// @ts-ignore
+const lol = Reflect.construct(author.ref(), ["init"])
+// @ts-ignore
+console.log(lol)
