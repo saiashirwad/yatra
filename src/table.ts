@@ -265,6 +265,6 @@ const book = new Book({
 
 const author = book.relations.author
 // @ts-ignore
-const lol = Reflect.construct(author.ref(), {})
+const lol = Reflect.construct(author.ref(), ["init"])
 // @ts-ignore
 console.log(lol)
