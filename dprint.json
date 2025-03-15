@@ -1,5 +1,7 @@
 {
-  "typescript": {},
+  "typescript": {
+    "lineWidth": 80
+  },
   "json": {},
   "markdown": {},
   "excludes": [

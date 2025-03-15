@@ -1,4 +1,13 @@
-import { _enum, array, type Column, type GetColumnType, type IsNullable, number, string, uuid } from "./columns";
+import {
+  _enum,
+  array,
+  type Column,
+  type GetColumnType,
+  type IsNullable,
+  number,
+  string,
+  uuid,
+} from "./columns";
 import type { Clean, Constructor } from "./utils";
 
 export function member<
@@ -196,7 +205,9 @@ type Table<
     never
   >,
 > = {
-  new(args: TableConstructorArgs<Fields, Relations>): TableInstance<TableName, Fields, Relations>;
+  new(
+    args: TableConstructorArgs<Fields, Relations>,
+  ): TableInstance<TableName, Fields, Relations>;
 };
 
 export function Table<
@@ -227,7 +238,7 @@ export function Table<
       }
     }
   }
-  return TableClass as unknown as Table<TableName, Fields, Relations>;
+  return TableClass as Table<TableName, Fields, Relations>;
 }
 
 class Book extends Table(
