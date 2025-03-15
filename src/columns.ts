@@ -9,9 +9,13 @@ type Max<T extends number> = { readonly max: T }
 type Integer = { readonly integer: true }
 type Unique = { readonly unique: true }
 type PrimaryKey = { readonly primaryKey: true }
-type References<T extends string> = { readonly references: { table: T; column: string } }
+type References<T extends string> = {
+	readonly references: { table: T; column: string }
+}
 type AutoIncrement = { readonly autoIncrement: true }
-type Generated<T extends string> = { readonly generated: { expression: T } }
+type Generated<T extends string> = {
+	readonly generated: { expression: T }
+}
 type Comment<T extends string> = { readonly comment: T }
 type Precision<T extends number> = { readonly precision: T }
 type Scale<T extends number> = { readonly scale: T }
@@ -53,7 +57,16 @@ export type ColumnType =
 	| "decimal"
 	| "enum"
 
-export class Column<T extends ColumnType, DataType> {
+export type ColumnParams = {
+	T: ColumnType
+	DataType: any
+}
+
+export class Column<
+	Params extends ColumnParams,
+	T = Params["T"],
+	DataType = Params["DataType"],
+> {
 	readonly type: T
 
 	constructor(type: T) {
@@ -76,8 +89,14 @@ export class Column<T extends ColumnType, DataType> {
 		return extend<this, PrimaryKey>(this, "primaryKey", true)
 	}
 
-	references<T extends string>(table: T, column: string): this & References<T> {
-		return extend<this, References<T>>(this, "references", { table, column })
+	references<T extends string>(
+		table: T,
+		column: string,
+	): this & References<T> {
+		return extend<this, References<T>>(this, "references", {
+			table,
+			column,
+		})
 	}
 
 	autoIncrement(): this & AutoIncrement {
@@ -85,7 +104,9 @@ export class Column<T extends ColumnType, DataType> {
 	}
 
 	generated<T extends string>(expression: T): this & Generated<T> {
-		return extend<this, Generated<T>>(this, "generated", { expression })
+		return extend<this, Generated<T>>(this, "generated", {
+			expression,
+		})
 	}
 
 	comment<T extends string>(text: T): this & Comment<T> {
@@ -108,7 +129,11 @@ export class Column<T extends ColumnType, DataType> {
 		const config: Record<string, unknown> = { type: this.type }
 
 		for (const key in this) {
-			if (key !== "type" && !key.startsWith("_") && typeof (this as any)[key] !== "function") {
+			if (
+				key !== "type" &&
+				!key.startsWith("_") &&
+				typeof (this as any)[key] !== "function"
+			) {
 				config[key] = (this as any)[key]
 			}
 		}
@@ -117,9 +142,18 @@ export class Column<T extends ColumnType, DataType> {
 	}
 }
 
-export type StringFormat = "uuid" | "json" | "email" | "url" | "cuid" | "ip" | "datetime"
+export type StringFormat =
+	| "uuid"
+	| "json"
+	| "email"
+	| "url"
+	| "cuid"
+	| "ip"
+	| "datetime"
 
-export class StringColumn extends Column<"string", string> {
+export class StringColumn<
+	Params extends ColumnParams = { T: "string"; DataType: string },
+> extends Column<Params> {
 	constructor() {
 		super("string")
 	}
@@ -141,7 +175,10 @@ export class StringColumn extends Column<"string", string> {
 	}
 }
 
-export class NumberColumn extends Column<"number", number> {
+export class NumberColumn extends Column<{
+	T: "number"
+	DataType: number
+}> {
 	constructor() {
 		super("number")
 	}
@@ -167,7 +204,10 @@ export class NumberColumn extends Column<"number", number> {
 	}
 }
 
-export class DecimalColumn extends Column<"decimal", string | number> {
+export class DecimalColumn extends Column<{
+	T: "decimal"
+	DataType: string | number
+}> {
 	constructor() {
 		super("decimal")
 	}
@@ -181,43 +221,64 @@ export class DecimalColumn extends Column<"decimal", string | number> {
 	}
 }
 
-export class BooleanColumn extends Column<"boolean", boolean> {
+export class BooleanColumn extends Column<{
+	T: "boolean"
+	DataType: boolean
+}> {
 	constructor() {
 		super("boolean")
 	}
 }
 
-export class JsonColumn extends Column<"json", object | string> {
+export class JsonColumn extends Column<{
+	T: "json"
+	DataType: object | string
+}> {
 	constructor() {
 		super("json")
 	}
 }
 
-export class JsonbColumn extends Column<"jsonb", object | string> {
+export class JsonbColumn extends Column<{
+	T: "jsonb"
+	DataType: object | string
+}> {
 	constructor() {
 		super("jsonb")
 	}
 }
 
-export class UuidColumn extends Column<"uuid", string> {
+export class UuidColumn extends Column<{
+	T: "uuid"
+	DataType: string
+}> {
 	constructor() {
 		super("uuid")
 	}
 }
 
-export class TextColumn extends Column<"text", string> {
+export class TextColumn extends Column<{
+	T: "text"
+	DataType: string
+}> {
 	constructor() {
 		super("text")
 	}
 }
 
-export class BigIntColumn extends Column<"bigint", bigint | number> {
+export class BigIntColumn extends Column<{
+	T: "bigint"
+	DataType: bigint | number
+}> {
 	constructor() {
 		super("bigint")
 	}
 }
 
-export class TimestampColumn extends Column<"timestamp", Date | string | number> {
+export class TimestampColumn extends Column<{
+	T: "timestamp"
+	DataType: Date | string | number
+}> {
 	constructor(private withTimezone: boolean = true) {
 		super("timestamp")
 	}
@@ -236,7 +297,10 @@ export class TimestampColumn extends Column<"timestamp", Date | string | number>
 	}
 }
 
-export class TimeColumn extends Column<"time", string | Date> {
+export class TimeColumn extends Column<{
+	T: "time"
+	DataType: string | Date
+}> {
 	constructor(private withTz: boolean = false) {
 		super("time")
 	}
@@ -255,16 +319,21 @@ export class TimeColumn extends Column<"time", string | Date> {
 	}
 }
 
-export class BinaryColumn extends Column<"binary", Uint8Array | Buffer | string> {
+export class BinaryColumn extends Column<{
+	T: "binary"
+	DataType: Uint8Array | Buffer | string
+}> {
 	constructor() {
 		super("binary")
 	}
 }
 
-export class ArrayColumn<ItemType extends Column<any, any>> extends Column<
-	"array",
-	Array<GetDataType<ItemType>>
-> {
+export class ArrayColumn<
+	ItemType extends Column<any, any>,
+> extends Column<{
+	T: "array"
+	DataType: Array<GetDataType<ItemType>>
+}> {
 	private itemType: ItemType
 
 	constructor(itemType: ItemType) {
@@ -279,7 +348,10 @@ export class ArrayColumn<ItemType extends Column<any, any>> extends Column<
 	}
 }
 
-export class EnumColumn<T extends string[]> extends Column<"enum", T[number]> {
+export class EnumColumn<T extends string[]> extends Column<{
+	T: "enum"
+	DataType: T[number]
+}> {
 	constructor(private values: T) {
 		super("enum")
 	}
@@ -293,7 +365,10 @@ export class EnumColumn<T extends string[]> extends Column<"enum", T[number]> {
 
 export type DateDataType = Date | number
 
-export class DateColumn extends Column<"date", DateDataType> {
+export class DateColumn extends Column<{
+	T: "date"
+	DataType: DateDataType
+}> {
 	constructor() {
 		super("date")
 	}
@@ -301,7 +376,12 @@ export class DateColumn extends Column<"date", DateDataType> {
 
 export type LiteralFieldType = string | number | boolean
 
-export class LiteralColumn<T extends LiteralFieldType> extends Column<"literal", T> {
+export class LiteralColumn<
+	T extends LiteralFieldType,
+> extends Column<{
+	T: "literal"
+	DataType: T
+}> {
 	readonly literalValue: T
 
 	constructor(value: T) {
@@ -322,7 +402,9 @@ export function date(): DateColumn {
 	return new DateColumn()
 }
 
-export function literal<T extends LiteralFieldType>(value: T): LiteralColumn<T> {
+export function literal<T extends LiteralFieldType>(
+	value: T,
+): LiteralColumn<T> {
 	return new LiteralColumn(value)
 }
 
@@ -350,7 +432,9 @@ export function bigint(): BigIntColumn {
 	return new BigIntColumn()
 }
 
-export function timestamp(withTimezone: boolean = true): TimestampColumn {
+export function timestamp(
+	withTimezone: boolean = true,
+): TimestampColumn {
 	return new TimestampColumn(withTimezone)
 }
 
@@ -366,11 +450,15 @@ export function decimal(): DecimalColumn {
 	return new DecimalColumn()
 }
 
-export function array<T extends Column<any, any>>(itemType: T): ArrayColumn<T> {
+export function array<T extends Column<any, any>>(
+	itemType: T,
+): ArrayColumn<T> {
 	return new ArrayColumn(itemType)
 }
 
-export function _enum<T extends string[]>(values: [...T]): EnumColumn<T> {
+export function _enum<T extends string[]>(
+	values: [...T],
+): EnumColumn<T> {
 	return new EnumColumn(values)
 }
 
@@ -379,15 +467,62 @@ export type IsUnique<T> = T extends Unique ? true : false
 export type GetReferences<T> = T extends References<infer Table>
 	? { table: Table; column: string }
 	: undefined
-export type IsAutoIncrement<T> = T extends AutoIncrement ? true : false
-export type GetGenerated<T> = T extends Generated<infer Expr> ? Expr : undefined
-export type GetComment<T> = T extends Comment<infer Text> ? Text : undefined
-export type GetPrecision<T> = T extends Precision<infer P> ? P : undefined
+export type IsAutoIncrement<T> = T extends AutoIncrement
+	? true
+	: false
+export type GetGenerated<T> = T extends Generated<infer Expr>
+	? Expr
+	: undefined
+export type GetComment<T> = T extends Comment<infer Text>
+	? Text
+	: undefined
+export type GetPrecision<T> = T extends Precision<infer P>
+	? P
+	: undefined
 export type GetScale<T> = T extends Scale<infer S> ? S : undefined
 
-export type GetColumnType<T> = T extends Column<infer Type, any> ? Type : never
-export type GetDataType<T> = T extends Column<any, infer DataType> ? DataType : never
+export type GetDataType<T> = T extends Column<infer Params>
+	? Params extends ColumnParams
+		? Params["DataType"]
+		: never
+	: never
 export type IsNullable<T> = T extends Nullable ? true : false
 export type GetDefault<T> = T extends Default<infer V> ? V : undefined
-export type GetMinLength<T> = T extends MinLength<infer V> ? V : undefined
-export type GetMaxLength<T> = T extends MaxLength<infer V> ? V : undefined
+export type GetMinLength<T> = T extends MinLength<infer V>
+	? V
+	: undefined
+export type GetMaxLength<T> = T extends MaxLength<infer V>
+	? V
+	: undefined
+
+export type GetColumnType<T> = T extends StringColumn
+	? string
+	: T extends NumberColumn
+		? number
+		: T extends BooleanColumn
+			? boolean
+			: T extends DateColumn
+				? Date
+				: T extends LiteralColumn<infer V>
+					? V
+					: T extends JsonColumn | JsonbColumn
+						? object | string
+						: T extends UuidColumn
+							? string
+							: T extends ArrayColumn<infer ItemType>
+								? Array<GetDataType<ItemType>>
+								: T extends TextColumn
+									? string
+									: T extends BigIntColumn
+										? bigint | number
+										: T extends TimestampColumn
+											? Date | string | number
+											: T extends TimeColumn
+												? string | Date
+												: T extends BinaryColumn
+													? Uint8Array | Buffer | string
+													: T extends DecimalColumn
+														? string | number
+														: T extends EnumColumn<infer Values>
+															? Values[number]
+															: never
