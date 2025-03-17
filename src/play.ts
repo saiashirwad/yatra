@@ -103,8 +103,8 @@ function* orderBy<
   Schema extends TableSchema,
   T extends keyof Schema,
   const O extends Record<string, any>
->(context: QueryContext<Schema, T>, orderBy: O): Generator<{ orderBy: O }, any, unknown> {
-  yield set({ orderBy });
+>(context: QueryContext<Schema, T>, orderByVal: O): Generator<{ orderBy: O }, any, unknown> {
+  yield set({ orderBy: orderByVal });
   return context;
 }
 
@@ -112,8 +112,8 @@ function* limit<
   Schema extends TableSchema,
   T extends keyof Schema,
   const L extends number
->(context: QueryContext<Schema, T>, limit: L): Generator<{ limit: L }, any, unknown> {
-  yield set({ limit });
+>(context: QueryContext<Schema, T>, limitVal: L): Generator<{ limit: L }, any, unknown> {
+  yield set({ limit: limitVal });
   return context;
 }
 
@@ -146,11 +146,59 @@ function query<T extends (...args: any[]) => any>(t: T): CleanResult<T> {
   return {} as any;
 }
 
+function createDb<Schema extends TableSchema>(schema: Schema) {
+  return {
+    selectFrom<T extends keyof Schema>(table: T) {
+      function* _selectFrom() {
+        const context: QueryContext<Schema, T> = {
+          schema,
+          table,
+          query: { from: table }
+        };
+        currentQueryContext = context;
+        yield set({ from: table });
+        return context;
+      }
+
+      return _selectFrom();
+    },
+
+    select<
+      T extends keyof Schema,
+      const S extends readonly (keyof Schema[T]["columns"])[]
+    >(context: QueryContext<Schema, T>, fields: S): Generator<{ select: S }, any, unknown> {
+      return select(context, fields);
+    },
+
+    where<
+      T extends keyof Schema,
+      const C extends Record<string, any>
+    >(context: QueryContext<Schema, T>, condition: C) {
+      return where(context, condition);
+    },
+
+    orderBy<
+      T extends keyof Schema,
+      const O extends Record<string, any>
+    >(context: QueryContext<Schema, T>, orderByVal: O) {
+      return orderBy(context, orderByVal);
+    },
+
+    limit<
+      T extends keyof Schema,
+      const L extends number
+    >(context: QueryContext<Schema, T>, limitVal: L) {
+      return limit(context, limitVal);
+    }
+  };
+}
+const db = createDb<TestSchema>({} as TestSchema);
+
 const example = query(function* () {
-  const ctx = yield* selectFrom<TestSchema, "posts">("posts");
-  yield* select(ctx, ["id", "title", "content"] as const);
-  yield* where(ctx, { published: true } as const);
-  yield* orderBy(ctx, { createdAt: "desc" } as const);
+  const ctx = yield* db.selectFrom("posts");
+  yield* select(ctx, ["id", "title", "content"]);
+  yield* where(ctx, { published: true });
+  yield* orderBy(ctx, { createdAt: "desc" });
 });
 
 typeof example;
