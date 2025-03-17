@@ -15,14 +15,6 @@ type CleanResult<T extends (...args: any[]) => any> = Clean<
   UnionToIntersection<GeneratorResult<ReturnType<T>>>
 >;
 
-type Result = CleanResult<typeof updates>;
-
-function* updates() {
-  yield set({ hi: "there" });
-  yield set({ name: "sai" });
-  yield set({ age: 5 });
-}
-
 type TableSchema = Record<string, {
   columns: Record<string, ColumnType>;
 }>;
@@ -32,32 +24,7 @@ type ColumnType = {
   nullable?: boolean;
 };
 
-type SelectQuery<
-  Schema extends TableSchema,
-  T extends keyof Schema,
-  Selected extends keyof Schema[T]["columns"] = never,
-  Conditions = never,
-  Joins = never,
-  OrderBys = never,
-  LimitValue = never,
-> = {
-  select?: Selected[];
-  from: T;
-  where?: Conditions;
-  joins?: Joins;
-  orderBy?: OrderBys;
-  limit?: LimitValue;
-};
 
-type SelectedResult<
-  Schema extends TableSchema,
-  T extends keyof Schema,
-  Selected extends keyof Schema[T]["columns"],
-> = {
-    [K in Selected]: Schema[T]["columns"][K]["nullable"] extends true
-    ? Schema[T]["columns"][K]["type"] | null
-    : Schema[T]["columns"][K]["type"];
-  };
 
 let currentQueryContext: any = null;
 
@@ -66,19 +33,6 @@ type QueryContext<Schema extends TableSchema, T extends keyof Schema> = {
   table: T;
   query: any;
 };
-
-function* selectFrom<Schema extends TableSchema, T extends keyof Schema>(
-  table: T
-) {
-  const context: QueryContext<Schema, T> = {
-    schema: {} as Schema,
-    table,
-    query: { from: table }
-  };
-  currentQueryContext = context;
-  yield set({ from: table });
-  return context;
-}
 
 function* select<
   Schema extends TableSchema,
@@ -116,11 +70,6 @@ function* limit<
   yield set({ limit: limitVal });
   return context;
 }
-
-type CurrentSchema = typeof currentQueryContext extends {
-  schema: infer S,
-  table: infer T
-} ? S[T & keyof S] : never;
 
 type TestSchema = {
   users: {
@@ -162,34 +111,6 @@ function createDb<Schema extends TableSchema>(schema: Schema) {
 
       return _selectFrom();
     },
-
-    select<
-      T extends keyof Schema,
-      const S extends readonly (keyof Schema[T]["columns"])[]
-    >(context: QueryContext<Schema, T>, fields: S): Generator<{ select: S }, any, unknown> {
-      return select(context, fields);
-    },
-
-    where<
-      T extends keyof Schema,
-      const C extends Record<string, any>
-    >(context: QueryContext<Schema, T>, condition: C) {
-      return where(context, condition);
-    },
-
-    orderBy<
-      T extends keyof Schema,
-      const O extends Record<string, any>
-    >(context: QueryContext<Schema, T>, orderByVal: O) {
-      return orderBy(context, orderByVal);
-    },
-
-    limit<
-      T extends keyof Schema,
-      const L extends number
-    >(context: QueryContext<Schema, T>, limitVal: L) {
-      return limit(context, limitVal);
-    }
   };
 }
 const db = createDb<TestSchema>({} as TestSchema);
