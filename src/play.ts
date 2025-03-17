@@ -30,7 +30,7 @@ type QueryContext<Schema extends TableSchema, T extends keyof Schema> = {
 function* select<
   Schema extends TableSchema,
   T extends keyof Schema,
-  const S extends readonly (keyof Schema[T]["columns"])[]
+  const S extends readonly (keyof Schema[T]["columns"])[],
 >(context: QueryContext<Schema, T>, fields: S): Generator<{ select: S }> {
   yield set({ select: fields });
   currentQueryContext = { ...context, fields };
@@ -40,7 +40,7 @@ function* select<
 function* where<
   Schema extends TableSchema,
   T extends keyof Schema,
-  const C extends Record<string, any>
+  const C extends Record<string, any>,
 >(context: QueryContext<Schema, T>, condition: C): Generator<{ where: C }> {
   yield set({ where: condition });
   return context;
@@ -49,7 +49,7 @@ function* where<
 function* orderBy<
   Schema extends TableSchema,
   T extends keyof Schema,
-  const O extends Record<string, any>
+  const O extends Record<string, any>,
 >(context: QueryContext<Schema, T>, orderByVal: O): Generator<{ orderBy: O }> {
   yield set({ orderBy: orderByVal });
   return context;
@@ -58,7 +58,7 @@ function* orderBy<
 function* limit<
   Schema extends TableSchema,
   T extends keyof Schema,
-  const L extends number
+  const L extends number,
 >(context: QueryContext<Schema, T>, limitVal: L): Generator<{ limit: L }> {
   yield set({ limit: limitVal });
   return context;
@@ -95,7 +95,7 @@ function createDb<Schema extends TableSchema>(schema: Schema) {
         const context: QueryContext<Schema, T> = {
           schema,
           table,
-          query: { from: table }
+          query: { from: table },
         };
         currentQueryContext = context;
         yield set({ from: table });
@@ -108,9 +108,9 @@ function createDb<Schema extends TableSchema>(schema: Schema) {
 }
 const db = createDb<TestSchema>({} as TestSchema);
 
-const example = query(function* () {
+const example = query(function*() {
   const ctx = yield* db.selectFrom("posts");
-  yield* select(ctx, ['id', 'content', 'title']);
+  yield* select(ctx, ["id", "content", "title"]);
   yield* where(ctx, { published: true });
   yield* orderBy(ctx, { createdAt: "desc" });
 });
