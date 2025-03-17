@@ -620,19 +620,26 @@ export function _enum<T extends string[]>(
 
 export type IsPrimaryKey<T> = T extends PrimaryKey ? true
   : false;
+
 export type IsUnique<T> = T extends Unique ? true
   : false;
+
 export type GetReferences<T> = T extends References<infer Table>
   ? { table: Table; column: string }
   : undefined;
+
 export type IsAutoIncrement<T> = T extends AutoIncrement ? true
   : false;
+
 export type GetGenerated<T> = T extends Generated<infer Expr> ? Expr
   : undefined;
+
 export type GetComment<T> = T extends Comment<infer Text> ? Text
   : undefined;
+
 export type GetPrecision<T> = T extends Precision<infer P> ? P
   : undefined;
+
 export type GetScale<T> = T extends Scale<infer S> ? S
   : undefined;
 

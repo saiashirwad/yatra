@@ -137,8 +137,6 @@ class User extends Table(
   }),
 ) {}
 
-const user = new User({});
-
 const book = new Book({
   id: "wa",
   price: 23,
@@ -154,12 +152,8 @@ const book2 = new Book({
   // author: {},
 });
 
-// const user = new User({
-//  type: "user",
-//  id: "asdf",
-//  name: "asdf",
-//  books: [
-//    book,
-//    book2,
-//  ],
-// });
+const user = new User({
+  type: "user",
+  id: "asdf",
+  name: "asdf",
+});
