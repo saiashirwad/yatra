@@ -144,7 +144,6 @@ const book = new Book({
   authorId: "asdf",
 });
 
-
 const user = new User({
   type: "user",
   id: "asdf",
