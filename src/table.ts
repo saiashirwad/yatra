@@ -19,16 +19,16 @@ import type { Clean } from "./utils";
 type NullableFields<
   Fields = FieldsRecord,
 > = {
-  -readonly [
+    -readonly [
     k in keyof Fields as IsNullable<Fields[k]> extends true ? k
-      : never
-  ]?: GetColumnType<Fields[k]>;
-};
+    : never
+    ]?: GetColumnType<Fields[k]>;
+  };
 
 type NonNullableFields<Fields = FieldsRecord> = {
   -readonly [
-    k in keyof Fields as IsNullable<Fields[k]> extends false ? k
-      : never
+  k in keyof Fields as IsNullable<Fields[k]> extends false ? k
+  : never
   ]: GetColumnType<Fields[k]>;
 };
 
@@ -39,15 +39,15 @@ type MakeObject<
   NonNullable = NonNullableFields<Fields>,
   Rels = Relations extends never ? never : {
     [k in keyof Relations]?: Relations[k]["kind"] extends
-      "one-to-one" | "many-to-one" ?
-        | InstanceType<ReturnType<Relations[k]["ref"]>>
-        | MakeObject<
-          InstanceType<ReturnType<Relations[k]["ref"]>>["fields"]
-        >
-      : Relations[k]["kind"] extends "many-to-many" | "one-to-many" ? Array<
-          InstanceType<ReturnType<Relations[k]["ref"]>>
-        >
-      : never;
+    "one-to-one" | "many-to-one" ?
+    | InstanceType<ReturnType<Relations[k]["ref"]>>
+    | MakeObject<
+      InstanceType<ReturnType<Relations[k]["ref"]>>["fields"]
+    >
+    : Relations[k]["kind"] extends "many-to-many" | "one-to-many" ? Array<
+      InstanceType<ReturnType<Relations[k]["ref"]>>
+    >
+    : never;
   },
 > = Clean<Nullable & NonNullable & Rels>;
 
@@ -117,11 +117,11 @@ class Book extends Table(
         .references("id").build(),
     },
   }),
-) {}
+) { }
 
 class Tag extends Table("tag", {
   id: uuid().primaryKey(),
-}) {}
+}) { }
 
 class User extends Table(
   "user",
@@ -135,7 +135,7 @@ class User extends Table(
       books: oneToMany(fields, () => Book).build(),
     },
   }),
-) {}
+) { }
 
 const book = new Book({
   id: "wa",
@@ -144,16 +144,10 @@ const book = new Book({
   authorId: "asdf",
 });
 
-const book2 = new Book({
-  id: "waasdf",
-  price: 26,
-  description: "asdf",
-  authorId: "asdf",
-  // author: {},
-});
 
 const user = new User({
   type: "user",
   id: "asdf",
   name: "asdf",
+  books: [book],
 });
