@@ -9,7 +9,7 @@ type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
 ) => void ? I
   : never;
 
-type GeneratorResult<R> = R extends Generator<infer V, any, any> ? V : never;
+type GeneratorResult<R> = R extends Generator<infer V> ? V : never;
 
 type CleanResult<T extends (...args: any[]) => any> = Clean<
   UnionToIntersection<GeneratorResult<ReturnType<T>>>
@@ -31,7 +31,7 @@ function* select<
   Schema extends TableSchema,
   T extends keyof Schema,
   const S extends readonly (keyof Schema[T]["columns"])[]
->(context: QueryContext<Schema, T>, fields: S): Generator<{ select: S }, any, unknown> {
+>(context: QueryContext<Schema, T>, fields: S): Generator<{ select: S }> {
   yield set({ select: fields });
   currentQueryContext = { ...context, fields };
   return currentQueryContext;
@@ -41,7 +41,7 @@ function* where<
   Schema extends TableSchema,
   T extends keyof Schema,
   const C extends Record<string, any>
->(context: QueryContext<Schema, T>, condition: C): Generator<{ where: C }, any, unknown> {
+>(context: QueryContext<Schema, T>, condition: C): Generator<{ where: C }> {
   yield set({ where: condition });
   return context;
 }
@@ -50,7 +50,7 @@ function* orderBy<
   Schema extends TableSchema,
   T extends keyof Schema,
   const O extends Record<string, any>
->(context: QueryContext<Schema, T>, orderByVal: O): Generator<{ orderBy: O }, any, unknown> {
+>(context: QueryContext<Schema, T>, orderByVal: O): Generator<{ orderBy: O }> {
   yield set({ orderBy: orderByVal });
   return context;
 }
@@ -59,7 +59,7 @@ function* limit<
   Schema extends TableSchema,
   T extends keyof Schema,
   const L extends number
->(context: QueryContext<Schema, T>, limitVal: L): Generator<{ limit: L }, any, unknown> {
+>(context: QueryContext<Schema, T>, limitVal: L): Generator<{ limit: L }> {
   yield set({ limit: limitVal });
   return context;
 }
