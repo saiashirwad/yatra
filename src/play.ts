@@ -83,8 +83,8 @@ function* selectFrom<Schema extends TableSchema, T extends keyof Schema>(
 function* select<
   Schema extends TableSchema,
   T extends keyof Schema,
-  S extends readonly (keyof Schema[T]["columns"])[]
->(context: QueryContext<Schema, T>, fields: S) {
+  const S extends readonly (keyof Schema[T]["columns"])[]
+>(context: QueryContext<Schema, T>, fields: S): Generator<{ select: S }, any, unknown> {
   yield set({ select: fields });
   currentQueryContext = { ...context, fields };
   return currentQueryContext;
@@ -93,8 +93,8 @@ function* select<
 function* where<
   Schema extends TableSchema,
   T extends keyof Schema,
-  C extends Record<string, any>
->(context: QueryContext<Schema, T>, condition: C) {
+  const C extends Record<string, any>
+>(context: QueryContext<Schema, T>, condition: C): Generator<{ where: C }, any, unknown> {
   yield set({ where: condition });
   return context;
 }
@@ -102,8 +102,8 @@ function* where<
 function* orderBy<
   Schema extends TableSchema,
   T extends keyof Schema,
-  O extends Record<string, any>
->(context: QueryContext<Schema, T>, orderBy: O) {
+  const O extends Record<string, any>
+>(context: QueryContext<Schema, T>, orderBy: O): Generator<{ orderBy: O }, any, unknown> {
   yield set({ orderBy });
   return context;
 }
@@ -111,8 +111,8 @@ function* orderBy<
 function* limit<
   Schema extends TableSchema,
   T extends keyof Schema,
-  L extends number
->(context: QueryContext<Schema, T>, limit: L) {
+  const L extends number
+>(context: QueryContext<Schema, T>, limit: L): Generator<{ limit: L }, any, unknown> {
   yield set({ limit });
   return context;
 }
@@ -148,9 +148,9 @@ function query<T extends (...args: any[]) => any>(t: T): CleanResult<T> {
 
 const example = query(function* () {
   const ctx = yield* selectFrom<TestSchema, "posts">("posts");
-  yield* select(ctx, ["id", "title", "content"]);
-  yield* where(ctx, { published: true });
-  yield* orderBy(ctx, { createdAt: "desc" });
+  yield* select(ctx, ["id", "title", "content"] as const);
+  yield* where(ctx, { published: true } as const);
+  yield* orderBy(ctx, { createdAt: "desc" } as const);
 });
 
 typeof example;
