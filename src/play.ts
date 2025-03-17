@@ -25,7 +25,6 @@ type ColumnType = {
 };
 
 
-
 let currentQueryContext: any = null;
 
 type QueryContext<Schema extends TableSchema, T extends keyof Schema> = {
