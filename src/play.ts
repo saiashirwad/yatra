@@ -16,7 +16,6 @@ type CleanResult<T extends (...args: any[]) => any> = Clean<
 >;
 
 type Result = CleanResult<typeof updates>;
-//   ^?
 
 function* updates() {
   yield set({ hi: "there" });
@@ -24,9 +23,6 @@ function* updates() {
   yield set({ age: 5 });
 }
 
-// ======= Query Builder Types =======
-
-// Table definitions with typed columns
 type TableSchema = Record<string, {
   columns: Record<string, ColumnType>;
 }>;
@@ -36,7 +32,6 @@ type ColumnType = {
   nullable?: boolean;
 };
 
-// Query builder types
 type SelectQuery<
   Schema extends TableSchema,
   T extends keyof Schema,
@@ -54,7 +49,6 @@ type SelectQuery<
   limit?: LimitValue;
 };
 
-// Type for selected result
 type SelectedResult<
   Schema extends TableSchema,
   T extends keyof Schema,
@@ -65,7 +59,6 @@ type SelectedResult<
     : Schema[T]["columns"][K]["type"];
   };
 
-// Type for set operations
 function selectFrom<
   Schema extends TableSchema,
   T extends keyof Schema,
@@ -75,7 +68,9 @@ function selectFrom<
       yield set({ from: table });
 
       return {
-        *select<const S extends readonly (keyof Schema[T]["columns"])[]>(...fields: S) {
+        *select<const S extends readonly (keyof Schema[T]["columns"])[]>(
+          ...fields: S
+        ) {
           yield set({ select: fields });
 
           return {
@@ -102,7 +97,7 @@ function selectFrom<
   };
 }
 
-type MySchema = {
+type TestSchema = {
   users: {
     columns: {
       id: { type: "number" };
@@ -127,12 +122,11 @@ function buildQuery<T extends (...args: any[]) => any>(t: T): CleanResult<T> {
 }
 
 const example = buildQuery(function* () {
-  const baseQuery = yield* selectFrom<MySchema, "posts">("posts");
-  const withFields = yield* baseQuery.select("id", "title", "userId");
+  const baseQuery = yield* selectFrom<TestSchema, "posts">("posts");
+  const withFields = yield* baseQuery.select("id", "title", "content");
   yield* withFields.where({ published: true });
   yield* baseQuery.orderBy({ createdAt: "desc" });
 });
 
 typeof example;
 //     ^?
-
