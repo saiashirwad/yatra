@@ -61,41 +61,60 @@ type SelectedResult<
 
 let currentQueryContext: any = null;
 
+type QueryContext<Schema extends TableSchema, T extends keyof Schema> = {
+  schema: Schema;
+  table: T;
+  query: any;
+};
+
 function* selectFrom<Schema extends TableSchema, T extends keyof Schema>(
   table: T
 ) {
-  const context = { schema: {} as Schema, table, query: { from: table } };
+  const context: QueryContext<Schema, T> = {
+    schema: {} as Schema,
+    table,
+    query: { from: table }
+  };
   currentQueryContext = context;
   yield set({ from: table });
   return context;
 }
 
 function* select<
-  S extends readonly (keyof CurrentSchema["columns"])[]
->(...fields: S) {
-  if (!currentQueryContext) throw new Error("select must be called after selectFrom");
-  const context = currentQueryContext;
+  Schema extends TableSchema,
+  T extends keyof Schema,
+  S extends readonly (keyof Schema[T]["columns"])[]
+>(context: QueryContext<Schema, T>, fields: S) {
   yield set({ select: fields });
   currentQueryContext = { ...context, fields };
   return currentQueryContext;
 }
 
-function* where<const C extends Record<string, any>>(condition: C) {
-  if (!currentQueryContext) throw new Error("where must be called after selectFrom or select");
+function* where<
+  Schema extends TableSchema,
+  T extends keyof Schema,
+  C extends Record<string, any>
+>(context: QueryContext<Schema, T>, condition: C) {
   yield set({ where: condition });
-  return currentQueryContext;
+  return context;
 }
 
-function* orderBy<const O extends Record<string, any>>(orderBy: O) {
-  if (!currentQueryContext) throw new Error("orderBy must be called after selectFrom or select");
+function* orderBy<
+  Schema extends TableSchema,
+  T extends keyof Schema,
+  O extends Record<string, any>
+>(context: QueryContext<Schema, T>, orderBy: O) {
   yield set({ orderBy });
-  return currentQueryContext;
+  return context;
 }
 
-function* limit<const L extends number>(limit: L) {
-  if (!currentQueryContext) throw new Error("limit must be called after selectFrom or select");
+function* limit<
+  Schema extends TableSchema,
+  T extends keyof Schema,
+  L extends number
+>(context: QueryContext<Schema, T>, limit: L) {
   yield set({ limit });
-  return currentQueryContext;
+  return context;
 }
 
 type CurrentSchema = typeof currentQueryContext extends {
@@ -128,10 +147,10 @@ function query<T extends (...args: any[]) => any>(t: T): CleanResult<T> {
 }
 
 const example = query(function* () {
-  yield* selectFrom<TestSchema, "posts">("posts");
-  yield* select("id", "title", "content");
-  yield* where({ published: true });
-  yield* orderBy({ createdAt: "desc" });
+  const ctx = yield* selectFrom<TestSchema, "posts">("posts");
+  yield* select(ctx, ["id", "title", "content"]);
+  yield* where(ctx, { published: true });
+  yield* orderBy(ctx, { createdAt: "desc" });
 });
 
 typeof example;
