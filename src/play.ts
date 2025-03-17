@@ -16,14 +16,8 @@ type CleanResult<T extends (...args: any[]) => any> = Clean<
 >;
 
 type TableSchema = Record<string, {
-  columns: Record<string, ColumnType>;
+  columns: Record<string, any>;
 }>;
-
-type ColumnType = {
-  type: "string" | "number" | "boolean" | "date";
-  nullable?: boolean;
-};
-
 
 let currentQueryContext: any = null;
 
@@ -73,19 +67,19 @@ function* limit<
 type TestSchema = {
   users: {
     columns: {
-      id: { type: "number" };
-      name: { type: "string" };
-      email: { type: "string" };
-      createdAt: { type: "date" };
+      id: number;
+      name: string;
+      email: string;
+      createdAt: Date;
     };
   };
   posts: {
     columns: {
-      id: { type: "number" };
-      title: { type: "string" };
-      content: { type: "string" };
-      userId: { type: "number" };
-      published: { type: "boolean" };
+      id: number;
+      title: string;
+      content: string;
+      userId: number;
+      published: boolean;
     };
   };
 };
@@ -116,7 +110,7 @@ const db = createDb<TestSchema>({} as TestSchema);
 
 const example = query(function* () {
   const ctx = yield* db.selectFrom("posts");
-  yield* select(ctx, ["id", "title", "content"]);
+  yield* select(ctx, ['id', 'content', 'title']);
   yield* where(ctx, { published: true });
   yield* orderBy(ctx, { createdAt: "desc" });
 });
