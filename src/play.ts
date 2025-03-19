@@ -117,3 +117,10 @@ const example = query(function*() {
 
 typeof example;
 //     ^?
+//
+
+const result = example.select;
+
+function add(a: number, b: number) {
+  return a + b;
+}

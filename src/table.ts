@@ -1,13 +1,12 @@
 import {
   _enum,
-  array,
   type GetColumnType,
   type IsNullable,
   number,
   string,
   uuid,
 } from "./columns";
-import { manyToMany, oneToMany, oneToOne } from "./relations";
+import { oneToMany, oneToOne } from "./relations";
 import type {
   DefaultRelations,
   FieldsRecord,
