@@ -84,11 +84,10 @@ function scope<const S extends ScopeSchema>(
 const mySchema = scope({
   user: {
     id: "string",
-    tags: "book[]",
+    tags: "tag[]",
   },
   book: {
     id: "string",
-    author: "user",
     tags: "tag[]",
   },
   tag: {
