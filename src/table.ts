@@ -19,14 +19,16 @@ type NullableFields<
   Fields = FieldsRecord,
 > = {
   -readonly [
-    k in keyof Fields as IsNullable<Fields[k]> extends true ? k
+    k in keyof Fields as IsNullable<Fields[k]> extends true
+      ? k
       : never
   ]?: GetColumnType<Fields[k]>;
 };
 
 type NonNullableFields<Fields = FieldsRecord> = {
   -readonly [
-    k in keyof Fields as IsNullable<Fields[k]> extends false ? k
+    k in keyof Fields as IsNullable<Fields[k]> extends false
+      ? k
       : never
   ]: GetColumnType<Fields[k]>;
 };
@@ -41,9 +43,12 @@ type MakeObject<
       "one-to-one" | "many-to-one" ?
         | InstanceType<ReturnType<Relations[k]["ref"]>>
         | MakeObject<
-          InstanceType<ReturnType<Relations[k]["ref"]>>["fields"]
+          InstanceType<
+            ReturnType<Relations[k]["ref"]>
+          >["fields"]
         >
-      : Relations[k]["kind"] extends "many-to-many" | "one-to-many" ? Array<
+      : Relations[k]["kind"] extends
+        "many-to-many" | "one-to-many" ? Array<
           InstanceType<ReturnType<Relations[k]["ref"]>>
         >
       : never;
@@ -60,7 +65,11 @@ type TableInstance<
   Fields extends FieldsRecord,
   Relations extends RelationsRecord,
 > =
-  & { name: TableName; fields: Fields; relations: Relations }
+  & {
+    name: TableName;
+    fields: Fields;
+    relations: Relations;
+  }
   & MakeObject<Fields>;
 
 type Table<
@@ -76,7 +85,8 @@ type Table<
 export function Table<
   const TableName extends string,
   const Fields extends FieldsRecord,
-  const Relations extends RelationsRecord = DefaultRelations,
+  const Relations extends RelationsRecord =
+    DefaultRelations,
 >(
   tableName: TableName,
   fields: Fields,
