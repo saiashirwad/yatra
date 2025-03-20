@@ -6,7 +6,8 @@ function set<const R>(r: R) {
 
 type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
   k: infer I,
-) => void ? I
+) => void
+  ? I
   : never;
 
 type GeneratorResult<R> = R extends Generator<infer V> ? V : never;
@@ -15,9 +16,12 @@ type CleanResult<T extends (...args: any[]) => any> = Clean<
   UnionToIntersection<GeneratorResult<ReturnType<T>>>
 >;
 
-type TableSchema = Record<string, {
-  columns: Record<string, any>;
-}>;
+type TableSchema = Record<
+  string,
+  {
+    columns: Record<string, any>;
+  }
+>;
 
 let currentQueryContext: any = null;
 
@@ -108,7 +112,7 @@ function createDb<Schema extends TableSchema>(schema: Schema) {
 }
 const db = createDb<TestSchema>({} as TestSchema);
 
-const example = query(function*() {
+const example = query(function* () {
   const ctx = yield* db.selectFrom("posts");
   yield* select(ctx, ["id", "content", "title"]);
   yield* where(ctx, { published: true });
@@ -118,8 +122,6 @@ const example = query(function*() {
 typeof example;
 //     ^?
 //
-
-const result = example.select;
 
 function add(a: number, b: number) {
   return a + b;
