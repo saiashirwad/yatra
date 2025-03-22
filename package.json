@@ -12,5 +12,8 @@
   "scripts": {
     "typecheck": "bun tsc --noEmit --incremental",
     "typecheck-watch": "bun tsc --noEmit --incremental --watch"
+  },
+  "dependencies": {
+    "arktype": "^2.1.10"
   }
 }

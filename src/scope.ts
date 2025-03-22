@@ -92,7 +92,7 @@ type ResolveRelationFields<E, S extends DbScopeSchema> = {
   [K in keyof E as E[K] extends string
     ? ParseFieldDefinition<E[K], S>["modifiers"] extends {
         relation: {
-          foreignKeyField: infer ForeignKeyField;
+          foreignKeyField: infer ForeignKeyField extends string; // Add constraint here
         };
       }
       ? ForeignKeyField
@@ -149,9 +149,9 @@ type ValidateModifiers<
   Type extends string,
 > = Mods extends ""
   ? ""
-  : Mods extends `${infer Mod}.${infer Rest}`
+  : Mods extends `${infer Mod extends string}.${infer Rest extends string}` // Add constraints here
     ? `.${ValidateModifier<S, Mod, Type>}${ValidateModifiers<S, Rest, Type>}`
-    : `.${ValidateModifier<S, Mod, Type>}`;
+    : `.${ValidateModifier<S, Mods, Type>}`;
 
 type ValidateModifier<
   S,
@@ -204,7 +204,7 @@ const db = schema({
     id: "string.id",
     name: "string",
     email: "string.unique",
-    books: "book[]",
+    tags: "tag[]",
   },
   book: {
     id: "string.id",

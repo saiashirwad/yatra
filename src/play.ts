@@ -4,13 +4,14 @@ function set<const R>(r: R) {
   return r;
 }
 
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
-  k: infer I,
-) => void
-  ? I
-  : never;
+type UnionToIntersection<U> =
+  (U extends any ? (k: U) => void : never) extends (
+    k: infer I,
+  ) => void ? I
+    : never;
 
-type GeneratorResult<R> = R extends Generator<infer V> ? V : never;
+type GeneratorResult<R> = R extends Generator<infer V> ? V
+  : never;
 
 type CleanResult<T extends (...args: any[]) => any> = Clean<
   UnionToIntersection<GeneratorResult<ReturnType<T>>>
@@ -25,7 +26,10 @@ type TableSchema = Record<
 
 let currentQueryContext: any = null;
 
-type QueryContext<Schema extends TableSchema, T extends keyof Schema> = {
+type QueryContext<
+  Schema extends TableSchema,
+  T extends keyof Schema,
+> = {
   schema: Schema;
   table: T;
   query: any;
@@ -35,7 +39,10 @@ function* select<
   Schema extends TableSchema,
   T extends keyof Schema,
   const S extends readonly (keyof Schema[T]["columns"])[],
->(context: QueryContext<Schema, T>, fields: S): Generator<{ select: S }> {
+>(
+  context: QueryContext<Schema, T>,
+  fields: S,
+): Generator<{ select: S }> {
   yield set({ select: fields });
   currentQueryContext = { ...context, fields };
   return currentQueryContext;
@@ -45,7 +52,10 @@ function* where<
   Schema extends TableSchema,
   T extends keyof Schema,
   const C extends Record<string, any>,
->(context: QueryContext<Schema, T>, condition: C): Generator<{ where: C }> {
+>(
+  context: QueryContext<Schema, T>,
+  condition: C,
+): Generator<{ where: C }> {
   yield set({ where: condition });
   return context;
 }
@@ -54,7 +64,10 @@ function* orderBy<
   Schema extends TableSchema,
   T extends keyof Schema,
   const O extends Record<string, any>,
->(context: QueryContext<Schema, T>, orderByVal: O): Generator<{ orderBy: O }> {
+>(
+  context: QueryContext<Schema, T>,
+  orderByVal: O,
+): Generator<{ orderBy: O }> {
   yield set({ orderBy: orderByVal });
   return context;
 }
@@ -63,7 +76,10 @@ function* limit<
   Schema extends TableSchema,
   T extends keyof Schema,
   const L extends number,
->(context: QueryContext<Schema, T>, limitVal: L): Generator<{ limit: L }> {
+>(
+  context: QueryContext<Schema, T>,
+  limitVal: L,
+): Generator<{ limit: L }> {
   yield set({ limit: limitVal });
   return context;
 }
@@ -88,11 +104,15 @@ type TestSchema = {
   };
 };
 
-function query<T extends (...args: any[]) => any>(t: T): CleanResult<T> {
+function query<T extends (...args: any[]) => any>(
+  t: T,
+): CleanResult<T> {
   return {} as any;
 }
 
-function createDb<Schema extends TableSchema>(schema: Schema) {
+function createDb<Schema extends TableSchema>(
+  schema: Schema,
+) {
   return {
     selectFrom<T extends keyof Schema>(table: T) {
       function* _selectFrom() {
@@ -112,7 +132,7 @@ function createDb<Schema extends TableSchema>(schema: Schema) {
 }
 const db = createDb<TestSchema>({} as TestSchema);
 
-const example = query(function* () {
+const example = query(function*() {
   const ctx = yield* db.selectFrom("posts");
   yield* select(ctx, ["id", "content", "title"]);
   yield* where(ctx, { published: true });
