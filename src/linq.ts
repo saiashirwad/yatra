@@ -207,5 +207,3 @@ const result = from(people, function*(ctx) {
   yield* ctx.pickProps(["name", "age"]);
   yield* ctx.where(p => p.age > 25);
 });
-
-console.log(result);

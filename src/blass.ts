@@ -14,8 +14,6 @@ type haha<path extends string> = conform<
   & validatePath<typeof data, path>
 >;
 
-type result = haha<"items">;
-
 function get<const o extends object, path extends string>(
   data: o,
   pathStr: conform<path, string & validatePath<o, path>>,
