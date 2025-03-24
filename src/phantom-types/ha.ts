@@ -13,7 +13,7 @@ class Entity<T extends Record<string, any>> {
   }
 }
 
-const person = new Entity(
-  { name: "sai", age: 2342 } as const,
-);
-type nameType = (typeof person)["_nameType"];
+// const person = new Entity(
+//   { name: "sai", age: 2342 } as const,
+// );
+// type nameType = (typeof person)["_nameType"];

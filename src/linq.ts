@@ -187,23 +187,23 @@ function query<T extends (...args: any[]) => any>(
   return {} as any;
 }
 
-const people = [
-  { name: "Alice", age: 30, department: "Engineering" },
-  {
-    name: "Bob",
-    age: 40,
-    department: "Marketing",
-    hobby: "programming",
-  },
-  {
-    name: "Carl",
-    age: 20,
-    department: "Engineering",
-    hobby: "cooking",
-  },
-];
+// const people = [
+//   { name: "Alice", age: 30, department: "Engineering" },
+//   {
+//     name: "Bob",
+//     age: 40,
+//     department: "Marketing",
+//     hobby: "programming",
+//   },
+//   {
+//     name: "Carl",
+//     age: 20,
+//     department: "Engineering",
+//     hobby: "cooking",
+//   },
+// ];
 
-const result = from(people, function*(ctx) {
-  yield* ctx.pickProps(["name", "age"]);
-  yield* ctx.where(p => p.age > 25);
-});
+// const result = from(people, function*(ctx) {
+//   yield* ctx.pickProps(["name", "age"]);
+//   yield* ctx.where(p => p.age > 25);
+// });
