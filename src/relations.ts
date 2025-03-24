@@ -12,14 +12,18 @@ class ManyToManyBuilder<
   Ref extends () => TableConstructor<any>,
 > {
   private virtualField?: keyof Fields;
-  private foreignKey?: keyof InstanceType<ReturnType<Ref>>["fields"];
+  private foreignKey?: keyof InstanceType<
+    ReturnType<Ref>
+  >["fields"];
   constructor(private fields: Fields, private ref: Ref) {}
   using<VF extends keyof Fields>(virtualField: VF) {
     this.virtualField = virtualField;
     return this;
   }
   references<
-    FK extends keyof InstanceType<ReturnType<Ref>>["fields"],
+    FK extends keyof InstanceType<
+      ReturnType<Ref>
+    >["fields"],
   >(foreignKey: FK) {
     this.foreignKey = foreignKey;
     return this;
@@ -48,14 +52,18 @@ class ManyToOneBuilder<
   Ref extends () => TableConstructor<any>,
 > {
   private virtualField?: keyof Fields;
-  private foreignKey?: keyof InstanceType<ReturnType<Ref>>["fields"];
+  private foreignKey?: keyof InstanceType<
+    ReturnType<Ref>
+  >["fields"];
   constructor(private fields: Fields, private ref: Ref) {}
   using<VF extends keyof Fields>(virtualField: VF) {
     this.virtualField = virtualField;
     return this;
   }
   references<
-    FK extends keyof InstanceType<ReturnType<Ref>>["fields"],
+    FK extends keyof InstanceType<
+      ReturnType<Ref>
+    >["fields"],
   >(foreignKey: FK) {
     this.foreignKey = foreignKey;
     return this;
@@ -92,7 +100,9 @@ class OneToOneBuilder<
   const Index extends string,
 > {
   private virtualField?: keyof Fields;
-  private foreignKey?: keyof InstanceType<ReturnType<Ref>>["fields"];
+  private foreignKey?: keyof InstanceType<
+    ReturnType<Ref>
+  >["fields"];
   constructor(private fields: Fields, private ref: Ref) {}
 
   using<VF extends keyof Fields>(virtualField: VF) {
@@ -101,7 +111,9 @@ class OneToOneBuilder<
   }
 
   references<
-    FK extends keyof InstanceType<ReturnType<Ref>>["fields"],
+    FK extends keyof InstanceType<
+      ReturnType<Ref>
+    >["fields"],
   >(foreignKey: FK) {
     this.foreignKey = foreignKey;
     return this;

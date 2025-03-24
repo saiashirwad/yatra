@@ -55,8 +55,7 @@ export declare class ObjectRepresentation<
     ? never
     : {
       [K in keyof Relations]?: Relations[K]["kind"] extends
-        "one-to-one" | "many-to-one"
-        ?
+        "one-to-one" | "many-to-one" ?
           | InstanceType<ReturnType<Relations[K]["ref"]>>
           | MakeObject<
             InstanceType<
@@ -64,8 +63,7 @@ export declare class ObjectRepresentation<
             >["fields"]
           >
         : Relations[K]["kind"] extends
-          "many-to-many" | "one-to-many"
-          ? Array<
+          "many-to-many" | "one-to-many" ? Array<
             InstanceType<ReturnType<Relations[K]["ref"]>>
           >
         : never;

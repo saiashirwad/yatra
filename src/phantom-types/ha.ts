@@ -14,8 +14,6 @@ class Entity<T extends Record<string, any>> {
 }
 
 const person = new Entity(
-  { name: "Alice", age: 30 } as const,
+  { name: "sai", age: 2342 } as const,
 );
 type nameType = (typeof person)["_nameType"];
-
-console.log(person.name); // "Alice"
