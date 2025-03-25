@@ -2,11 +2,14 @@ type Predicate<T> = (item: T) => boolean;
 type Selector<T, R> = (item: T) => R;
 
 type Clean<T> = { [k in keyof T]: T[k] } & unknown;
-type UnionToIntersection<U> =
-  (U extends any ? (k: U) => void : never) extends
-    (k: infer I) => void ? I : never;
+
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
+  ? I
+  : never;
+
 type GeneratorResult<R> = R extends Generator<infer V> ? V
   : never;
+
 type CleanResult<T extends (...args: any[]) => any> = Clean<
   UnionToIntersection<GeneratorResult<ReturnType<T>>>
 >;
@@ -17,11 +20,13 @@ function set<const R>(r: R) {
 
 type QueryContext<T> = {
   data: T[];
+
   where: (predicate: Predicate<T>) => Generator<
     { type: "where"; predicate: Predicate<T>; result: T[] },
     QueryContext<T>,
     any
   >;
+
   select: <R>(selector: Selector<T, R>) => Generator<
     {
       type: "select";
@@ -31,11 +36,13 @@ type QueryContext<T> = {
     QueryContext<R>,
     any
   >;
+
   pickProps: <K extends keyof T>(keys: K[]) => Generator<
     { type: "pick"; keys: K[]; result: Pick<T, K>[] },
     QueryContext<Pick<T, K>>,
     any
   >;
+
   orderBy: <K extends keyof T>(
     key: K,
     direction?: "asc" | "desc",
@@ -49,11 +56,13 @@ type QueryContext<T> = {
     QueryContext<T>,
     any
   >;
+
   limit: (count: number) => Generator<
     { type: "limit"; count: number; result: T[] },
     QueryContext<T>,
     any
   >;
+
   groupBy: <K extends keyof T>(key: K) => Generator<
     {
       type: "groupBy";
@@ -68,6 +77,7 @@ type QueryContext<T> = {
 function createContext<T>(data: T[]): QueryContext<T> {
   return {
     data,
+
     *where(predicate: Predicate<T>) {
       const filtered = data.filter(predicate);
       yield set({
@@ -77,6 +87,7 @@ function createContext<T>(data: T[]): QueryContext<T> {
       });
       return createContext(filtered);
     },
+
     *select<R>(selector: Selector<T, R>) {
       const mapped = data.map(selector);
       yield set({
@@ -86,6 +97,7 @@ function createContext<T>(data: T[]): QueryContext<T> {
       });
       return createContext(mapped);
     },
+
     *pickProps<K extends keyof T>(keys: K[]) {
       const picked = data.map(item => {
         const result = {} as Pick<T, K>;
@@ -125,6 +137,7 @@ function createContext<T>(data: T[]): QueryContext<T> {
       });
       return createContext(sorted);
     },
+
     *limit(count: number) {
       const limited = data.slice(0, count);
       yield set({
@@ -134,6 +147,7 @@ function createContext<T>(data: T[]): QueryContext<T> {
       });
       return createContext(limited);
     },
+
     *groupBy<K extends keyof T>(key: K) {
       const grouped = data.reduce((acc, item) => {
         const keyValue = String(item[key]);
@@ -187,23 +201,23 @@ function query<T extends (...args: any[]) => any>(
   return {} as any;
 }
 
-// const people = [
-//   { name: "Alice", age: 30, department: "Engineering" },
-//   {
-//     name: "Bob",
-//     age: 40,
-//     department: "Marketing",
-//     hobby: "programming",
-//   },
-//   {
-//     name: "Carl",
-//     age: 20,
-//     department: "Engineering",
-//     hobby: "cooking",
-//   },
-// ];
+const people = [
+  { name: "Alice", age: 30, department: "Engineering" },
+  {
+    name: "Bob",
+    age: 40,
+    department: "Marketing",
+    hobby: "programming",
+  },
+  {
+    name: "Carl",
+    age: 20,
+    department: "Engineering",
+    hobby: "cooking",
+  },
+];
 
-// const result = from(people, function*(ctx) {
-//   yield* ctx.pickProps(["name", "age"]);
-//   yield* ctx.where(p => p.age > 25);
-// });
+from(people, function*(ctx) {
+  yield* ctx.pickProps(["name", "age"]);
+  yield* ctx.where(p => p.age > 25);
+});

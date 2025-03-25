@@ -1,169 +1,69 @@
-import {
-  _enum,
-  array,
-  type GetColumnType,
-  type IsNullable,
-  number,
-  string,
-  uuid,
-} from "./columns";
+import { _enum, type GetColumnType, type IsNullable, number, string, uuid } from "./columns";
 import { oneToMany, oneToOne } from "./relations";
-import type {
-  DefaultRelations,
-  FieldsRecord,
-  RelationsRecord,
-  TableCallback,
-} from "./types";
+import type { DefaultRelations, FieldsRecord, RelationsRecord, TableCallback } from "./types";
 import type { Clean } from "./utils";
 
-/**
- * Type utilities using declare for phantom types
- */
-export declare class TypeUtils<
-  Fields extends FieldsRecord,
-> {
-  declare NullableFields: {
-    -readonly [
-      K in keyof Fields as IsNullable<Fields[K]> extends
-        true ? K : never
-    ]?: GetColumnType<Fields[K]>;
-  };
+type NullableFields<
+  Fields = FieldsRecord,
+> = {
+  -readonly [
+    k in keyof Fields as IsNullable<Fields[k]> extends true ? k
+      : never
+  ]?: GetColumnType<Fields[k]>;
+};
 
-  declare NonNullableFields: {
-    -readonly [
-      K in keyof Fields as IsNullable<Fields[K]> extends
-        false ? K : never
-    ]: GetColumnType<Fields[K]>;
-  };
-}
-
-/**
- * Object type representation using declare for cleaner type definitions
- */
-export declare class ObjectRepresentation<
-  Fields extends FieldsRecord,
-  Relations extends RelationsRecord = DefaultRelations,
-> {
-  declare NullableFields: TypeUtils<
-    Fields
-  >["NullableFields"];
-  declare NonNullableFields: TypeUtils<
-    Fields
-  >["NonNullableFields"];
-
-  declare RelationsRepresentation: Relations extends never
-    ? never
-    : {
-      [K in keyof Relations]?: Relations[K]["kind"] extends
-        "one-to-one" | "many-to-one" ?
-          | InstanceType<ReturnType<Relations[K]["ref"]>>
-          | MakeObject<
-            InstanceType<
-              ReturnType<Relations[K]["ref"]>
-            >["fields"]
-          >
-        : Relations[K]["kind"] extends
-          "many-to-many" | "one-to-many" ? Array<
-            InstanceType<ReturnType<Relations[K]["ref"]>>
-          >
-        : never;
-    };
-
-  declare type: Clean<
-    & this["NullableFields"]
-    & this["NonNullableFields"]
-    & this["RelationsRepresentation"]
-  >;
-}
+type NonNullableFields<Fields = FieldsRecord> = {
+  -readonly [
+    k in keyof Fields as IsNullable<Fields[k]> extends false ? k
+      : never
+  ]: GetColumnType<Fields[k]>;
+};
 
 type MakeObject<
-  Fields extends FieldsRecord,
+  Fields = FieldsRecord,
   Relations extends RelationsRecord = DefaultRelations,
-> = ObjectRepresentation<
-  Fields,
-  Relations
->["type"];
+  Nullable = NullableFields<Fields>,
+  NonNullable = NonNullableFields<Fields>,
+  Rels = Relations extends never ? never : {
+    [k in keyof Relations]?: Relations[k]["kind"] extends "one-to-one" | "many-to-one" ?
+        | InstanceType<ReturnType<Relations[k]["ref"]>>
+        | MakeObject<
+          InstanceType<ReturnType<Relations[k]["ref"]>>["fields"]
+        >
+      : Relations[k]["kind"] extends "many-to-many" | "one-to-many" ? Array<
+          InstanceType<ReturnType<Relations[k]["ref"]>>
+        >
+      : never;
+  },
+> = Clean<Nullable & NonNullable & Rels>;
 
-/**
- * Table types with enhanced declare usage
- */
-export declare class TableTypes<
-  TableName extends string,
-  Fields extends FieldsRecord,
-  Relations extends RelationsRecord = DefaultRelations,
-> {
-  declare constructorArgs: MakeObject<Fields, Relations>;
-
-  declare instance: {
-    name: TableName;
-    fields: Fields;
-    relations: Relations;
-  } & MakeObject<Fields>;
-
-  declare tableType: {
-    new(args: this["constructorArgs"]): this["instance"];
-  };
-
-  declare fnTableType: {
-    name: TableName;
-    fields: Fields;
-  };
-}
-
-// Type aliases using declare for better type inference
-declare type TableConstructorArgs<
+type TableConstructorArgs<
   Fields extends FieldsRecord,
   Relations extends RelationsRecord,
-> = TableTypes<
-  string,
-  Fields,
-  Relations
->["constructorArgs"];
+> = MakeObject<Fields, Relations>;
 
-declare type TableInstance<
+type TableInstance<
   TableName extends string,
   Fields extends FieldsRecord,
   Relations extends RelationsRecord,
-> = TableTypes<
-  TableName,
-  Fields,
-  Relations
->["instance"];
+> =
+  & { name: TableName; fields: Fields; relations: Relations }
+  & MakeObject<Fields>;
 
-declare type Table<
+type Table<
   TableName extends string,
   Fields extends FieldsRecord,
   Relations extends RelationsRecord = DefaultRelations,
-> = TableTypes<TableName, Fields, Relations>["tableType"];
+> = {
+  new(
+    args: TableConstructorArgs<Fields, Relations>,
+  ): TableInstance<TableName, Fields, Relations>;
+};
 
-declare type FnTable<
-  TableName extends string,
-  Fields extends FieldsRecord,
-> = TableTypes<
-  TableName,
-  Fields
->["fnTableType"];
-
-// Table function implementation
-export function table<
-  const TableName extends string,
-  const Fields extends FieldsRecord,
->(
-  name: TableName,
-  fields: Fields,
-): FnTable<
-  TableName,
-  { -readonly [K in keyof Fields]: Fields[K] }
-> {
-  return { name, fields };
-}
-
-// Table class constructor function
 export function Table<
   const TableName extends string,
   const Fields extends FieldsRecord,
-  const Relations extends RelationsRecord =
-    DefaultRelations,
+  const Relations extends RelationsRecord = DefaultRelations,
 >(
   tableName: TableName,
   fields: Fields,
@@ -173,12 +73,6 @@ export function Table<
     public name: TableName = tableName;
     public fields: Fields = fields;
     public relations: Relations = {} as Relations;
-
-    // Phantom types using declare
-    declare _tableName: TableName;
-    declare _fieldsType: Fields;
-    declare _relationsType: Relations;
-    declare _objectType: MakeObject<Fields, Relations>;
 
     constructor(args: MakeObject<Fields, Relations>) {
       if (callback) {
@@ -195,18 +89,6 @@ export function Table<
   return TableClass as Table<TableName, Fields, Relations>;
 }
 
-// Example usage remains unchanged
-const userTable = table("user", {
-  id: string().primaryKey(),
-  age: number(),
-  tags: array(string()),
-});
-
-const tag = table("tag", {
-  id: string().primaryKey(),
-});
-
-// Extended classes remain unchanged
 class Book extends Table(
   "book",
   {
@@ -237,9 +119,6 @@ class User extends Table(
   (fields) => ({
     relations: {
       books: oneToMany(fields, () => Book).build(),
-    },
-    ha: {
-      something: () => User,
     },
   }),
 ) {}
