@@ -1,8 +1,4 @@
-import {
-  number,
-  string,
-  time,
-} from "./columns/base-columns";
+import { number, string, time } from "./columns/base-columns";
 import {
   autoIncrement,
   columnName,

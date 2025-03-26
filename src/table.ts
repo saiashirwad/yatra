@@ -1,12 +1,5 @@
-import {
-  _enum,
-  type GetColumnType,
-  type IsNullable,
-  number,
-  string,
-  uuid,
-} from "./_old_columns";
-import { oneToMany, oneToOne } from "./relations";
+import type { GetColumnType } from "./columns/base-columns";
+import type { IsNullable } from "./columns/properties";
 import type {
   DefaultRelations,
   FieldsRecord,
@@ -37,29 +30,26 @@ type NonNullableFields<Fields = FieldsRecord> = {
 
 type MakeObject<
   Fields = FieldsRecord,
-  Relations extends RelationsRecord =
-    DefaultRelations,
+  Relations extends RelationsRecord = DefaultRelations,
   Nullable = NullableFields<Fields>,
   NonNullable = NonNullableFields<Fields>,
   Rels = Relations extends never ? never : {
-    [k in keyof Relations]?:
-      Relations[k]["kind"] extends
-        "one-to-one" | "many-to-one" ?
-          | InstanceType<
+    [k in keyof Relations]?: Relations[k]["kind"] extends
+      "one-to-one" | "many-to-one" ?
+        | InstanceType<
+          ReturnType<Relations[k]["ref"]>
+        >
+        | MakeObject<
+          InstanceType<
+            ReturnType<Relations[k]["ref"]>
+          >["fields"]
+        >
+      : Relations[k]["kind"] extends "many-to-many" | "one-to-many" ? Array<
+          InstanceType<
             ReturnType<Relations[k]["ref"]>
           >
-          | MakeObject<
-            InstanceType<
-              ReturnType<Relations[k]["ref"]>
-            >["fields"]
-          >
-        : Relations[k]["kind"] extends
-          "many-to-many" | "one-to-many" ? Array<
-            InstanceType<
-              ReturnType<Relations[k]["ref"]>
-            >
-          >
-        : never;
+        >
+      : never;
   },
 > = Clean<Nullable & NonNullable & Rels>;
 
@@ -83,8 +73,7 @@ type TableInstance<
 type Table<
   TableName extends string,
   Fields extends FieldsRecord,
-  Relations extends RelationsRecord =
-    DefaultRelations,
+  Relations extends RelationsRecord = DefaultRelations,
 > = {
   new(
     args: TableConstructorArgs<Fields, Relations>,
@@ -94,8 +83,7 @@ type Table<
 export function Table<
   const TableName extends string,
   const Fields extends FieldsRecord,
-  const Relations extends RelationsRecord =
-    DefaultRelations,
+  const Relations extends RelationsRecord = DefaultRelations,
 >(
   tableName: TableName,
   fields: Fields,
@@ -127,53 +115,53 @@ export function Table<
   >;
 }
 
-class Book extends Table(
-  "book",
-  {
-    id: uuid().primaryKey(),
-    authorId: string(),
-    description: string().default("what"),
-    price: number().nullable(),
-  },
-  (fields) => ({
-    relations: {
-      author: oneToOne(fields, () => User).using(
-        "authorId",
-      )
-        .references("id").build(),
-    },
-  }),
-) {}
-
-class Tag extends Table("tag", {
-  id: uuid().primaryKey(),
-}) {}
-
-class User extends Table(
-  "user",
-  {
-    id: uuid().primaryKey(),
-    name: string().default("no name").unique(),
-    type: _enum(["admin", "user"]),
-  },
-  (fields) => ({
-    relations: {
-      books: oneToMany(fields, () => Book)
-        .build(),
-    },
-  }),
-) {}
-
-const book = new Book({
-  id: "wa",
-  price: 23,
-  description: "asdf",
-  authorId: "asdf",
-});
-
-const user = new User({
-  type: "user",
-  id: "asdf",
-  name: "asdf",
-  books: [book],
-});
+// class Book extends Table(
+//   "book",
+//   {
+//     id: uuid().primaryKey(),
+//     authorId: string(),
+//     description: string().default("what"),
+//     price: number().nullable(),
+//   },
+//   (fields) => ({
+//     relations: {
+//       author: oneToOne(fields, () => User).using(
+//         "authorId",
+//       )
+//         .references("id").build(),
+//     },
+//   }),
+// ) {}
+//
+// class Tag extends Table("tag", {
+//   id: uuid().primaryKey(),
+// }) {}
+//
+// class User extends Table(
+//   "user",
+//   {
+//     id: uuid().primaryKey(),
+//     name: string().default("no name").unique(),
+//     type: _enum(["admin", "user"]),
+//   },
+//   (fields) => ({
+//     relations: {
+//       books: oneToMany(fields, () => Book)
+//         .build(),
+//     },
+//   }),
+// ) {}
+//
+// const book = new Book({
+//   id: "wa",
+//   price: 23,
+//   description: "asdf",
+//   authorId: "asdf",
+// });
+//
+// const user = new User({
+//   type: "user",
+//   id: "asdf",
+//   name: "asdf",
+//   books: [book],
+// });

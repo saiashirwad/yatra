@@ -6,15 +6,12 @@ function set<const R>(r: R) {
   return r;
 }
 
-type UnionToIntersection<U> =
-  (U extends any ? (k: U) => void : never) extends
-    (
-      k: infer I,
-    ) => void ? I
-    : never;
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
+  k: infer I,
+) => void ? I
+  : never;
 
-type GeneratorResult<R> = R extends
-  Generator<infer V> ? V
+type GeneratorResult<R> = R extends Generator<infer V> ? V
   : never;
 
 type CleanResult<

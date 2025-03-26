@@ -1,53 +1,37 @@
-import {
-  Column,
-  DataType,
-  type GetDataType,
-} from "./column";
+import { Column, DataType, type GetDataType } from "./column";
 import { EnumValues } from "./properties";
 
-class StringColumn
-  extends Column<"string", string>
-{
+class StringColumn extends Column<"string", string> {
   constructor() {
     super("string");
   }
 }
 
-class NumberColumn
-  extends Column<"number", number>
-{
+class NumberColumn extends Column<"number", number> {
   constructor() {
     super("number");
   }
 }
 
-class BooleanColumn
-  extends Column<"boolean", boolean>
-{
+class BooleanColumn extends Column<"boolean", boolean> {
   constructor() {
     super("boolean");
   }
 }
 
-class DateColumn
-  extends Column<"date", Date | number>
-{
+class DateColumn extends Column<"date", Date | number> {
   constructor() {
     super("date");
   }
 }
 
-class JsonColumn
-  extends Column<"json", object | string>
-{
+class JsonColumn extends Column<"json", object | string> {
   constructor() {
     super("json");
   }
 }
 
-class JsonbColumn
-  extends Column<"jsonb", object | string>
-{
+class JsonbColumn extends Column<"jsonb", object | string> {
   constructor() {
     super("jsonb");
   }
@@ -65,9 +49,7 @@ class TextColumn extends Column<"text", string> {
   }
 }
 
-class BigIntColumn
-  extends Column<"bigint", bigint | number>
-{
+class BigIntColumn extends Column<"bigint", bigint | number> {
   constructor() {
     super("bigint");
   }
@@ -93,9 +75,7 @@ class TimestampColumn extends Column<
   }
 }
 
-class TimeColumn
-  extends Column<"time", string | Date>
-{
+class TimeColumn extends Column<"time", string | Date> {
   private withTz: boolean;
 
   constructor(withTimezone: boolean = false) {
@@ -117,9 +97,7 @@ class BinaryColumn extends Column<
   }
 }
 
-class DecimalColumn
-  extends Column<"decimal", string | number>
-{
+class DecimalColumn extends Column<"decimal", string | number> {
   constructor() {
     super("decimal");
   }
@@ -152,9 +130,7 @@ class ArrayColumn<
   }
 }
 
-class EnumColumn<T extends string[]>
-  extends Column<"enum", T[number]>
-{
+class EnumColumn<T extends string[]> extends Column<"enum", T[number]> {
   readonly [EnumValues]: T;
 
   constructor(values: T) {
@@ -239,25 +215,19 @@ export function enum_<T extends string[]>(
   return new EnumColumn<T>(values);
 }
 
-export type GetColumnType<T> = T extends
-  StringColumn ? string
+export type GetColumnType<T> = T extends StringColumn ? string
   : T extends NumberColumn ? number
   : T extends BooleanColumn ? boolean
   : T extends DateColumn ? Date
   : T extends LiteralColumn<infer V> ? V
-  : T extends JsonColumn | JsonbColumn
-    ? object | string
+  : T extends JsonColumn | JsonbColumn ? object | string
   : T extends UuidColumn ? string
-  : T extends ArrayColumn<infer ItemType>
-    ? Array<GetDataType<ItemType>>
+  : T extends ArrayColumn<infer ItemType> ? Array<GetDataType<ItemType>>
   : T extends TextColumn ? string
   : T extends BigIntColumn ? bigint | number
-  : T extends TimestampColumn
-    ? Date | string | number
+  : T extends TimestampColumn ? Date | string | number
   : T extends TimeColumn ? string | Date
-  : T extends BinaryColumn
-    ? Uint8Array | Buffer | string
+  : T extends BinaryColumn ? Uint8Array | Buffer | string
   : T extends DecimalColumn ? string | number
-  : T extends EnumColumn<infer Values>
-    ? Values[number]
+  : T extends EnumColumn<infer Values> ? Values[number]
   : never;

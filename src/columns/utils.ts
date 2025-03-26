@@ -10,8 +10,7 @@ export function extend<This, Brand>(
   );
 
   Object.assign(newInstance, instance);
-  (newInstance as any)[propertyName] =
-    propertyValue;
+  (newInstance as any)[propertyName] = propertyValue;
 
   return newInstance as This & Brand;
 }

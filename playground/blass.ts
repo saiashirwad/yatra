@@ -46,14 +46,12 @@ type keyOf<o> = o extends readonly unknown[]
   }[keyof o];
 
 type getKey<o, k> = k extends keyof o ? o[k]
-  : k extends
-    `${infer n extends number & keyof o}` ? o[n]
+  : k extends `${infer n extends number & keyof o}` ? o[n]
   : never;
 
-type getPath<o, path extends string> =
-  path extends `${infer head}.${infer tail}`
-    ? getPath<getKey<o, head>, tail>
-    : getKey<o, path>;
+type getPath<o, path extends string> = path extends
+  `${infer head}.${infer tail}` ? getPath<getKey<o, head>, tail>
+  : getKey<o, path>;
 
 type validatePath<
   o,
@@ -69,8 +67,7 @@ type validatePath<
   : path extends keyOf<o> ? `${prefix}${path}`
   : {
     // find suffixes that would make the segment valid
-    [k in keyOf<o>]: k extends `${path}${string}`
-      ? `${prefix}${k}`
+    [k in keyOf<o>]: k extends `${path}${string}` ? `${prefix}${k}`
       : never;
   }[keyOf<o>];
 

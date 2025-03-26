@@ -44,6 +44,5 @@ export type ColumnType =
   | "decimal"
   | "enum";
 
-export type GetDataType<T> = T extends
-  Column<any, infer DataType> ? DataType
+export type GetDataType<T> = T extends Column<any, infer DataType> ? DataType
   : never;

@@ -1,4 +1,4 @@
-import type { Column } from "./_old_columns";
+import type { Column } from "./columns/column";
 
 export type ManyToManyRelation<
   Ref,
