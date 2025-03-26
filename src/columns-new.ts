@@ -2,6 +2,8 @@ import { Pipeable } from "effect";
 import { dual, pipe } from "effect/Function";
 import type { Null } from "effect/Schema";
 
+type PropertyName = string | symbol;
+
 const Type = Symbol.for("Type");
 const DataType = Symbol.for("DataType");
 
@@ -84,7 +86,7 @@ type SearchIndexed = {
 
 export function extend<This, Brand>(
   instance: This,
-  propertyName: string | symbol,
+  propertyName: PropertyName,
   propertyValue: unknown,
 ): This & Brand {
   const newInstance = Object.create(
@@ -137,40 +139,57 @@ function makeColumn<CT extends ColumnType, DT extends any>(
   };
 }
 
-interface StringColumn<ColumnName extends string = "">
-  extends BaseColumn<"string", string>
-{
+interface StringColumn extends BaseColumn<"string", string> {
 }
 
-function string<ColumnName extends string>(): StringColumn<ColumnName> {
+interface NumberColumn extends BaseColumn<"number", number> {}
+
+function string(): StringColumn {
   return makeColumn("string");
 }
 
+function number(): NumberColumn {
+  return makeColumn("number");
+}
+
 function makeProperty<const Property>(
-  propertyName: string | symbol,
+  propertyName: PropertyName,
   propertyValue: unknown,
 ) {
   return <Col extends BaseColumn<any, any>>(c: Col) =>
     extend<Col, Property>(c, propertyName, propertyValue);
 }
 
+// needs HKT
+// function makePropertyFn<const Property>(
+//   propertyName: PropertyName,
+// ) {
+//   return <Col extends BaseColumn<any, any>>(
+//     propertyValue: Col[typeof DataType],
+//   ) =>
+//   (c: Col) => extend<Col, Property>(c, propertyName, propertyValue);
+// }
+
 const nullable = makeProperty<Nullable>(Nullable, true);
 const unique = makeProperty<Unique>(Unique, true);
 
-function defaultValue<
+const defaultValue = <
   Col extends BaseColumn<any, any>,
   const V extends Col[typeof DataType],
->(
-  value: V,
-) {
-  return (c: Col) => {
-    return extend<Col, Default<V>>(c, Default, value);
-  };
-}
+>(value: V) =>
+(c: Col) => extend<Col, Default<V>>(c, Default, value);
 
-const lol = string().pipe(nullable);
-const lol2 = pipe(string(), defaultValue("asdf"), nullable);
+const columnName = <
+  Col extends BaseColumn<any, any>,
+  const ColName extends string,
+>(columnName: ColName) =>
+(c: Col) => extend<Col, ColumnName<ColName>>(c, ColumnName, columnName);
+
+const lol = string().pipe(nullable, columnName("lol_"));
+const lol2 = pipe(string(), defaultValue("hi"), nullable);
 
 const something = pipe(string(), nullable, unique);
+
+const asdf = pipe(number(), nullable, unique, defaultValue(2));
 
 console.log(lol, lol2, something);
