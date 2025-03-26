@@ -5,14 +5,18 @@ type BaseTypesMap = {
 };
 type BaseTypeName = keyof BaseTypesMap;
 
-type DbScopeEntry = string | { [k: string]: DbScopeEntry };
+type DbScopeEntry = string | {
+  [k: string]: DbScopeEntry;
+};
 type DbScopeSchema = Record<string, DbScopeEntry>;
 
-type Trim<Str extends string> = Str extends ` ${infer Inner}` ? Trim<Inner>
+type Trim<Str extends string> = Str extends
+  ` ${infer Inner}` ? Trim<Inner>
   : Str extends `${infer Inner} ` ? Trim<Inner>
   : Str;
 
-type Resolve<T> = T extends infer U ? { [K in keyof U]: U[K] }
+type Resolve<T> = T extends infer U
+  ? { [K in keyof U]: U[K] }
   : never;
 
 type AliasMap = {
@@ -22,13 +26,15 @@ type AliasMap = {
 };
 type AliasName = keyof AliasMap;
 
-type ResolveAlias<T extends string> = T extends AliasName ? AliasMap[T]
+type ResolveAlias<T extends string> = T extends
+  AliasName ? AliasMap[T]
   : T;
 
 type ParseFieldDefinition<
   E extends string,
   S extends DbScopeSchema,
-> = E extends `${infer Type}.${infer Modifiers}` ? {
+> = E extends `${infer Type}.${infer Modifiers}`
+  ? {
     type: ParseFieldType<Type, S>;
     modifiers: ParseModifiers<Modifiers>;
   }
@@ -43,47 +49,66 @@ type ParseFieldType<
 > = E extends `${infer Left} | ${infer Right}` ?
     | ParseFieldType<Trim<Left>, S>
     | ParseFieldType<Trim<Right>, S>
-  : E extends `${infer Inner}[]` ? ParseFieldType<Trim<Inner>, S>[]
+  : E extends `${infer Inner}[]`
+    ? ParseFieldType<Trim<Inner>, S>[]
   : ResolveAlias<Trim<E>> extends infer Resolved
-    ? Resolved extends BaseTypeName ? BaseTypesMap[Resolved]
-    : Resolved extends keyof S ? ParseEntry<S[Resolved], S>
+    ? Resolved extends BaseTypeName
+      ? BaseTypesMap[Resolved]
+    : Resolved extends keyof S
+      ? ParseEntry<S[Resolved], S>
     : never
   : never;
 
-type ParseModifiers<Mods extends string> = Mods extends "" ? {}
-  : Mods extends `${infer Mod}.${infer Rest}`
-    ? ParseModifier<Mod> & ParseModifiers<Rest>
-  : ParseModifier<Mods>;
+type ParseModifiers<Mods extends string> =
+  Mods extends "" ? {}
+    : Mods extends `${infer Mod}.${infer Rest}`
+      ? ParseModifier<Mod> & ParseModifiers<Rest>
+    : ParseModifier<Mods>;
 
-type ParseModifier<Mod extends string> = Mod extends "id" ? { id: true }
-  : Mod extends "unique" ? { unique: true }
-  : Mod extends "default(uuid)" ? { default: "uuid" }
-  : Mod extends "default(autoincrement)" ? { default: "autoincrement" }
-  : Mod extends `relation(${infer ForeignKeyField}.${infer ReferencedField})`
-    ? {
-      relation: {
-        foreignKeyField: ForeignKeyField;
-        referencedField: ReferencedField;
-      };
-    }
-  : Mod extends "relation" ? { relation: true }
-  : {};
+type ParseModifier<Mod extends string> =
+  Mod extends "id" ? { id: true }
+    : Mod extends "unique" ? { unique: true }
+    : Mod extends "default(uuid)"
+      ? { default: "uuid" }
+    : Mod extends "default(autoincrement)"
+      ? { default: "autoincrement" }
+    : Mod extends
+      `relation(${infer ForeignKeyField}.${infer ReferencedField})`
+      ? {
+        relation: {
+          foreignKeyField: ForeignKeyField;
+          referencedField: ReferencedField;
+        };
+      }
+    : Mod extends "relation" ? { relation: true }
+    : {};
 
-type ParseEntry<E, S extends DbScopeSchema> = E extends string
-  ? ParseFieldDefinition<E, S>["type"]
-  : E extends object ? Resolve<
-      {
-        -readonly [K in keyof E]: ParseEntry<E[K], S>;
-      } & ResolveRelationFields<E, S>
-    >
-  : never;
+type ParseEntry<E, S extends DbScopeSchema> =
+  E extends string
+    ? ParseFieldDefinition<E, S>["type"]
+    : E extends object ? Resolve<
+        {
+          -readonly [K in keyof E]: ParseEntry<
+            E[K],
+            S
+          >;
+        } & ResolveRelationFields<E, S>
+      >
+    : never;
 
-type ResolveRelationFields<E, S extends DbScopeSchema> = {
+type ResolveRelationFields<
+  E,
+  S extends DbScopeSchema,
+> = {
   [
     K in keyof E as E[K] extends string
-      ? ParseFieldDefinition<E[K], S>["modifiers"] extends {
+      ? ParseFieldDefinition<
+        E[K],
+        S
+      >["modifiers"] extends {
         relation: {
-          foreignKeyField: infer ForeignKeyField extends string; // Add constraint here
+          foreignKeyField: infer ForeignKeyField
+            extends string; // Add constraint here
         };
       } ? ForeignKeyField
       : never
@@ -91,11 +116,15 @@ type ResolveRelationFields<E, S extends DbScopeSchema> = {
   ]: string;
 };
 
-type ResolvedDbScope<S extends DbScopeSchema> = Resolve<
-  {
-    -readonly [K in keyof S]: ParseEntry<S[K], S>;
-  }
->;
+type ResolvedDbScope<S extends DbScopeSchema> =
+  Resolve<
+    {
+      -readonly [K in keyof S]: ParseEntry<
+        S[K],
+        S
+      >;
+    }
+  >;
 
 type PossibleFieldTypes<S> =
   | BaseTypeName
@@ -111,7 +140,8 @@ type PossibleModifiers =
   | "relation"
   | `relation${string}`;
 
-type PossibleFields<S, Model extends keyof S> = keyof S[Model];
+type PossibleFields<S, Model extends keyof S> =
+  keyof S[Model];
 
 type ValidateFieldDefinition<
   S,
@@ -124,26 +154,32 @@ type ValidateFieldDefinition<
   >}`
   : ValidateType<S, T>;
 
-type ValidateType<S, T extends string> = T extends PossibleFieldTypes<S> ? T
+type ValidateType<S, T extends string> = T extends
+  PossibleFieldTypes<S> ? T
   : {
-    [K in PossibleFieldTypes<S>]: K extends `${T}${string}` ? K
+    [K in PossibleFieldTypes<S>]: K extends
+      `${T}${string}` ? K
       : never;
-  }[PossibleFieldTypes<S>] extends infer Suggestion
+  }[PossibleFieldTypes<S>] extends
+    infer Suggestion
     ? Suggestion extends string ? Suggestion
     : `Invalid field type '${T}'. Did you mean one of: ${
       & PossibleFieldTypes<S>
       & string}`
   : never;
 
-type ExtractModel<Type extends string> = Type extends `${infer Model}[]` ? Model
-  : Type;
+type ExtractModel<Type extends string> =
+  Type extends `${infer Model}[]` ? Model
+    : Type;
 
 type ValidateModifiers<
   S,
   Mods extends string,
   Type extends string,
 > = Mods extends "" ? ""
-  : Mods extends `${infer Mod extends string}.${infer Rest extends string}` // Add constraints here
+  : Mods extends
+    `${infer Mod extends string}.${infer Rest
+      extends string}` // Add constraints here
     ? `.${ValidateModifier<
       S,
       Mod,
@@ -156,12 +192,14 @@ type ValidateModifier<
   Mod extends string,
   Type extends string,
 > = Mod extends PossibleModifiers
-  ? Mod extends `relation(${infer ForeignKeyField}.${infer ReferencedField})`
+  ? Mod extends
+    `relation(${infer ForeignKeyField}.${infer ReferencedField})`
     ? ExtractModel<Type> extends infer Model
       ? Type extends `${string}[]` ? "relation"
       : Model extends keyof S
         ? ForeignKeyField extends string
-          ? ReferencedField extends PossibleFields<S, Model> ? Mod
+          ? ReferencedField extends
+            PossibleFields<S, Model> ? Mod
           : `Invalid referenced field '${ReferencedField}' in model. Did you mean one of: ${
             & PossibleFields<
               S,
@@ -173,7 +211,8 @@ type ValidateModifier<
     : never
   : Mod
   : {
-    [K in PossibleModifiers]: K extends `${Mod}${string}` ? K
+    [K in PossibleModifiers]: K extends
+      `${Mod}${string}` ? K
       : never;
   }[PossibleModifiers] extends infer Suggestion
     ? Suggestion extends string ? Suggestion
@@ -186,7 +225,8 @@ type ValidatedDbScopeSchema<S> = {
   [K in keyof S]: {
     [F in keyof S[K]]: S[K][F] extends string
       ? ValidateFieldDefinition<S, S[K][F]>
-      : S[K][F] extends object ? ValidatedDbScopeSchema<S[K][F]>
+      : S[K][F] extends object
+        ? ValidatedDbScopeSchema<S[K][F]>
       : never;
   };
 };

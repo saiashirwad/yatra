@@ -56,7 +56,8 @@ export function extend<This, Brand>(
   );
 
   Object.assign(newInstance, instance);
-  (newInstance as any)[propertyName] = propertyValue;
+  (newInstance as any)[propertyName] =
+    propertyValue;
 
   return newInstance as This & Brand;
 }
@@ -99,17 +100,29 @@ export class Column<
   }
 
   nullable(): this & Nullable {
-    return extend<this, Nullable>(this, "__nullable", true);
+    return extend<this, Nullable>(
+      this,
+      "__nullable",
+      true,
+    );
   }
 
   default<const V extends DataType>(
     value: V,
   ): this & Default<V> {
-    return extend<this, Default<V>>(this, "default", value);
+    return extend<this, Default<V>>(
+      this,
+      "default",
+      value,
+    );
   }
 
   unique(): this & Unique {
-    return extend<this, Unique>(this, "unique", true);
+    return extend<this, Unique>(
+      this,
+      "unique",
+      true,
+    );
   }
 
   primaryKey(): this & PrimaryKey {
@@ -124,10 +137,14 @@ export class Column<
     table: T,
     column: string,
   ): this & References<T> {
-    return extend<this, References<T>>(this, "references", {
-      table,
-      column,
-    });
+    return extend<this, References<T>>(
+      this,
+      "references",
+      {
+        table,
+        column,
+      },
+    );
   }
 
   autoIncrement(): this & AutoIncrement {
@@ -141,16 +158,28 @@ export class Column<
   generated<T extends string>(
     expression: T,
   ): this & Generated<T> {
-    return extend<this, Generated<T>>(this, "generated", {
-      expression,
-    });
+    return extend<this, Generated<T>>(
+      this,
+      "generated",
+      {
+        expression,
+      },
+    );
   }
 
-  comment<T extends string>(text: T): this & Comment<T> {
-    return extend<this, Comment<T>>(this, "comment", text);
+  comment<T extends string>(
+    text: T,
+  ): this & Comment<T> {
+    return extend<this, Comment<T>>(
+      this,
+      "comment",
+      text,
+    );
   }
 
-  check<T extends string>(expression: T): this & Check<T> {
+  check<T extends string>(
+    expression: T,
+  ): this & Check<T> {
     return extend<this, Check<T>>(
       this,
       "check",
@@ -159,7 +188,11 @@ export class Column<
   }
 
   index(): this & Index {
-    return extend<this, Index>(this, "index", true);
+    return extend<this, Index>(
+      this,
+      "index",
+      true,
+    );
   }
 
   searchIndexed(): this & SearchIndexed {
@@ -179,7 +212,8 @@ export class Column<
       if (
         key !== "type"
         && !key.startsWith("_")
-        && typeof (this as any)[key] !== "function"
+        && typeof (this as any)[key]
+          !== "function"
       ) {
         config[key] = (this as any)[key];
       }
@@ -238,8 +272,14 @@ export class StringColumn<
     );
   }
 
-  enum<T extends unknown[]>(values: T): this & Enum<T> {
-    return extend<this, Enum<T>>(this, "enum", values);
+  enum<T extends unknown[]>(
+    values: T,
+  ): this & Enum<T> {
+    return extend<this, Enum<T>>(
+      this,
+      "enum",
+      values,
+    );
   }
 }
 
@@ -252,15 +292,27 @@ export class NumberColumn extends Column<{
   }
 
   min<T extends number>(value: T): this & Min<T> {
-    return extend<this, Min<T>>(this, "min", value);
+    return extend<this, Min<T>>(
+      this,
+      "min",
+      value,
+    );
   }
 
   max<T extends number>(value: T): this & Max<T> {
-    return extend<this, Max<T>>(this, "max", value);
+    return extend<this, Max<T>>(
+      this,
+      "max",
+      value,
+    );
   }
 
   integer(): this & Integer {
-    return extend<this, Integer>(this, "integer", true);
+    return extend<this, Integer>(
+      this,
+      "integer",
+      true,
+    );
   }
 
   precision<T extends number>(
@@ -273,8 +325,14 @@ export class NumberColumn extends Column<{
     );
   }
 
-  scale<T extends number>(value: T): this & Scale<T> {
-    return extend<this, Scale<T>>(this, "scale", value);
+  scale<T extends number>(
+    value: T,
+  ): this & Scale<T> {
+    return extend<this, Scale<T>>(
+      this,
+      "scale",
+      value,
+    );
   }
 }
 
@@ -296,8 +354,14 @@ export class DecimalColumn extends Column<{
     );
   }
 
-  scale<T extends number>(value: T): this & Scale<T> {
-    return extend<this, Scale<T>>(this, "scale", value);
+  scale<T extends number>(
+    value: T,
+  ): this & Scale<T> {
+    return extend<this, Scale<T>>(
+      this,
+      "scale",
+      value,
+    );
   }
 }
 
@@ -359,7 +423,9 @@ export class TimestampColumn extends Column<{
   T: "timestamp";
   DataType: Date | string | number;
 }> {
-  constructor(private withTimezone: boolean = true) {
+  constructor(
+    private withTimezone: boolean = true,
+  ) {
     super("timestamp");
   }
 
@@ -412,7 +478,9 @@ export class BinaryColumn extends Column<{
   }
 }
 
-export class ArrayColumn<ItemType extends Column<any, any>> extends Column<{
+export class ArrayColumn<
+  ItemType extends Column<any, any>,
+> extends Column<{
   T: "array";
   DataType: Array<GetDataType<ItemType>>;
 }> {
@@ -430,10 +498,12 @@ export class ArrayColumn<ItemType extends Column<any, any>> extends Column<{
   }
 }
 
-export class EnumColumn<T extends string[]> extends Column<{
-  T: "enum";
-  DataType: T[number];
-}> {
+export class EnumColumn<T extends string[]>
+  extends Column<{
+    T: "enum";
+    DataType: T[number];
+  }>
+{
   constructor(private values: T) {
     super("enum");
   }
@@ -456,9 +526,14 @@ export class DateColumn extends Column<{
   }
 }
 
-export type LiteralFieldType = string | number | boolean;
+export type LiteralFieldType =
+  | string
+  | number
+  | boolean;
 
-export class LiteralColumn<T extends LiteralFieldType> extends Column<{
+export class LiteralColumn<
+  T extends LiteralFieldType,
+> extends Column<{
   T: "literal";
   DataType: T;
 }> {
@@ -482,7 +557,9 @@ export function date(): DateColumn {
   return new DateColumn();
 }
 
-export function literal<T extends LiteralFieldType>(
+export function literal<
+  T extends LiteralFieldType,
+>(
   value: T,
 ): LiteralColumn<T> {
   return new LiteralColumn(value);
@@ -544,56 +621,76 @@ export function _enum<T extends string[]>(
   return new EnumColumn(values);
 }
 
-export type IsPrimaryKey<T> = T extends PrimaryKey ? true
+export type IsPrimaryKey<T> = T extends PrimaryKey
+  ? true
   : false;
 
-export type IsUnique<T> = T extends Unique ? true : false;
+export type IsUnique<T> = T extends Unique ? true
+  : false;
 
-export type GetReferences<T> = T extends References<infer Table>
+export type GetReferences<T> = T extends
+  References<infer Table>
   ? { table: Table; column: string }
   : undefined;
 
-export type IsAutoIncrement<T> = T extends AutoIncrement ? true
+export type IsAutoIncrement<T> = T extends
+  AutoIncrement ? true
   : false;
 
-export type GetGenerated<T> = T extends Generated<infer Expr> ? Expr
+export type GetGenerated<T> = T extends
+  Generated<infer Expr> ? Expr
   : undefined;
 
-export type GetComment<T> = T extends Comment<infer Text> ? Text
+export type GetComment<T> = T extends
+  Comment<infer Text> ? Text
   : undefined;
 
-export type GetPrecision<T> = T extends Precision<infer P> ? P
+export type GetPrecision<T> = T extends
+  Precision<infer P> ? P
   : undefined;
 
-export type GetScale<T> = T extends Scale<infer S> ? S
+export type GetScale<T> = T extends Scale<infer S>
+  ? S
   : undefined;
 
-export type GetDataType<T> = T extends Column<infer Params>
-  ? Params extends ColumnParams ? Params["DataType"]
+export type GetDataType<T> = T extends
+  Column<infer Params>
+  ? Params extends ColumnParams
+    ? Params["DataType"]
   : never
   : never;
-export type IsNullable<T> = T extends Nullable ? true
+export type IsNullable<T> = T extends Nullable
+  ? true
   : false;
-export type GetDefault<T> = T extends Default<infer V> ? V
+export type GetDefault<T> = T extends
+  Default<infer V> ? V
   : undefined;
-export type GetMinLength<T> = T extends MinLength<infer V> ? V
+export type GetMinLength<T> = T extends
+  MinLength<infer V> ? V
   : undefined;
-export type GetMaxLength<T> = T extends MaxLength<infer V> ? V
+export type GetMaxLength<T> = T extends
+  MaxLength<infer V> ? V
   : undefined;
 
-export type GetColumnType<T> = T extends StringColumn ? string
+export type GetColumnType<T> = T extends
+  StringColumn ? string
   : T extends NumberColumn ? number
   : T extends BooleanColumn ? boolean
   : T extends DateColumn ? Date
   : T extends LiteralColumn<infer V> ? V
-  : T extends JsonColumn | JsonbColumn ? object | string
+  : T extends JsonColumn | JsonbColumn
+    ? object | string
   : T extends UuidColumn ? string
-  : T extends ArrayColumn<infer ItemType> ? Array<GetDataType<ItemType>>
+  : T extends ArrayColumn<infer ItemType>
+    ? Array<GetDataType<ItemType>>
   : T extends TextColumn ? string
   : T extends BigIntColumn ? bigint | number
-  : T extends TimestampColumn ? Date | string | number
+  : T extends TimestampColumn
+    ? Date | string | number
   : T extends TimeColumn ? string | Date
-  : T extends BinaryColumn ? Uint8Array | Buffer | string
+  : T extends BinaryColumn
+    ? Uint8Array | Buffer | string
   : T extends DecimalColumn ? string | number
-  : T extends EnumColumn<infer Values> ? Values[number]
+  : T extends EnumColumn<infer Values>
+    ? Values[number]
   : never;

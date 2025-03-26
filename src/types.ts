@@ -1,29 +1,47 @@
-import type { Column } from "./columns";
+import type { Column } from "./_old_columns";
 
-export type ManyToManyRelation<Ref, VirtualField, ForeignKey> = {
+export type ManyToManyRelation<
+  Ref,
+  VirtualField,
+  ForeignKey,
+> = {
   kind: "many-to-many";
   ref: Ref;
   virtualField: VirtualField;
   foreignKey: ForeignKey;
 };
 
-export type ManyToOneRelation<Ref, VirtualField, ForeignKey> = {
+export type ManyToOneRelation<
+  Ref,
+  VirtualField,
+  ForeignKey,
+> = {
   kind: "many-to-one";
   ref: Ref;
   virtualField: VirtualField;
   foreignKey: ForeignKey;
 };
 
-export type OneToManyRelation<Ref> = { kind: "one-to-many"; ref: Ref };
+export type OneToManyRelation<Ref> = {
+  kind: "one-to-many";
+  ref: Ref;
+};
 
-export type OneToOneRelation<Ref, VirtualField, ForeignKey> = {
+export type OneToOneRelation<
+  Ref,
+  VirtualField,
+  ForeignKey,
+> = {
   kind: "one-to-one";
   ref: Ref;
   virtualField: VirtualField;
   foreignKey: ForeignKey;
 };
 
-export type RelationKind = "one-to-one" | "many-to-one" | "one-to-many";
+export type RelationKind =
+  | "one-to-one"
+  | "many-to-one"
+  | "one-to-many";
 
 export type Relation =
   | ManyToOneRelation<any, any, any>
@@ -31,13 +49,24 @@ export type Relation =
   | OneToOneRelation<any, any, any>
   | ManyToManyRelation<any, any, any>;
 
-export type FieldsRecord = Record<string, Column<any, any>>;
+export type FieldsRecord = Record<
+  string,
+  Column<any, any>
+>;
 
-export type RelationsRecord = Record<string, Relation>;
+export type RelationsRecord = Record<
+  string,
+  Relation
+>;
 
-export type DefaultRelations = Record<string, Relation>;
+export type DefaultRelations = Record<
+  string,
+  Relation
+>;
 
-export type TableConstructor<F> = new(...args: any[]) => { fields: F };
+export type TableConstructor<F> = new(
+  ...args: any[]
+) => { fields: F };
 
 export type TableCallback<
   Fields extends FieldsRecord,

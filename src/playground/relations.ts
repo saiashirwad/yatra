@@ -15,8 +15,13 @@ class ManyToManyBuilder<
   private foreignKey?: keyof InstanceType<
     ReturnType<Ref>
   >["fields"];
-  constructor(private fields: Fields, private ref: Ref) {}
-  using<VF extends keyof Fields>(virtualField: VF) {
+  constructor(
+    private fields: Fields,
+    private ref: Ref,
+  ) {}
+  using<VF extends keyof Fields>(
+    virtualField: VF,
+  ) {
     this.virtualField = virtualField;
     return this;
   }
@@ -55,8 +60,13 @@ class ManyToOneBuilder<
   private foreignKey?: keyof InstanceType<
     ReturnType<Ref>
   >["fields"];
-  constructor(private fields: Fields, private ref: Ref) {}
-  using<VF extends keyof Fields>(virtualField: VF) {
+  constructor(
+    private fields: Fields,
+    private ref: Ref,
+  ) {}
+  using<VF extends keyof Fields>(
+    virtualField: VF,
+  ) {
     this.virtualField = virtualField;
     return this;
   }
@@ -103,9 +113,14 @@ class OneToOneBuilder<
   private foreignKey?: keyof InstanceType<
     ReturnType<Ref>
   >["fields"];
-  constructor(private fields: Fields, private ref: Ref) {}
+  constructor(
+    private fields: Fields,
+    private ref: Ref,
+  ) {}
 
-  using<VF extends keyof Fields>(virtualField: VF) {
+  using<VF extends keyof Fields>(
+    virtualField: VF,
+  ) {
     this.virtualField = virtualField;
     return this;
   }

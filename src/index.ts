@@ -1,11 +1,31 @@
-import { Schema } from "effect";
+import {
+  number,
+  string,
+} from "./columns/base-columns";
+import {
+  autoIncrement,
+  columnName,
+  minLength,
+  nullable,
+  primaryKey,
+  unique,
+} from "./columns/properties";
+import { pipe } from "./pipe";
 
-class Lol extends Schema.Class<Lol>("Lol")({
-  name: Schema.String,
-}) {}
+const userNameColumn = pipe(
+  string(),
+  columnName("user_name"),
+  minLength(3),
+  unique,
+  nullable,
+);
 
-console.log(Lol);
+const idColumn = pipe(
+  number(),
+  columnName("id"),
+  primaryKey,
+  autoIncrement,
+);
 
-const lol = new Lol({ name: "hi" });
-
-console.log(lol);
+console.log(idColumn);
+console.log(userNameColumn);

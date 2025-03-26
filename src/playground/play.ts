@@ -1,19 +1,28 @@
-type Clean<T> = { [k in keyof T]: T[k] } & unknown;
+type Clean<T> =
+  & { [k in keyof T]: T[k] }
+  & unknown;
 
 function set<const R>(r: R) {
   return r;
 }
 
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
-  k: infer I,
-) => void ? I
+type UnionToIntersection<U> =
+  (U extends any ? (k: U) => void : never) extends
+    (
+      k: infer I,
+    ) => void ? I
+    : never;
+
+type GeneratorResult<R> = R extends
+  Generator<infer V> ? V
   : never;
 
-type GeneratorResult<R> = R extends Generator<infer V> ? V
-  : never;
-
-type CleanResult<T extends (...args: any[]) => any> = Clean<
-  UnionToIntersection<GeneratorResult<ReturnType<T>>>
+type CleanResult<
+  T extends (...args: any[]) => any,
+> = Clean<
+  UnionToIntersection<
+    GeneratorResult<ReturnType<T>>
+  >
 >;
 
 type TableSchema = Record<
@@ -37,7 +46,9 @@ type QueryContext<
 function* select<
   Schema extends TableSchema,
   T extends keyof Schema,
-  const S extends readonly (keyof Schema[T]["columns"])[],
+  const S extends readonly (keyof Schema[T][
+    "columns"
+  ])[],
 >(
   context: QueryContext<Schema, T>,
   fields: S,
