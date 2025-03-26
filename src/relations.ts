@@ -1,195 +1,158 @@
-import {
-  type FieldsRecord,
-  type ManyToManyRelation,
-  type ManyToOneRelation,
-  type OneToManyRelation,
-  type OneToOneRelation,
-  type TableConstructor,
-} from "./types";
+import { Pipeable } from "effect";
+import type { TableType } from "./types";
+import type { FieldsRecord, TableInstance } from "./types";
 
-class ManyToManyBuilder<
-  Fields extends FieldsRecord,
-  Ref extends () => TableConstructor<any>,
-> {
-  private virtualField?: keyof Fields;
-  private foreignKey?: keyof InstanceType<
-    ReturnType<Ref>
-  >["fields"];
+const SourceTable = Symbol.for("Yatra/Relation/SourceTable");
+const DestinationTable = Symbol.for("Yatra/Relation/DestinationTable");
+export const TableFields = Symbol.for("Yatra/Table/Fields");
+
+type RelationTableConstructor = new(
+  args: any,
+) => TableInstance<string, FieldsRecord>;
+
+export type ExtractFields<T> = T extends TableType<any, infer F> ? F
+  : never;
+
+export type ExtractKeys<T> = keyof ExtractFields<T>;
+export type ExtractTableName<T> = T extends TableType<infer N, any> ? N : never;
+
+export class Relation<
+  S extends RelationTableConstructor | any,
+  D extends RelationTableConstructor | any,
+> implements Pipeable.Pipeable {
+  declare [SourceTable]: S;
+  declare [DestinationTable]: D;
+
   constructor(
-    private fields: Fields,
-    private ref: Ref,
-  ) {}
-  using<VF extends keyof Fields>(
-    virtualField: VF,
+    source: () => S,
+    destination: () => D,
   ) {
-    this.virtualField = virtualField;
-    return this;
+    this[SourceTable] = source();
+    this[DestinationTable] = destination();
   }
-  references<
-    FK extends keyof InstanceType<
-      ReturnType<Ref>
-    >["fields"],
-  >(foreignKey: FK) {
-    this.foreignKey = foreignKey;
-    return this;
-  }
-  build(): ManyToManyRelation<
-    Ref,
-    keyof Fields,
-    keyof InstanceType<ReturnType<Ref>>["fields"]
-  > {
-    if (!this.virtualField || !this.foreignKey) {
-      throw new Error(
-        "ManyToMany relation requires both virtualField and foreignKey",
-      );
-    }
-    return {
-      kind: "many-to-many",
-      ref: this.ref,
-      virtualField: this.virtualField,
-      foreignKey: this.foreignKey,
-    };
+
+  pipe(...fns: Array<Function>) {
+    return Pipeable.pipeArguments(
+      this,
+      arguments,
+    );
   }
 }
 
-class ManyToOneBuilder<
-  Fields extends FieldsRecord,
-  Ref extends () => TableConstructor<any>,
-> {
-  private virtualField?: keyof Fields;
-  private foreignKey?: keyof InstanceType<
-    ReturnType<Ref>
-  >["fields"];
+export class OneToOneRelation<
+  S extends RelationTableConstructor | any,
+  D extends RelationTableConstructor | any,
+  FK extends ExtractKeys<S> = ExtractKeys<S>,
+> extends Relation<S, D> {
   constructor(
-    private fields: Fields,
-    private ref: Ref,
-  ) {}
-  using<VF extends keyof Fields>(
-    virtualField: VF,
+    source: () => S,
+    destination: () => D,
+    public foreignKey: FK,
   ) {
-    this.virtualField = virtualField;
-    return this;
-  }
-  references<
-    FK extends keyof InstanceType<
-      ReturnType<Ref>
-    >["fields"],
-  >(foreignKey: FK) {
-    this.foreignKey = foreignKey;
-    return this;
-  }
-  build(): ManyToOneRelation<
-    Ref,
-    keyof Fields,
-    keyof InstanceType<ReturnType<Ref>>["fields"]
-  > {
-    if (!this.virtualField || !this.foreignKey) {
-      throw new Error(
-        "ManyToOne relation requires both virtualField and foreignKey",
-      );
-    }
-    return {
-      kind: "many-to-one",
-      ref: this.ref,
-      virtualField: this.virtualField,
-      foreignKey: this.foreignKey,
-    };
+    super(source, destination);
   }
 }
 
-class OneToManyBuilder<Ref extends () => any> {
-  constructor(private ref: Ref) {}
-  build(): OneToManyRelation<Ref> {
-    return { kind: "one-to-many", ref: this.ref };
+export function oneToOne<
+  S extends RelationTableConstructor | any,
+  D extends RelationTableConstructor | any,
+  FK extends ExtractKeys<S>,
+>(
+  source: () => S,
+  destination: () => D,
+  foreignKey: FK,
+) {
+  return new OneToOneRelation(source, destination, foreignKey);
+}
+
+export class OneToManyRelation<
+  S extends RelationTableConstructor | any,
+  D extends RelationTableConstructor | any,
+  FK extends ExtractKeys<D> = ExtractKeys<D>,
+> extends Relation<S, D> {
+  constructor(
+    source: () => S,
+    destination: () => D,
+    public foreignKey: FK,
+  ) {
+    super(source, destination);
   }
 }
 
-class OneToOneBuilder<
-  Fields extends FieldsRecord,
-  Ref extends () => TableConstructor<any>,
-  const Index extends string,
-> {
-  private virtualField?: keyof Fields;
-  private foreignKey?: keyof InstanceType<
-    ReturnType<Ref>
-  >["fields"];
+export function oneToMany<
+  S extends RelationTableConstructor | any,
+  D extends RelationTableConstructor | any,
+  FK extends ExtractKeys<D>,
+>(
+  source: () => S,
+  destination: () => D,
+  foreignKey: FK,
+) {
+  return new OneToManyRelation(source, destination, foreignKey);
+}
+
+export class ManyToOneRelation<
+  S extends RelationTableConstructor | any,
+  D extends RelationTableConstructor | any,
+  FK extends ExtractKeys<S> = ExtractKeys<S>,
+> extends Relation<S, D> {
   constructor(
-    private fields: Fields,
-    private ref: Ref,
-  ) {}
-
-  using<VF extends keyof Fields>(
-    virtualField: VF,
+    source: () => S,
+    destination: () => D,
+    public foreignKey: FK,
   ) {
-    this.virtualField = virtualField;
-    return this;
+    super(source, destination);
   }
+}
 
-  references<
-    FK extends keyof InstanceType<
-      ReturnType<Ref>
-    >["fields"],
-  >(foreignKey: FK) {
-    this.foreignKey = foreignKey;
-    return this;
-  }
+export function manyToOne<
+  S extends RelationTableConstructor | any,
+  D extends RelationTableConstructor | any,
+  FK extends ExtractKeys<S>,
+>(
+  source: () => S,
+  destination: () => D,
+  foreignKey: FK,
+) {
+  return new ManyToOneRelation(source, destination, foreignKey);
+}
 
-  build(): OneToOneRelation<
-    Ref,
-    keyof Fields,
-    keyof InstanceType<ReturnType<Ref>>["fields"]
-  > {
-    if (!this.virtualField || !this.foreignKey) {
-      throw new Error(
-        "OneToOne relation requires both virtualField and foreignKey",
-      );
-    }
-    return {
-      kind: "one-to-one",
-      ref: this.ref,
-      virtualField: this.virtualField,
-      foreignKey: this.foreignKey,
-    };
+export class ManyToManyRelation<
+  S extends RelationTableConstructor | any,
+  D extends RelationTableConstructor | any,
+  JT extends string = string,
+  SK extends ExtractKeys<S> = ExtractKeys<S>,
+  DK extends ExtractKeys<D> = ExtractKeys<D>,
+> extends Relation<S, D> {
+  constructor(
+    source: () => S,
+    destination: () => D,
+    public joinTable: JT,
+    public sourceKey: SK,
+    public destinationKey: DK,
+  ) {
+    super(source, destination);
   }
 }
 
 export function manyToMany<
-  Fields extends FieldsRecord,
-  Ref extends () => TableConstructor<any>,
+  S extends RelationTableConstructor | any,
+  D extends RelationTableConstructor | any,
+  JT extends string,
+  SK extends ExtractKeys<S>,
+  DK extends ExtractKeys<D>,
 >(
-  t: Fields,
-  ref: Ref,
-): ManyToManyBuilder<Fields, Ref> {
-  return new ManyToManyBuilder(t, ref);
-}
-
-export function manyToOne<
-  Fields extends FieldsRecord,
-  Ref extends () => TableConstructor<any>,
->(
-  t: Fields,
-  ref: Ref,
-): ManyToOneBuilder<Fields, Ref> {
-  return new ManyToOneBuilder(t, ref);
-}
-
-export function oneToMany<
-  Fields extends FieldsRecord,
-  Ref extends () => any,
->(
-  t: Fields,
-  ref: Ref,
-): OneToManyBuilder<Ref> {
-  return new OneToManyBuilder(ref);
-}
-
-export function oneToOne<
-  Fields extends FieldsRecord,
-  Ref extends () => TableConstructor<any>,
-  const Index extends string,
->(
-  t: Fields,
-  ref: Ref,
-): OneToOneBuilder<Fields, Ref, Index> {
-  return new OneToOneBuilder(t, ref);
+  source: () => S,
+  destination: () => D,
+  joinTable: JT,
+  sourceKey: SK,
+  destinationKey: DK,
+) {
+  return new ManyToManyRelation(
+    source,
+    destination,
+    joinTable,
+    sourceKey,
+    destinationKey,
+  );
 }

@@ -1,106 +1,30 @@
-import type { GetColumnType } from "./columns/base-columns";
-import type { IsNullable } from "./columns/properties";
-import type {
-  DefaultRelations,
-  FieldsRecord,
-  RelationsRecord,
-  TableCallback,
+import {
+  type FieldsRecord,
+  type MakeTableObject,
+  TableFields,
+  TableName,
+  type TableType,
 } from "./types";
-import type { Clean } from "./utils";
 
-type NullableFields<
-  Fields = FieldsRecord,
-> = {
-  -readonly [
-    k in keyof Fields as IsNullable<
-      Fields[k]
-    > extends true ? k
-      : never
-  ]?: GetColumnType<Fields[k]>;
-};
-
-type NonNullableFields<Fields = FieldsRecord> = {
-  -readonly [
-    k in keyof Fields as IsNullable<
-      Fields[k]
-    > extends false ? k
-      : never
-  ]: GetColumnType<Fields[k]>;
-};
-
-type MakeObject<
-  Fields = FieldsRecord,
-  Relations extends RelationsRecord = DefaultRelations,
-  Nullable = NullableFields<Fields>,
-  NonNullable = NonNullableFields<Fields>,
-  Rels = Relations extends never ? never : {
-    [k in keyof Relations]?: Relations[k]["kind"] extends
-      "one-to-one" | "many-to-one" ?
-        | InstanceType<
-          ReturnType<Relations[k]["ref"]>
-        >
-        | MakeObject<
-          InstanceType<
-            ReturnType<Relations[k]["ref"]>
-          >["fields"]
-        >
-      : Relations[k]["kind"] extends "many-to-many" | "one-to-many" ? Array<
-          InstanceType<
-            ReturnType<Relations[k]["ref"]>
-          >
-        >
-      : never;
-  },
-> = Clean<Nullable & NonNullable & Rels>;
-
-type TableConstructorArgs<
-  Fields extends FieldsRecord,
-  Relations extends RelationsRecord,
-> = MakeObject<Fields, Relations>;
-
-type TableInstance<
-  TableName extends string,
-  Fields extends FieldsRecord,
-  Relations extends RelationsRecord,
-> =
-  & {
-    name: TableName;
-    fields: Fields;
-    relations: Relations;
-  }
-  & MakeObject<Fields>;
-
-type Table<
-  TableName extends string,
-  Fields extends FieldsRecord,
-  Relations extends RelationsRecord = DefaultRelations,
-> = {
-  new(
-    args: TableConstructorArgs<Fields, Relations>,
-  ): TableInstance<TableName, Fields, Relations>;
-};
+export type GetTableFields<T> = T extends TableType<any, infer Fields> ? Fields
+  : T extends { [TableFields]: infer Fields } ? Fields
+  : T extends { prototype: { [TableFields]: infer Fields } } ? Fields
+  : never;
 
 export function Table<
   const TableName extends string,
   const Fields extends FieldsRecord,
-  const Relations extends RelationsRecord = DefaultRelations,
 >(
   tableName: TableName,
   fields: Fields,
-  callback?: TableCallback<Fields, Relations>,
-): Table<TableName, Fields, Relations> {
+): TableType<TableName, Fields> {
   class TableClass {
-    public name: TableName = tableName;
-    public fields: Fields = fields;
-    public relations: Relations = {} as Relations;
+    public [TableName]: TableName = tableName;
+    public [TableFields]: Fields = fields;
 
     constructor(
-      args: MakeObject<Fields, Relations>,
+      args: MakeTableObject<Fields>,
     ) {
-      if (callback) {
-        const result = callback(fields);
-        this.relations = result.relations;
-      }
       if (typeof args === "object") {
         for (const key in args) {
           (this as any)[key] = (args as any)[key];
@@ -108,9 +32,8 @@ export function Table<
       }
     }
   }
-  return TableClass as Table<
+  return TableClass as TableType<
     TableName,
-    Fields,
-    Relations
+    Fields
   >;
 }

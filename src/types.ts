@@ -1,76 +1,66 @@
 import type { Column } from "./columns/column";
-
-export type ManyToManyRelation<
-  Ref,
-  VirtualField,
-  ForeignKey,
-> = {
-  kind: "many-to-many";
-  ref: Ref;
-  virtualField: VirtualField;
-  foreignKey: ForeignKey;
-};
-
-export type ManyToOneRelation<
-  Ref,
-  VirtualField,
-  ForeignKey,
-> = {
-  kind: "many-to-one";
-  ref: Ref;
-  virtualField: VirtualField;
-  foreignKey: ForeignKey;
-};
-
-export type OneToManyRelation<Ref> = {
-  kind: "one-to-many";
-  ref: Ref;
-};
-
-export type OneToOneRelation<
-  Ref,
-  VirtualField,
-  ForeignKey,
-> = {
-  kind: "one-to-one";
-  ref: Ref;
-  virtualField: VirtualField;
-  foreignKey: ForeignKey;
-};
-
-export type RelationKind =
-  | "one-to-one"
-  | "many-to-one"
-  | "one-to-many";
-
-export type Relation =
-  | ManyToOneRelation<any, any, any>
-  | OneToManyRelation<any>
-  | OneToOneRelation<any, any, any>
-  | ManyToManyRelation<any, any, any>;
+import type { IsNullable } from "./columns/properties";
+import type { Clean } from "./utils";
 
 export type FieldsRecord = Record<
   string,
   Column<any, any>
 >;
 
-export type RelationsRecord = Record<
-  string,
-  Relation
->;
-
-export type DefaultRelations = Record<
-  string,
-  Relation
->;
-
 export type TableConstructor<F> = new(
   ...args: any[]
 ) => { fields: F };
 
-export type TableCallback<
+export type InferColumn<C> = C extends Column<any, infer T>
+  ? IsNullable<C> extends true ? T | null : T
+  : never;
+
+export type InferFields<CR extends Record<string, Column<any, any>>> = {
+  [k in keyof CR]: InferColumn<CR[k]>;
+};
+
+export type NullableFields<
+  Fields = FieldsRecord,
+> = {
+  -readonly [
+    k in keyof Fields as IsNullable<
+      Fields[k]
+    > extends true ? k
+      : never
+  ]?: InferColumn<Fields[k]>;
+};
+
+export type NonNullableFields<Fields = FieldsRecord> = {
+  -readonly [
+    k in keyof Fields as IsNullable<
+      Fields[k]
+    > extends false ? k
+      : never
+  ]: InferColumn<Fields[k]>;
+};
+
+export type MakeTableObject<
+  Fields = FieldsRecord,
+  Nullable = NullableFields<Fields>,
+  NonNullable = NonNullableFields<Fields>,
+> = Clean<Nullable & NonNullable>;
+
+export const TableName = Symbol.for("Yatra/Table/Name");
+export const TableFields = Symbol.for("Yatra/Table/Fields");
+
+export type TableInstance<
+  TableName extends string,
   Fields extends FieldsRecord,
-  Relations extends RelationsRecord,
-> = (
-  fields: Fields,
-) => { relations: Relations };
+> = {
+  [TableName]: TableName;
+  [TableFields]: Fields;
+} & MakeTableObject<Fields>;
+
+export type TableType<
+  TableName extends string,
+  Fields extends FieldsRecord,
+> = {
+  new(
+    args: MakeTableObject<Fields>,
+  ): TableInstance<TableName, Fields>;
+};
