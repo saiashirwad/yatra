@@ -17,15 +17,15 @@ export type ExtractKeys<T> = keyof ExtractFields<T>;
 export type ExtractTableName<T> = T extends TableType<infer N, any> ? N : never;
 
 export class Relation<
-  S extends RelationTableConstructor | any,
-  D extends RelationTableConstructor | any,
+  Source extends RelationTableConstructor,
+  Destination extends RelationTableConstructor,
 > implements Pipeable.Pipeable {
-  public [SourceTable]: S;
-  public [DestinationTable]: D;
+  public [SourceTable]: Source;
+  public [DestinationTable]: Destination;
 
   constructor(
-    source: () => S,
-    destination: () => D,
+    source: () => Source,
+    destination: () => Destination,
   ) {
     this[SourceTable] = source();
     this[DestinationTable] = destination();
@@ -48,8 +48,8 @@ export class Relation<
 }
 
 export class OneToOneRelation<
-  S extends RelationTableConstructor | any,
-  D extends RelationTableConstructor | any,
+  S extends RelationTableConstructor,
+  D extends RelationTableConstructor,
   FK extends ExtractKeys<S> = ExtractKeys<S>,
 > extends Relation<S, D> {
   constructor(
@@ -62,8 +62,8 @@ export class OneToOneRelation<
 }
 
 export function oneToOne<
-  S extends RelationTableConstructor | any,
-  D extends RelationTableConstructor | any,
+  S extends RelationTableConstructor,
+  D extends RelationTableConstructor,
   FK extends ExtractKeys<S>,
 >(
   source: () => S,
@@ -74,8 +74,8 @@ export function oneToOne<
 }
 
 export class OneToManyRelation<
-  S extends RelationTableConstructor | any,
-  D extends RelationTableConstructor | any,
+  S extends RelationTableConstructor,
+  D extends RelationTableConstructor,
   FK extends ExtractKeys<D> = ExtractKeys<D>,
 > extends Relation<S, D> {
   constructor(
@@ -88,8 +88,8 @@ export class OneToManyRelation<
 }
 
 export function oneToMany<
-  S extends RelationTableConstructor | any,
-  D extends RelationTableConstructor | any,
+  S extends RelationTableConstructor,
+  D extends RelationTableConstructor,
   FK extends ExtractKeys<D>,
 >(
   source: () => S,
@@ -100,8 +100,8 @@ export function oneToMany<
 }
 
 export class ManyToOneRelation<
-  S extends RelationTableConstructor | any,
-  D extends RelationTableConstructor | any,
+  S extends RelationTableConstructor,
+  D extends RelationTableConstructor,
   FK extends ExtractKeys<S> = ExtractKeys<S>,
 > extends Relation<S, D> {
   constructor(
@@ -114,8 +114,8 @@ export class ManyToOneRelation<
 }
 
 export function manyToOne<
-  S extends RelationTableConstructor | any,
-  D extends RelationTableConstructor | any,
+  S extends RelationTableConstructor,
+  D extends RelationTableConstructor,
   FK extends ExtractKeys<S>,
 >(
   source: () => S,
@@ -126,8 +126,8 @@ export function manyToOne<
 }
 
 export class ManyToManyRelation<
-  S extends RelationTableConstructor | any,
-  D extends RelationTableConstructor | any,
+  S extends RelationTableConstructor,
+  D extends RelationTableConstructor,
   JT extends string = string,
   SK extends ExtractKeys<S> = ExtractKeys<S>,
   DK extends ExtractKeys<D> = ExtractKeys<D>,
@@ -144,8 +144,8 @@ export class ManyToManyRelation<
 }
 
 export function manyToMany<
-  S extends RelationTableConstructor | any,
-  D extends RelationTableConstructor | any,
+  S extends RelationTableConstructor,
+  D extends RelationTableConstructor,
   JT extends string,
   SK extends ExtractKeys<S>,
   DK extends ExtractKeys<D>,
