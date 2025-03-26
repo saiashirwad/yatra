@@ -1,6 +1,7 @@
 import {
   number,
   string,
+  time,
 } from "./columns/base-columns";
 import {
   autoIncrement,
@@ -29,3 +30,8 @@ const idColumn = pipe(
 
 console.log(idColumn);
 console.log(userNameColumn);
+
+const ha = pipe(
+  time(),
+  columnName("ha"),
+);
