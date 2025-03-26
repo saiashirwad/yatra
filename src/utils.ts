@@ -15,10 +15,18 @@ export type Constructor<
   ...args: Args[]
 ) => ReturnType;
 
-export function member<
-  Co extends Constructor,
-  Instance extends InstanceType<Co>,
-  K extends keyof Instance,
->(c: Co, key: K): Instance[K] {
-  return new c()[key];
+/**
+ * A curried type-safe wrapper around Reflect.construct
+ *
+ * @param constructor - The constructor function to invoke
+ * @returns A function that accepts constructor arguments and returns an instance
+ */
+export function construct<T extends new(...args: any[]) => any>(
+  constructor: T,
+) {
+  return <A extends ConstructorParameters<T>>(
+    ...args: A
+  ): InstanceType<T> => {
+    return Reflect.construct(constructor, args) as InstanceType<T>;
+  };
 }

@@ -9,6 +9,7 @@ import {
   oneToOne,
 } from "./relations";
 import { Table } from "./table";
+import { construct } from "./utils";
 
 const basicColumns = {
   id: pipe(uuid(), primaryKey),
@@ -68,3 +69,21 @@ const bookToAuthors = manyToMany(
   "id",
   "id",
 );
+
+const lol = bookToAuthor;
+
+const makeSource = construct(lol.sourceTable);
+
+const asdf = makeSource(
+  {
+    id: "hi",
+    name: "hi",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    authorId: "sdf",
+    description: "asd",
+    price: 2,
+  },
+);
+
+console.log(asdf);

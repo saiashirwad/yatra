@@ -5,6 +5,7 @@ import {
   TableName,
   type TableType,
 } from "./types";
+import { construct } from "./utils";
 
 export type GetTableFields<T> = T extends TableType<any, infer Fields> ? Fields
   : T extends { [TableFields]: infer Fields } ? Fields

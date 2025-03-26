@@ -2,8 +2,8 @@ import { Pipeable } from "effect";
 import type { TableType } from "./types";
 import type { FieldsRecord, TableInstance } from "./types";
 
-const SourceTable = Symbol.for("Yatra/Relation/SourceTable");
-const DestinationTable = Symbol.for("Yatra/Relation/DestinationTable");
+export const SourceTable = Symbol.for("Yatra/Relation/SourceTable");
+export const DestinationTable = Symbol.for("Yatra/Relation/DestinationTable");
 export const TableFields = Symbol.for("Yatra/Table/Fields");
 
 type RelationTableConstructor = new(
@@ -20,8 +20,8 @@ export class Relation<
   S extends RelationTableConstructor | any,
   D extends RelationTableConstructor | any,
 > implements Pipeable.Pipeable {
-  declare [SourceTable]: S;
-  declare [DestinationTable]: D;
+  public [SourceTable]: S;
+  public [DestinationTable]: D;
 
   constructor(
     source: () => S,
@@ -36,6 +36,14 @@ export class Relation<
       this,
       arguments,
     );
+  }
+
+  get sourceTable() {
+    return this[SourceTable];
+  }
+
+  get destinationTable() {
+    return this[DestinationTable];
   }
 }
 
