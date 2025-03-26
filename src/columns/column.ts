@@ -15,7 +15,7 @@ export class Column<
     this[DataType] = null as any;
   }
 
-  pipe(...fns: Array<Function>) {
+  pipe(..._: Array<Function>) {
     return Pipeable.pipeArguments(
       this,
       arguments,

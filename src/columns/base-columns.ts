@@ -214,20 +214,3 @@ export function enum_<T extends string[]>(
 ): EnumColumn<T> {
   return new EnumColumn<T>(values);
 }
-
-export type GetColumnType<T> = T extends StringColumn ? string
-  : T extends NumberColumn ? number
-  : T extends BooleanColumn ? boolean
-  : T extends DateColumn ? Date
-  : T extends LiteralColumn<infer V> ? V
-  : T extends JsonColumn | JsonbColumn ? object | string
-  : T extends UuidColumn ? string
-  : T extends ArrayColumn<infer ItemType> ? Array<GetDataType<ItemType>>
-  : T extends TextColumn ? string
-  : T extends BigIntColumn ? bigint | number
-  : T extends TimestampColumn ? Date | string | number
-  : T extends TimeColumn ? string | Date
-  : T extends BinaryColumn ? Uint8Array | Buffer | string
-  : T extends DecimalColumn ? string | number
-  : T extends EnumColumn<infer Values> ? Values[number]
-  : never;

@@ -31,7 +31,7 @@ export class Relation<
     this[DestinationTable] = destination();
   }
 
-  pipe(...fns: Array<Function>) {
+  pipe(..._: Array<Function>) {
     return Pipeable.pipeArguments(
       this,
       arguments,
