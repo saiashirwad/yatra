@@ -103,7 +103,7 @@ class DecimalColumn extends Column<"decimal", string | number> {
   }
 }
 
-const LiteralValue = Symbol.for("LiteralValue");
+const LiteralValue = Symbol.for("Yatra/LiteralValue");
 class LiteralColumn<
   T extends string | number | boolean,
 > extends Column<"literal", T> {
@@ -115,7 +115,7 @@ class LiteralColumn<
   }
 }
 
-const ArrayItemType = Symbol.for("ItemType");
+const ArrayItemType = Symbol.for("Yatra/ItemType");
 class ArrayColumn<
   ItemType extends Column<any, any>,
 > extends Column<

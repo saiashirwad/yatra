@@ -1,7 +1,7 @@
 import { Pipeable } from "effect";
 
-export const Type = Symbol.for("Type");
-export const DataType = Symbol.for("DataType");
+export const Type = Symbol.for("Yatra/Type");
+export const DataType = Symbol.for("Yatra/DataType");
 
 export class Column<
   CT extends ColumnType,

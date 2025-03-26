@@ -1,5 +1,4 @@
 import { date, number, string, uuid } from "./columns/base-columns";
-import type { Column } from "./columns/column";
 import {
   defaultValue,
   type IsNullable,
@@ -7,7 +6,8 @@ import {
   primaryKey,
 } from "./columns/properties";
 import { pipe } from "./pipe";
-import { Table } from "./table";
+import { Table, TableFields } from "./table_new";
+import type { MakeTableObject, NullableFields } from "./table_new";
 
 const basicColumns = {
   id: pipe(uuid(), primaryKey),
@@ -26,27 +26,4 @@ class Book extends Table(
   },
 ) {}
 
-type InferColumn<C> = C extends Column<any, infer T>
-  ? IsNullable<C> extends true ? T | null : T
-  : never;
-
-type InferFields<CR extends Record<string, Column<any, any>>> = {
-  [k in keyof CR]: InferColumn<CR[k]>;
-};
-
-export function makeTable<
-  ColumnsRecord extends Record<string, Column<any, any>>,
->(columns: ColumnsRecord) {
-  return {
-    fields: columns,
-  };
-}
-
-const Book2 = makeTable({
-  ...basicColumns,
-  authorId: string(),
-  description: pipe(string(), defaultValue("what")),
-  price: pipe(number(), nullable),
-});
-
-type Book2 = InferFields<typeof Book2["fields"]>;
+type BookInferrred = MakeTableObject<Book[typeof TableFields]>;
