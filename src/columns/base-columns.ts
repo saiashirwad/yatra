@@ -1,4 +1,4 @@
-import { Column, DataType, type GetDataType } from "./column";
+import { Column, DataType } from "./column";
 import { EnumValues } from "./properties";
 
 class StringColumn extends Column<"string", string> {

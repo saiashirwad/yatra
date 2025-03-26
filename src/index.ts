@@ -72,18 +72,4 @@ const bookToAuthors = manyToMany(
 
 const lol = bookToAuthor;
 
-const makeSource = construct(lol.sourceTable);
-
-const asdf = makeSource(
-  {
-    id: "hi",
-    name: "hi",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    authorId: "sdf",
-    description: "asd",
-    price: 2,
-  },
-);
-
-console.log(asdf);
+const source = lol.sourceTable;
