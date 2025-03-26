@@ -1,6 +1,18 @@
-import { _enum, type GetColumnType, type IsNullable, number, string, uuid } from "./columns";
+import {
+  _enum,
+  type GetColumnType,
+  type IsNullable,
+  number,
+  string,
+  uuid,
+} from "./columns";
 import { oneToMany, oneToOne } from "./relations";
-import type { DefaultRelations, FieldsRecord, RelationsRecord, TableCallback } from "./types";
+import type {
+  DefaultRelations,
+  FieldsRecord,
+  RelationsRecord,
+  TableCallback,
+} from "./types";
 import type { Clean } from "./utils";
 
 type NullableFields<
@@ -25,7 +37,8 @@ type MakeObject<
   Nullable = NullableFields<Fields>,
   NonNullable = NonNullableFields<Fields>,
   Rels = Relations extends never ? never : {
-    [k in keyof Relations]?: Relations[k]["kind"] extends "one-to-one" | "many-to-one" ?
+    [k in keyof Relations]?: Relations[k]["kind"] extends
+      "one-to-one" | "many-to-one" ?
         | InstanceType<ReturnType<Relations[k]["ref"]>>
         | MakeObject<
           InstanceType<ReturnType<Relations[k]["ref"]>>["fields"]

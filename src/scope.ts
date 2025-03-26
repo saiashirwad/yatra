@@ -51,14 +51,16 @@ type ParseFieldType<
   : never;
 
 type ParseModifiers<Mods extends string> = Mods extends "" ? {}
-  : Mods extends `${infer Mod}.${infer Rest}` ? ParseModifier<Mod> & ParseModifiers<Rest>
+  : Mods extends `${infer Mod}.${infer Rest}`
+    ? ParseModifier<Mod> & ParseModifiers<Rest>
   : ParseModifier<Mods>;
 
 type ParseModifier<Mod extends string> = Mod extends "id" ? { id: true }
   : Mod extends "unique" ? { unique: true }
   : Mod extends "default(uuid)" ? { default: "uuid" }
   : Mod extends "default(autoincrement)" ? { default: "autoincrement" }
-  : Mod extends `relation(${infer ForeignKeyField}.${infer ReferencedField})` ? {
+  : Mod extends `relation(${infer ForeignKeyField}.${infer ReferencedField})`
+    ? {
       relation: {
         foreignKeyField: ForeignKeyField;
         referencedField: ReferencedField;
@@ -67,7 +69,8 @@ type ParseModifier<Mod extends string> = Mod extends "id" ? { id: true }
   : Mod extends "relation" ? { relation: true }
   : {};
 
-type ParseEntry<E, S extends DbScopeSchema> = E extends string ? ParseFieldDefinition<E, S>["type"]
+type ParseEntry<E, S extends DbScopeSchema> = E extends string
+  ? ParseFieldDefinition<E, S>["type"]
   : E extends object ? Resolve<
       {
         -readonly [K in keyof E]: ParseEntry<E[K], S>;
@@ -77,7 +80,8 @@ type ParseEntry<E, S extends DbScopeSchema> = E extends string ? ParseFieldDefin
 
 type ResolveRelationFields<E, S extends DbScopeSchema> = {
   [
-    K in keyof E as E[K] extends string ? ParseFieldDefinition<E[K], S>["modifiers"] extends {
+    K in keyof E as E[K] extends string
+      ? ParseFieldDefinition<E[K], S>["modifiers"] extends {
         relation: {
           foreignKeyField: infer ForeignKeyField extends string; // Add constraint here
         };
@@ -112,7 +116,8 @@ type PossibleFields<S, Model extends keyof S> = keyof S[Model];
 type ValidateFieldDefinition<
   S,
   T extends string,
-> = T extends `${infer Type}.${infer Modifiers}` ? `${ValidateType<S, Type>}${ValidateModifiers<
+> = T extends `${infer Type}.${infer Modifiers}`
+  ? `${ValidateType<S, Type>}${ValidateModifiers<
     S,
     Modifiers,
     Type
@@ -123,7 +128,8 @@ type ValidateType<S, T extends string> = T extends PossibleFieldTypes<S> ? T
   : {
     [K in PossibleFieldTypes<S>]: K extends `${T}${string}` ? K
       : never;
-  }[PossibleFieldTypes<S>] extends infer Suggestion ? Suggestion extends string ? Suggestion
+  }[PossibleFieldTypes<S>] extends infer Suggestion
+    ? Suggestion extends string ? Suggestion
     : `Invalid field type '${T}'. Did you mean one of: ${
       & PossibleFieldTypes<S>
       & string}`
@@ -151,9 +157,11 @@ type ValidateModifier<
   Type extends string,
 > = Mod extends PossibleModifiers
   ? Mod extends `relation(${infer ForeignKeyField}.${infer ReferencedField})`
-    ? ExtractModel<Type> extends infer Model ? Type extends `${string}[]` ? "relation"
+    ? ExtractModel<Type> extends infer Model
+      ? Type extends `${string}[]` ? "relation"
       : Model extends keyof S
-        ? ForeignKeyField extends string ? ReferencedField extends PossibleFields<S, Model> ? Mod
+        ? ForeignKeyField extends string
+          ? ReferencedField extends PossibleFields<S, Model> ? Mod
           : `Invalid referenced field '${ReferencedField}' in model. Did you mean one of: ${
             & PossibleFields<
               S,
@@ -167,7 +175,8 @@ type ValidateModifier<
   : {
     [K in PossibleModifiers]: K extends `${Mod}${string}` ? K
       : never;
-  }[PossibleModifiers] extends infer Suggestion ? Suggestion extends string ? Suggestion
+  }[PossibleModifiers] extends infer Suggestion
+    ? Suggestion extends string ? Suggestion
     : `Invalid modifier. Did you mean one of: ${
       & PossibleModifiers
       & string}`
@@ -175,7 +184,8 @@ type ValidateModifier<
 
 type ValidatedDbScopeSchema<S> = {
   [K in keyof S]: {
-    [F in keyof S[K]]: S[K][F] extends string ? ValidateFieldDefinition<S, S[K][F]>
+    [F in keyof S[K]]: S[K][F] extends string
+      ? ValidateFieldDefinition<S, S[K][F]>
       : S[K][F] extends object ? ValidatedDbScopeSchema<S[K][F]>
       : never;
   };

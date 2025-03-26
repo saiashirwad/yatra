@@ -1,6 +1,19 @@
-import { _enum, array, type GetColumnType, type IsNullable, number, string, uuid } from "./columns";
+import {
+  _enum,
+  array,
+  type GetColumnType,
+  type IsNullable,
+  number,
+  string,
+  uuid,
+} from "./columns";
 import { oneToMany, oneToOne } from "./relations";
-import type { DefaultRelations, FieldsRecord, RelationsRecord, TableCallback } from "./types";
+import type {
+  DefaultRelations,
+  FieldsRecord,
+  RelationsRecord,
+  TableCallback,
+} from "./types";
 import type { Clean } from "./utils";
 
 /**
@@ -38,7 +51,8 @@ export declare class ObjectRepresentation<
 
   declare RelationsRepresentation: Relations extends never ? never
     : {
-      [K in keyof Relations]?: Relations[K]["kind"] extends "one-to-one" | "many-to-one" ?
+      [K in keyof Relations]?: Relations[K]["kind"] extends
+        "one-to-one" | "many-to-one" ?
           | InstanceType<ReturnType<Relations[K]["ref"]>>
           | MakeObject<
             InstanceType<

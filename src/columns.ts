@@ -549,13 +549,15 @@ export type IsPrimaryKey<T> = T extends PrimaryKey ? true
 
 export type IsUnique<T> = T extends Unique ? true : false;
 
-export type GetReferences<T> = T extends References<infer Table> ? { table: Table; column: string }
+export type GetReferences<T> = T extends References<infer Table>
+  ? { table: Table; column: string }
   : undefined;
 
 export type IsAutoIncrement<T> = T extends AutoIncrement ? true
   : false;
 
-export type GetGenerated<T> = T extends Generated<infer Expr> ? Expr : undefined;
+export type GetGenerated<T> = T extends Generated<infer Expr> ? Expr
+  : undefined;
 
 export type GetComment<T> = T extends Comment<infer Text> ? Text
   : undefined;

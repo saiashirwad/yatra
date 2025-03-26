@@ -39,6 +39,9 @@ export type DefaultRelations = Record<string, Relation>;
 
 export type TableConstructor<F> = new(...args: any[]) => { fields: F };
 
-export type TableCallback<Fields extends FieldsRecord, Relations extends RelationsRecord> = (
+export type TableCallback<
+  Fields extends FieldsRecord,
+  Relations extends RelationsRecord,
+> = (
   fields: Fields,
 ) => { relations: Relations };

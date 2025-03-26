@@ -6,17 +6,19 @@ asdf
 
 show me how to use vim motions that can help me take the following:
 
-function hi() {
-console.log("inside function hi")
+
+const hi = () => {
+	console.log("inside function hi")
 }
-function that() {
-console.log("inside function that")
+const that = () => {
+	console.log("inside function that")
 }
+
 
 and turn it into:
 
-function has() {
-console.log("inside function has")
+const has = () => {
+	console.log("inside function has")
 }
 
 const a = 1;
@@ -26,3 +28,4 @@ const d = 4;
 const e = 5;
 
 the fastest way possible
+

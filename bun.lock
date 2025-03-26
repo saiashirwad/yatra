@@ -4,7 +4,7 @@
     "": {
       "name": "dbschema",
       "dependencies": {
-        "arktype": "^2.1.10",
+        "effect": "^3.14.1",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -15,9 +15,7 @@
     },
   },
   "packages": {
-    "@ark/schema": ["@ark/schema@0.45.0", "", { "dependencies": { "@ark/util": "0.45.0" } }, "sha512-3XlMWkZbEjh0YsF92vnnRNCWNRNhRKDTf6XhugyCXH0YRFuM+w1vFLDbB2JLfZloEd7i5cbqsLaDLzyBZbPrSg=="],
-
-    "@ark/util": ["@ark/util@0.45.0", "", {}, "sha512-Z1gHEGbpPzLtPmYb932t2B++6YonlUi1Fa14IQ4vhsGMWhd81Mi1miUmdZXW4fNI/wg1saT7H2/5cAuONgTXhg=="],
+    "@standard-schema/spec": ["@standard-schema/spec@1.0.0", "", {}, "sha512-m2bOd0f2RT9k8QJx1JN85cZYyH1RqFBdlwtkSlf4tBDYLCiiZnv1fIIwacK6cqwXavOydf0NPToMQgpKq+dVlA=="],
 
     "@types/bun": ["@types/bun@1.2.4", "", { "dependencies": { "bun-types": "1.2.4" } }, "sha512-QtuV5OMR8/rdKJs213iwXDpfVvnskPXY/S0ZiFbsTjQZycuqPbMW8Gf/XhLfwE5njW8sxI2WjISURXPlHypMFA=="],
 
@@ -25,9 +23,13 @@
 
     "@types/ws": ["@types/ws@8.5.14", "", { "dependencies": { "@types/node": "*" } }, "sha512-bd/YFLW+URhBzMXurx7lWByOu+xzU9+kb3RboOteXYDfW+tr+JZa99OyNmPINEGB/ahzKrEuc8rcv4gnpJmxTw=="],
 
-    "arktype": ["arktype@2.1.10", "", { "dependencies": { "@ark/schema": "0.45.0", "@ark/util": "0.45.0" } }, "sha512-KqbrzI9qIGrQUClifyS1HpUp/oTSRtGDvnMKzwg2TAvxRpynY1mn/ubXaxAAdGPOM8V3pBqwb01Z6TcXqhBxzQ=="],
-
     "bun-types": ["bun-types@1.2.4", "", { "dependencies": { "@types/node": "*", "@types/ws": "~8.5.10" } }, "sha512-nDPymR207ZZEoWD4AavvEaa/KZe/qlrbMSchqpQwovPZCKc7pwMoENjEtHgMKaAjJhy+x6vfqSBA1QU3bJgs0Q=="],
+
+    "effect": ["effect@3.14.1", "", { "dependencies": { "@standard-schema/spec": "^1.0.0", "fast-check": "^3.23.1" } }, "sha512-YrE6KYUu8r+fF3/cvdM+SZRZRjarVGhfcJwQjP/YyMmF79fwE1Rf0nWqLZ9Xfw7a9njm5/wmrYP83RYt5WTTbQ=="],
+
+    "fast-check": ["fast-check@3.23.2", "", { "dependencies": { "pure-rand": "^6.1.0" } }, "sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A=="],
+
+    "pure-rand": ["pure-rand@6.1.0", "", {}, "sha512-bVWawvoZoBYpp6yIoQtQXHZjmz35RSVHnUOTefl8Vcjr8snTPY1wnpSPMWekcFwbxI6gtmT7rSYPFvz71ldiOA=="],
 
     "typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
 

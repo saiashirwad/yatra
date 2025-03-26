@@ -3,8 +3,8 @@ type Selector<T, R> = (item: T) => R;
 
 type Clean<T> = { [k in keyof T]: T[k] } & unknown;
 
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
-  ? I
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends
+  (k: infer I) => void ? I
   : never;
 
 type GeneratorResult<R> = R extends Generator<infer V> ? V
