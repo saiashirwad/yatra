@@ -9,7 +9,6 @@ import {
   oneToOne,
 } from "./relations";
 import { Table } from "./table";
-import { construct } from "./utils";
 
 const basicColumns = {
   id: pipe(uuid(), primaryKey),
@@ -70,6 +69,11 @@ const bookToAuthors = manyToMany(
   "id",
 );
 
-const lol = bookToAuthor;
+import { selectFrom, withSelect, withWhere } from "./query";
 
-const source = lol.sourceTable;
+const query = pipe(
+  selectFrom(Book),
+  withSelect(["description", "authorId", "price"]),
+);
+
+console.log(query);
