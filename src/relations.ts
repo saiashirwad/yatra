@@ -1,4 +1,4 @@
-import { Pipeable } from "effect";
+import { type Pipeable, pipeArguments } from "./pipeable";
 import type { TableType } from "./types";
 import type { FieldsRecord, TableInstance } from "./types";
 
@@ -19,7 +19,7 @@ export type ExtractTableName<T> = T extends TableType<infer N, any> ? N : never;
 export class Relation<
   Source extends RelationTableConstructor,
   Destination extends RelationTableConstructor,
-> implements Pipeable.Pipeable {
+> implements Pipeable {
   public [SourceTable]: Source;
   public [DestinationTable]: Destination;
 
@@ -32,7 +32,7 @@ export class Relation<
   }
 
   pipe(..._: Array<Function>) {
-    return Pipeable.pipeArguments(
+    return pipeArguments(
       this,
       arguments,
     );

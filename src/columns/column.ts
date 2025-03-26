@@ -1,4 +1,4 @@
-import { Pipeable } from "effect";
+import { type Pipeable, pipeArguments } from "../pipeable";
 
 export const Type = Symbol.for("Yatra/Column/Type");
 export const DataType = Symbol.for("Yatra/Column/DataType");
@@ -6,7 +6,7 @@ export const DataType = Symbol.for("Yatra/Column/DataType");
 export class Column<
   CT extends ColumnType,
   DT extends any,
-> implements Pipeable.Pipeable {
+> implements Pipeable {
   readonly [Type]: CT;
   declare readonly [DataType]: DT;
 
@@ -16,7 +16,7 @@ export class Column<
   }
 
   pipe(..._: Array<Function>) {
-    return Pipeable.pipeArguments(
+    return pipeArguments(
       this,
       arguments,
     );

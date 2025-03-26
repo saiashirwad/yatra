@@ -68,12 +68,3 @@ const bookToAuthors = manyToMany(
   "id",
   "id",
 );
-
-import { selectFrom, withSelect, withWhere } from "./query";
-
-const query = pipe(
-  selectFrom(Book),
-  withSelect(["description", "authorId", "price"]),
-);
-
-console.log(query);
