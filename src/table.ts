@@ -60,9 +60,6 @@ export function Table<
       if (typeof args === "object") {
         for (const key in args) {
           const value = (args as any)[key];
-          if (value instanceof Relation) {
-            console.log(key, value);
-          }
           if (value instanceof Column) {
             console.log(key, value);
           }
@@ -70,9 +67,63 @@ export function Table<
         }
       }
     }
+
+    public oneToOne<D extends RelationTableConstructor>(
+      destination: () => D,
+      foreignKey: keyof this & string,
+      referencedKey: ExtractKeys<D> = "id" as any,
+    ) {
+      return new OneToOneRelation(
+        () => this.constructor as any,
+        destination,
+        foreignKey as any,
+        referencedKey,
+      );
+    }
+
+    public oneToMany<D extends RelationTableConstructor>(
+      destination: () => D,
+      foreignKey: keyof this & string,
+      referencedKey: ExtractKeys<D> = "id" as any,
+    ) {
+      return new OneToManyRelation(
+        () => this.constructor as any,
+        destination,
+        foreignKey as any,
+        referencedKey as any,
+      );
+    }
+
+    public manyToOne<D extends RelationTableConstructor>(
+      destination: () => D,
+      foreignKey: keyof this & string,
+      referencedKey: ExtractKeys<D> = "id" as any,
+    ) {
+      return new ManyToOneRelation(
+        () => this.constructor as any,
+        destination,
+        foreignKey as any,
+        referencedKey,
+      );
+    }
+
+    public manyToMany<D extends RelationTableConstructor>(
+      destination: () => D,
+      joinTable: string,
+      sourceKey: keyof this & string,
+      destinationKey: string,
+    ) {
+      return new ManyToManyRelation(
+        () => this.constructor as any,
+        destination,
+        joinTable,
+        sourceKey as any,
+        destinationKey as any,
+      );
+    }
   }
 
-  return TableClass as TableType<
+  return TableClass as any as TableType<
     TableName,
     Args
   >;
@@ -124,19 +175,42 @@ export const TableName = Symbol.for("Yatra/Table/Name");
 export type TableInstance<
   TableName extends string,
   Fields extends FieldsRecord,
-> = {
-  [TableName]: TableName;
-  [TableFields]: Fields;
-} & MakeTableObject<Fields>;
+> =
+  & {
+    [TableName]: TableName;
+    [TableFields]: Fields;
+    oneToOne<D extends RelationTableConstructor>(
+      destination: () => D,
+      foreignKey: keyof MakeTableObject<Fields> & string,
+      referencedKey?: ExtractKeys<D>,
+    ): OneToOneRelation<any, D, any, any>;
+    oneToMany<D extends RelationTableConstructor>(
+      destination: () => D,
+      foreignKey: keyof MakeTableObject<Fields> & string,
+      referencedKey?: ExtractKeys<D>,
+    ): OneToManyRelation<any, D, any, any>;
+    manyToOne<D extends RelationTableConstructor>(
+      destination: () => D,
+      foreignKey: keyof MakeTableObject<Fields> & string,
+      referencedKey?: ExtractKeys<D>,
+    ): ManyToOneRelation<any, D, any, any>;
+    manyToMany<D extends RelationTableConstructor>(
+      destination: () => D,
+      joinTable: string,
+      sourceKey: keyof MakeTableObject<Fields> & string,
+      destinationKey: string,
+    ): ManyToManyRelation<any, D, string, any, any>;
+  }
+  & MakeTableObject<Fields>;
 
-export type TableType<
+export interface TableType<
   TableName extends string,
   Fields extends FieldsRecord,
-> = {
+> {
   new(
     args: MakeTableObject<Fields>,
   ): TableInstance<TableName, Fields>;
-};
+}
 
 export type RelationTableConstructor = new(
   args: any,
@@ -152,11 +226,13 @@ export class OneToOneRelation<
   S extends RelationTableConstructor,
   D extends RelationTableConstructor,
   FK extends ExtractKeys<S> = ExtractKeys<S>,
+  RK extends ExtractKeys<D> = ExtractKeys<D>,
 > extends Relation<S, D> {
   constructor(
     source: () => S,
     destination: () => D,
     public foreignKey: FK,
+    public referencedKey: RK = "id" as any,
   ) {
     super(source, destination);
   }
@@ -166,23 +242,27 @@ export function oneToOne<
   S extends RelationTableConstructor,
   D extends RelationTableConstructor,
   FK extends ExtractKeys<S>,
+  RK extends ExtractKeys<D> = ExtractKeys<D>,
 >(
   source: () => S,
   destination: () => D,
   foreignKey: FK,
+  referencedKey: RK = "id" as any,
 ) {
-  return new OneToOneRelation(source, destination, foreignKey);
+  return new OneToOneRelation(source, destination, foreignKey, referencedKey);
 }
 
 export class OneToManyRelation<
   S extends RelationTableConstructor,
   D extends RelationTableConstructor,
   FK extends ExtractKeys<D> = ExtractKeys<D>,
+  RK extends ExtractKeys<S> = ExtractKeys<S>,
 > extends Relation<S, D> {
   constructor(
     source: () => S,
     destination: () => D,
     public foreignKey: FK,
+    public referencedKey: RK = "id" as any,
   ) {
     super(source, destination);
   }
@@ -192,23 +272,27 @@ export function oneToMany<
   S extends RelationTableConstructor,
   D extends RelationTableConstructor,
   FK extends ExtractKeys<D>,
+  RK extends ExtractKeys<S> = ExtractKeys<S>,
 >(
   source: () => S,
   destination: () => D,
   foreignKey: FK,
+  referencedKey: RK = "id" as any,
 ) {
-  return new OneToManyRelation(source, destination, foreignKey);
+  return new OneToManyRelation(source, destination, foreignKey, referencedKey);
 }
 
 export class ManyToOneRelation<
   S extends RelationTableConstructor,
   D extends RelationTableConstructor,
   FK extends ExtractKeys<S> = ExtractKeys<S>,
+  RK extends ExtractKeys<D> = ExtractKeys<D>,
 > extends Relation<S, D> {
   constructor(
     source: () => S,
     destination: () => D,
     public foreignKey: FK,
+    public referencedKey: RK = "id" as any,
   ) {
     super(source, destination);
   }
@@ -218,12 +302,14 @@ export function manyToOne<
   S extends RelationTableConstructor,
   D extends RelationTableConstructor,
   FK extends ExtractKeys<S>,
+  RK extends ExtractKeys<D> = ExtractKeys<D>,
 >(
   source: () => S,
   destination: () => D,
   foreignKey: FK,
+  referencedKey: RK = "id" as any,
 ) {
-  return new ManyToOneRelation(source, destination, foreignKey);
+  return new ManyToOneRelation(source, destination, foreignKey, referencedKey);
 }
 
 export class ManyToManyRelation<
