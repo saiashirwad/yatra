@@ -40,12 +40,12 @@ export class Relation<
 
 export type FieldsRecord = Record<
   string,
-  Column<any, any> | Relation<any, any>
+  Column<any, any>
 >;
 
 export function Table<
-  const TableName extends string,
-  const Args extends FieldsRecord,
+  TableName extends string,
+  Args extends FieldsRecord,
 >(
   tableName: TableName,
   fields: Args,
@@ -71,6 +71,7 @@ export function Table<
       }
     }
   }
+
   return TableClass as TableType<
     TableName,
     Args

@@ -1,10 +1,8 @@
-import type { ExtractFields } from "./base-relation";
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
-import { manyToMany, manyToOne, oneToMany, oneToOne } from "./table";
+import { oneToMany, oneToOne } from "./table";
 import { Table } from "./table";
-import type { MakeTableObject } from "./types";
 
 const basicColumns = {
   id: pipe(uuid(), primaryKey),
@@ -12,6 +10,10 @@ const basicColumns = {
   createdAt: pipe(date(), defaultValue(new Date())),
   updatedAt: pipe(date(), defaultValue(new Date())),
 };
+
+class Tag extends Table("Tag", {
+  ...basicColumns,
+}) {}
 
 class Book extends Table(
   "book",
@@ -21,7 +23,15 @@ class Book extends Table(
     description: pipe(string(), defaultValue("what"), nullable),
     price: pipe(number(), nullable),
   },
-) {}
+) {
+  get author() {
+    return oneToOne(() => Book, () => Author, "authorId");
+  }
+
+  get tags() {
+    return oneToMany(() => Book, () => Tag, "id");
+  }
+}
 
 class Author extends Table(
   "author",
@@ -31,11 +41,22 @@ class Author extends Table(
   },
 ) {}
 
-type BookFields = MakeTableObject<ExtractFields<typeof Book>>;
+const book = new Book({
+  authorId: "asdf",
+  createdAt: new Date(),
+  id: "adsf",
+  name: "asdf",
+  updatedAt: new Date(),
+});
+const bookPrototype = Object.getPrototypeOf(book);
 
-class Profile extends Table(
-  "author_profile",
-  {
-    ...basicColumns,
-  },
-) {}
+console.log(Object.getOwnPropertyDescriptors(bookPrototype));
+
+// type BookFields = MakeTableObject<ExtractFields<typeof Book>>;
+//
+// class Profile extends Table(
+//   "author_profile",
+//   {
+//     ...basicColumns,
+//   },
+// ) {}
