@@ -1,14 +1,10 @@
+import type { ExtractFields } from "./base-relation";
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
-import {
-  type ExtractFields,
-  manyToMany,
-  manyToOne,
-  oneToMany,
-  oneToOne,
-} from "./relations";
+import { manyToMany, manyToOne, oneToMany, oneToOne } from "./table";
 import { Table } from "./table";
+import type { MakeTableObject } from "./types";
 
 const basicColumns = {
   id: pipe(uuid(), primaryKey),
@@ -31,40 +27,15 @@ class Author extends Table(
   "author",
   {
     ...basicColumns,
+    // books: oneToMany(() => Author, () => Book, 'authorId'),
   },
 ) {}
 
-type BookFields = ExtractFields<typeof Book>;
+type BookFields = MakeTableObject<ExtractFields<typeof Book>>;
 
-class AuthorProfile extends Table(
+class Profile extends Table(
   "author_profile",
   {
     ...basicColumns,
   },
 ) {}
-
-const authorToProfile = oneToOne(
-  () => Author,
-  () => AuthorProfile,
-  "id",
-);
-
-const authorToBooks = oneToMany(
-  () => Author,
-  () => Book,
-  "authorId",
-);
-
-const bookToAuthor = manyToOne(
-  () => Book,
-  () => Author,
-  "authorId",
-);
-
-const bookToAuthors = manyToMany(
-  () => Book,
-  () => Author,
-  "book_to_author",
-  "id",
-  "id",
-);
