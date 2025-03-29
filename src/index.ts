@@ -1,7 +1,7 @@
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
-import { Table } from "./table";
+import { Table, TableName } from "./table";
 
 class Author extends Table(
   "author",
@@ -41,5 +41,7 @@ const book = new Book({
   name: "TypeScript ORM Design Patterns",
   updatedAt: new Date(),
 });
+
+const result = book[TableName];
 
 const author = book.author;
