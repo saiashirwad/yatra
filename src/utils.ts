@@ -33,3 +33,8 @@ export function construct<T extends new(...args: any[]) => any>(
 
 export type ExtractKeys<T> = T extends { prototype: infer P } ? keyof P & string
   : string;
+
+export interface TableLike {
+  new(...args: any[]): any;
+  prototype: any;
+}

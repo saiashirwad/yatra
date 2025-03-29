@@ -3,17 +3,12 @@ import {
   ManyToOneRelation,
   OneToManyRelation,
   OneToOneRelation,
-  type RelationTableConstructor,
 } from "./relation-types";
-import type { ExtractKeys } from "./utils";
-
-/**
- * Global relation functions for defining table relationships
- */
+import type { ExtractKeys, TableLike } from "./utils";
 
 export function oneToOne<
-  S extends RelationTableConstructor,
-  D extends RelationTableConstructor,
+  S extends TableLike,
+  D extends TableLike,
 >(
   source: () => S,
   destination: () => D,
@@ -29,8 +24,8 @@ export function oneToOne<
 }
 
 export function oneToMany<
-  S extends RelationTableConstructor,
-  D extends RelationTableConstructor,
+  S extends TableLike,
+  D extends TableLike,
 >(
   source: () => S,
   destination: () => D,
@@ -46,8 +41,8 @@ export function oneToMany<
 }
 
 export function manyToOne<
-  S extends RelationTableConstructor,
-  D extends RelationTableConstructor,
+  S extends TableLike,
+  D extends TableLike,
 >(
   source: () => S,
   destination: () => D,
@@ -63,8 +58,8 @@ export function manyToOne<
 }
 
 export function manyToMany<
-  S extends RelationTableConstructor,
-  D extends RelationTableConstructor,
+  S extends TableLike,
+  D extends TableLike,
 >(
   source: () => S,
   destination: () => D,

@@ -3,6 +3,26 @@ import type { IsNullable } from "./columns/properties";
 import { TableFields, TableName } from "./symbols";
 import type { Clean } from "./utils";
 
+export type FieldsRecord = Record<
+  string,
+  Column<any, any>
+>;
+
+export interface TableType<
+  TableName extends string,
+  Fields extends FieldsRecord,
+> {
+  new(
+    args: MakeTableObject<Fields>,
+  ): TableInstance<TableName, Fields>;
+}
+
+export type MakeTableObject<
+  Fields = FieldsRecord,
+  Nullable = NullableFields<Fields>,
+  NonNullable = NonNullableFields<Fields>,
+> = Clean<Nullable & NonNullable>;
+
 export function Table<
   TableName extends string,
   Args extends FieldsRecord,
@@ -34,11 +54,6 @@ export function Table<
     Args
   >;
 }
-
-export type FieldsRecord = Record<
-  string,
-  Column<any, any>
->;
 
 export type GetTableFields<T> = T extends TableType<any, infer Fields> ? Fields
   : never;
@@ -75,12 +90,6 @@ export type NonNullableFields<Fields = FieldsRecord> = {
   ]: InferColumn<Fields[k]>;
 };
 
-export type MakeTableObject<
-  Fields = FieldsRecord,
-  Nullable = NullableFields<Fields>,
-  NonNullable = NonNullableFields<Fields>,
-> = Clean<Nullable & NonNullable>;
-
 export type TableInstance<
   TableName extends string,
   Fields extends FieldsRecord,
@@ -91,21 +100,9 @@ export type TableInstance<
   }
   & MakeTableObject<Fields>;
 
-export interface TableType<
-  TableName extends string,
-  Fields extends FieldsRecord,
-> {
-  new(
-    args: MakeTableObject<Fields>,
-  ): TableInstance<TableName, Fields>;
-}
-
-export type RelationTableConstructor = new(
+export type TableLike = new(
   args: any,
 ) => TableInstance<string, FieldsRecord>;
 
 export type ExtractFields<T> = T extends TableType<any, infer F> ? F
   : never;
-
-export type ExtractKeys<T> = keyof ExtractFields<T>;
-export type ExtractTableName<T> = T extends TableType<infer N, any> ? N : never;

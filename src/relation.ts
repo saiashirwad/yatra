@@ -1,13 +1,13 @@
 import { type Pipeable, pipeArguments } from "./pipeable";
-import type { RelationTableConstructor } from "./relation-types";
 import { DestinationTable, SourceTable } from "./symbols";
+import type { TableLike } from "./utils";
 
 /**
  * Base relation class that all specific relation types extend
  */
 export class Relation<
-  Source extends RelationTableConstructor,
-  Destination extends RelationTableConstructor,
+  Source extends TableLike,
+  Destination extends TableLike,
 > implements Pipeable {
   public [SourceTable]: Source;
   public [DestinationTable]: Destination;

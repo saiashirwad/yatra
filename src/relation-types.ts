@@ -1,18 +1,13 @@
 import { Relation } from "./relation";
-import type { ExtractKeys } from "./utils";
-
-export interface RelationTableConstructor {
-  new(...args: any[]): any;
-  prototype: any;
-}
+import type { ExtractKeys, TableLike } from "./utils";
 
 /**
  * Specific relation type implementations
  */
 
 export class OneToOneRelation<
-  S extends RelationTableConstructor,
-  D extends RelationTableConstructor,
+  S extends TableLike,
+  D extends TableLike,
   FK extends string = string,
   RK extends ExtractKeys<D> = ExtractKeys<D>,
 > extends Relation<S, D> {
@@ -27,8 +22,8 @@ export class OneToOneRelation<
 }
 
 export class OneToManyRelation<
-  S extends RelationTableConstructor,
-  D extends RelationTableConstructor,
+  S extends TableLike,
+  D extends TableLike,
   FK extends string = string,
   RK extends ExtractKeys<D> = ExtractKeys<D>,
 > extends Relation<S, D> {
@@ -43,8 +38,8 @@ export class OneToManyRelation<
 }
 
 export class ManyToOneRelation<
-  S extends RelationTableConstructor,
-  D extends RelationTableConstructor,
+  S extends TableLike,
+  D extends TableLike,
   FK extends string = string,
   RK extends ExtractKeys<D> = ExtractKeys<D>,
 > extends Relation<S, D> {
@@ -59,8 +54,8 @@ export class ManyToOneRelation<
 }
 
 export class ManyToManyRelation<
-  S extends RelationTableConstructor,
-  D extends RelationTableConstructor,
+  S extends TableLike,
+  D extends TableLike,
   JT extends string = string,
   SK extends string = string,
   DK extends string = string,
