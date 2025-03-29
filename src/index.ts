@@ -16,12 +16,6 @@ import {
   oneToOne,
 } from "./relation";
 import { Table } from "./table";
-import {
-  type Tableish,
-  type TableishFieldNames,
-  type TableishFields,
-  type TableishName,
-} from "./utils";
 
 class Author extends Table(
   "author",
@@ -36,8 +30,8 @@ class Author extends Table(
     return oneToMany(
       () => Author,
       () => Book,
-      "id",
-      "authorId",
+      "author.id",
+      "book.id",
     );
   }
 }
@@ -73,13 +67,18 @@ class Book extends Table(
     return oneToOne(
       () => Book,
       () => Author,
-      "authorId",
-      "id",
+      "book.authorId",
+      "author.id",
     );
   }
 
   get tags() {
-    return oneToMany(() => Book, () => Tag, "id", "id");
+    return oneToMany(
+      () => Book,
+      () => Tag,
+      "book.id",
+      "tag.id",
+    );
   }
 }
 
@@ -97,6 +96,6 @@ console.log(relations);
 const rel = oneToOne(
   () => Book,
   () => Author,
-  "authorId",
-  "id",
+  "book.authorId",
+  "author.id",
 );

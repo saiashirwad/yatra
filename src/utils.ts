@@ -71,6 +71,9 @@ export type TableishName<T extends Tableish> = T extends
   Tableish<infer N, any> ? N
   : never;
 
+export type TableishField<T extends Tableish> =
+  `${TableishName<T>}.${TableishFieldNames<T>}`;
+
 export function extend<This, Brand>(
   instance: This,
   propertyName: string | symbol,
