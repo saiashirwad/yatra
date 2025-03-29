@@ -25,7 +25,7 @@ export class OneToManyRelation<
   S extends RelationTableConstructor,
   D extends RelationTableConstructor,
   FK extends string = string,
-  RK extends string = string,
+  RK extends ExtractKeys<D> = ExtractKeys<D>,
 > extends Relation<S, D> {
   constructor(
     source: () => S,

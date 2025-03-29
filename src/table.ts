@@ -1,10 +1,7 @@
 import { Column } from "./columns/column";
 import type { IsNullable } from "./columns/properties";
-import { type Pipeable, pipeArguments } from "./pipeable";
+import { TableFields, TableName } from "./symbols";
 import type { Clean } from "./utils";
-
-export const TableFields = Symbol.for("Yatra/Table/Fields");
-export const TableName = Symbol.for("Yatra/Table/Name");
 
 export function Table<
   TableName extends string,
