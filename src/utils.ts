@@ -30,3 +30,6 @@ export function construct<T extends new(...args: any[]) => any>(
     return Reflect.construct(constructor, args) as InstanceType<T>;
   };
 }
+
+export type ExtractKeys<T> = T extends { prototype: infer P } ? keyof P & string
+  : string;

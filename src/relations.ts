@@ -3,8 +3,9 @@ import {
   ManyToOneRelation,
   OneToManyRelation,
   OneToOneRelation,
+  type RelationTableConstructor,
 } from "./relation-types";
-import type { ExtractKeys, RelationTableConstructor } from "./table-types";
+import type { ExtractKeys } from "./utils";
 
 /**
  * Global relation functions for defining table relationships

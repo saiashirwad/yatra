@@ -18,6 +18,17 @@ class Author extends Table(
   }
 }
 
+class Tag extends Table(
+  "tag",
+  {
+    id: pipe(uuid(), primaryKey),
+    name: pipe(string()),
+    createdAt: pipe(date(), defaultValue(new Date())),
+    updatedAt: pipe(date(), defaultValue(new Date())),
+  },
+) {
+}
+
 class Book extends Table(
   "book",
   {
@@ -32,6 +43,10 @@ class Book extends Table(
 ) {
   get author() {
     return oneToOne(() => Book, () => Author, "authorId", "id");
+  }
+
+  get tags() {
+    return oneToMany(() => Book, () => Tag, "id", "id");
   }
 }
 

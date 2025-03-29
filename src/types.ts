@@ -10,4 +10,5 @@ export interface FieldsRecord {
 // Type for creating table objects
 export type MakeTableObject<T extends Record<string, any>> = {
   [K in keyof T]: T[K];
-}; 
+};
+

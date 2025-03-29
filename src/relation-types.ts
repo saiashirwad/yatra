@@ -1,5 +1,10 @@
 import { Relation } from "./relation";
-import type { ExtractKeys, RelationTableConstructor } from "./table-types";
+import type { ExtractKeys } from "./utils";
+
+export interface RelationTableConstructor {
+  new(...args: any[]): any;
+  prototype: any;
+}
 
 /**
  * Specific relation type implementations
