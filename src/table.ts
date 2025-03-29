@@ -36,10 +36,7 @@ export function Table<
   class TableClass {
     public [TableName]: TableName = tableName;
     public [TableFields]: Args = fields;
-
-    constructor(
-      args: MakeTableObject<Args>,
-    ) {
+    constructor(args: MakeTableObject<Args>) {
       if (typeof args === "object") {
         for (const key in args) {
           const value = (args as any)[key];
@@ -51,14 +48,11 @@ export function Table<
       }
     }
   }
-
-  return TableClass as TableType<
-    TableName,
-    Args
-  >;
+  return TableClass as TableType<TableName, Args>;
 }
 
-export type GetTableFields<T> = T extends TableType<any, infer Fields> ? Fields
+export type GetTableFields<T> = T extends
+  TableType<any, infer Fields> ? Fields
   : never;
 
 export type TableConstructor<F> = new(
@@ -69,26 +63,24 @@ export type InferColumn<C> = C extends Column<any, infer T>
   ? IsNullable<C> extends true ? T | null : T
   : never;
 
-export type InferFields<CR extends Record<string, Column<any, any>>> = {
+export type InferFields<
+  CR extends Record<string, Column<any, any>>,
+> = {
   [k in keyof CR]: InferColumn<CR[k]>;
 };
 
-export type NullableFields<
-  Fields = FieldsRecord,
-> = {
+export type NullableFields<Fields = FieldsRecord> = {
   -readonly [
-    k in keyof Fields as IsNullable<
-      Fields[k]
-    > extends true ? k
+    k in keyof Fields as IsNullable<Fields[k]> extends true
+      ? k
       : never
   ]?: InferColumn<Fields[k]>;
 };
 
 export type NonNullableFields<Fields = FieldsRecord> = {
   -readonly [
-    k in keyof Fields as IsNullable<
-      Fields[k]
-    > extends false ? k
+    k in keyof Fields as IsNullable<Fields[k]> extends false
+      ? k
       : never
   ]: InferColumn<Fields[k]>;
 };
@@ -96,12 +88,10 @@ export type NonNullableFields<Fields = FieldsRecord> = {
 export type TableInstance<
   TableName extends string,
   Fields extends FieldsRecord,
-> =
-  & {
-    [TableName]: TableName;
-    [TableFields]: Fields;
-  }
-  & MakeTableObject<Fields>;
+> = {
+  [TableName]: TableName;
+  [TableFields]: Fields;
+} & MakeTableObject<Fields>;
 
-export type ExtractFields<T> = T extends TableType<any, infer F> ? F
-  : never;
+export type ExtractFields<T> = T extends
+  TableType<any, infer F> ? F : never;

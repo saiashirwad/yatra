@@ -1,5 +1,9 @@
 import { type Pipeable, pipeArguments } from "./pipeable";
-import type { ExtractKeys, Tableish, TableishFieldNames } from "./utils";
+import type {
+  ExtractKeys,
+  Tableish,
+  TableishFieldNames,
+} from "./utils";
 
 export class Relation<
   Source extends Tableish,
@@ -174,8 +178,10 @@ export type TableRelations<
 > =
   & {
     -readonly [
-      key in keyof T["prototype"] as T["prototype"][key] extends
-        Relation<any, any> ? key
+      key in keyof T[
+        "prototype"
+      ] as T["prototype"][key] extends Relation<any, any>
+        ? key
         : never
     ]: T["prototype"][key];
   }

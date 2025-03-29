@@ -49,7 +49,9 @@ class TextColumn extends Column<"text", string> {
   }
 }
 
-class BigIntColumn extends Column<"bigint", bigint | number> {
+class BigIntColumn
+  extends Column<"bigint", bigint | number>
+{
   constructor() {
     super("bigint");
   }
@@ -97,7 +99,9 @@ class BinaryColumn extends Column<
   }
 }
 
-class DecimalColumn extends Column<"decimal", string | number> {
+class DecimalColumn
+  extends Column<"decimal", string | number>
+{
   constructor() {
     super("decimal");
   }
@@ -130,7 +134,9 @@ class ArrayColumn<
   }
 }
 
-class EnumColumn<T extends string[]> extends Column<"enum", T[number]> {
+class EnumColumn<T extends string[]>
+  extends Column<"enum", T[number]>
+{
   readonly [EnumValues]: T;
 
   constructor(values: T) {

@@ -1,4 +1,8 @@
-import type { FieldsRecord, TableFields, TableName } from "./table";
+import type {
+  FieldsRecord,
+  TableFields,
+  TableName,
+} from "./table";
 
 export type Clean<T> =
   & { [k in keyof T]: T[k] }
@@ -23,17 +27,23 @@ export type Constructor<
  * @param constructor - The constructor function to invoke
  * @returns A function that accepts constructor arguments and returns an instance
  */
-export function construct<T extends new(...args: any[]) => any>(
+export function construct<
+  T extends new(...args: any[]) => any,
+>(
   constructor: T,
 ) {
   return <A extends ConstructorParameters<T>>(
     ...args: A
   ): InstanceType<T> => {
-    return Reflect.construct(constructor, args) as InstanceType<T>;
+    return Reflect.construct(
+      constructor,
+      args,
+    ) as InstanceType<T>;
   };
 }
 
-export type ExtractKeys<T> = T extends { prototype: infer P } ? keyof P & string
+export type ExtractKeys<T> = T extends
+  { prototype: infer P } ? keyof P & string
   : string;
 
 export interface Tableish<
@@ -51,10 +61,27 @@ export type TableishFields<T extends Tableish> = T extends
   Tableish<any, infer F> ? F
   : never;
 
-export type TableishFieldNames<T extends Tableish> = T extends
-  Tableish<any, infer F> ? F extends Record<string, unknown> ? keyof F
-  : never
+export type TableishFieldNames<T extends Tableish> =
+  T extends Tableish<any, infer F>
+    ? F extends Record<string, unknown> ? keyof F
+    : never
+    : never;
+
+export type TableishName<T extends Tableish> = T extends
+  Tableish<infer N, any> ? N
   : never;
-export type TableishName<T extends Tableish> = T extends Tableish<infer N, any>
-  ? N
-  : never;
+
+export function extend<This, Brand>(
+  instance: This,
+  propertyName: string | symbol,
+  propertyValue: unknown,
+): This & Brand {
+  const newInstance = Object.create(
+    Object.getPrototypeOf(instance),
+  );
+
+  Object.assign(newInstance, instance);
+  (newInstance as any)[propertyName] = propertyValue;
+
+  return newInstance as This & Brand;
+}
