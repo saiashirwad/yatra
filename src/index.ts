@@ -61,16 +61,4 @@ const book = new Book({
 const relations = getRelationNames(Book);
 console.log(relations);
 
-type OptionsBag = {
-  name: string;
-  age: number;
-};
-
-function something<const T extends OptionsBag>(options: T) {
-  return options;
-}
-
-const result = something({
-  age: 2,
-  name: "hi",
-});
+const rel = oneToOne(() => Book, () => Author, "authorId", "id");

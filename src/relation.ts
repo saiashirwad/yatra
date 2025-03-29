@@ -11,7 +11,7 @@ type RelationArgs = {
 };
 
 export class Relation<
-  Args extends RelationArgs,
+  const Args extends RelationArgs,
 > implements Pipeable {
   public [SourceTable]: Args["Source"];
   public [DestinationTable]: Args["Destination"];
@@ -43,8 +43,8 @@ export class Relation<
 export class OneToOneRelation<
   S extends TableLike,
   D extends TableLike,
-  FK extends string = string,
-  RK extends ExtractKeys<D> = ExtractKeys<D>,
+  const FK extends string = string,
+  const RK extends ExtractKeys<D> = ExtractKeys<D>,
 > extends Relation<{
   Source: S;
   Destination: D;
@@ -62,11 +62,13 @@ export class OneToOneRelation<
 export function oneToOne<
   S extends TableLike,
   D extends TableLike,
+  const FK extends string = string,
+  const RK extends ExtractKeys<D> = ExtractKeys<D> & string,
 >(
   source: () => S,
   destination: () => D,
-  foreignKey: string,
-  referencedKey: ExtractKeys<D> = "id" as any,
+  foreignKey: FK,
+  referencedKey: RK = "id" as any,
 ) {
   return new OneToOneRelation(
     source,
@@ -79,8 +81,8 @@ export function oneToOne<
 export class OneToManyRelation<
   S extends TableLike,
   D extends TableLike,
-  FK extends string = string,
-  RK extends ExtractKeys<D> = ExtractKeys<D>,
+  const FK extends string = string,
+  const RK extends ExtractKeys<D> = ExtractKeys<D>,
 > extends Relation<{
   Source: S;
   Destination: D;
@@ -98,11 +100,13 @@ export class OneToManyRelation<
 export function oneToMany<
   S extends TableLike,
   D extends TableLike,
+  const FK extends string = string,
+  const RK extends ExtractKeys<D> = ExtractKeys<D> & string,
 >(
   source: () => S,
   destination: () => D,
-  foreignKey: string,
-  referencedKey: ExtractKeys<D> = "id" as any,
+  foreignKey: FK,
+  referencedKey: RK = "id" as any,
 ) {
   return new OneToManyRelation(
     source,
@@ -134,11 +138,13 @@ export class ManyToOneRelation<
 export function manyToOne<
   S extends TableLike,
   D extends TableLike,
+  const FK extends string = string,
+  const RK extends ExtractKeys<D> = ExtractKeys<D> & string,
 >(
   source: () => S,
   destination: () => D,
-  foreignKey: string,
-  referencedKey: ExtractKeys<D> = "id" as any,
+  foreignKey: FK,
+  referencedKey: RK = "id" as any,
 ) {
   return new ManyToOneRelation(
     source,
@@ -151,9 +157,9 @@ export function manyToOne<
 export class ManyToManyRelation<
   S extends TableLike,
   D extends TableLike,
-  JT extends string = string,
-  SK extends string = string,
-  DK extends string = string,
+  const JT extends string = string,
+  const SK extends string = string,
+  const DK extends string = string,
 > extends Relation<{
   Source: S;
   Destination: D;
@@ -172,12 +178,15 @@ export class ManyToManyRelation<
 export function manyToMany<
   S extends TableLike,
   D extends TableLike,
+  const JT extends string = string,
+  const SK extends string = string,
+  const DK extends string = string,
 >(
   source: () => S,
   destination: () => D,
-  joinTable: string,
-  sourceKey: string,
-  destinationKey: string,
+  joinTable: JT,
+  sourceKey: SK,
+  destinationKey: DK,
 ) {
   return new ManyToManyRelation(
     source,
