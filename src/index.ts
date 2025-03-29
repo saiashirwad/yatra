@@ -1,7 +1,7 @@
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
-import { Table, TableFields } from "./table";
+import { Table } from "./table";
 
 class Author extends Table(
   "author",
@@ -13,7 +13,7 @@ class Author extends Table(
   },
 ) {
   get books() {
-    return this.oneToMany(() => Book, "id", "id");
+    return this.relations.oneToMany(() => Book, "id", "id");
   }
 }
 
@@ -30,6 +30,16 @@ class Book extends Table(
   },
 ) {
   get author() {
-    return this.oneToOne(() => Author, "authorId", "id");
+    return this.relations.oneToOne(() => Author, "authorId", "id");
   }
 }
+
+const book = new Book({
+  authorId: "auth123",
+  createdAt: new Date(),
+  id: "book456",
+  name: "TypeScript ORM Design Patterns",
+  updatedAt: new Date(),
+});
+
+const author = book.author;

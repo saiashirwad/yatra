@@ -6,6 +6,7 @@ import type { Clean } from "./utils";
 export const SourceTable = Symbol.for("Yatra/Relation/SourceTable");
 export const DestinationTable = Symbol.for("Yatra/Relation/DestinationTable");
 export const TableFields = Symbol.for("Yatra/Table/Fields");
+export const TableRelations = Symbol.for("Yatra/Table/Relations");
 
 export class Relation<
   Source extends RelationTableConstructor,
@@ -43,6 +44,69 @@ export type FieldsRecord = Record<
   Column<any, any>
 >;
 
+// Relations handler class
+class RelationsHandler<
+  TI extends TableInstance<any, any>,
+  TableName extends string,
+  Fields extends FieldsRecord,
+> {
+  constructor(private tableInstance: TI) {}
+
+  oneToOne<D extends RelationTableConstructor>(
+    destination: () => D,
+    foreignKey: keyof TI & string,
+    referencedKey: ExtractKeys<D> = "id" as any,
+  ) {
+    return new OneToOneRelation(
+      () => this.tableInstance.constructor as any,
+      destination,
+      foreignKey as any,
+      referencedKey,
+    );
+  }
+
+  oneToMany<D extends RelationTableConstructor>(
+    destination: () => D,
+    foreignKey: keyof TI & string,
+    referencedKey: ExtractKeys<D> = "id" as any,
+  ) {
+    return new OneToManyRelation(
+      () => this.tableInstance.constructor as any,
+      destination,
+      foreignKey as any,
+      referencedKey as any,
+    );
+  }
+
+  manyToOne<D extends RelationTableConstructor>(
+    destination: () => D,
+    foreignKey: keyof TI & string,
+    referencedKey: ExtractKeys<D> = "id" as any,
+  ) {
+    return new ManyToOneRelation(
+      () => this.tableInstance.constructor as any,
+      destination,
+      foreignKey as any,
+      referencedKey,
+    );
+  }
+
+  manyToMany<D extends RelationTableConstructor>(
+    destination: () => D,
+    joinTable: string,
+    sourceKey: keyof TI & string,
+    destinationKey: string,
+  ) {
+    return new ManyToManyRelation(
+      () => this.tableInstance.constructor as any,
+      destination,
+      joinTable,
+      sourceKey as any,
+      destinationKey as any,
+    );
+  }
+}
+
 export function Table<
   TableName extends string,
   Args extends FieldsRecord,
@@ -53,6 +117,7 @@ export function Table<
   class TableClass {
     public [TableName]: TableName = tableName;
     public [TableFields]: Args = fields;
+    public [TableRelations]: RelationsHandler<this, TableName, Args>;
 
     constructor(
       args: MakeTableObject<Args>,
@@ -66,60 +131,13 @@ export function Table<
           (this as any)[key] = (args as any)[key];
         }
       }
+
+      // Initialize relations handler
+      this[TableRelations] = new RelationsHandler<this, TableName, Args>(this);
     }
 
-    public oneToOne<D extends RelationTableConstructor>(
-      destination: () => D,
-      foreignKey: keyof this & string,
-      referencedKey: ExtractKeys<D> = "id" as any,
-    ) {
-      return new OneToOneRelation(
-        () => this.constructor as any,
-        destination,
-        foreignKey as any,
-        referencedKey,
-      );
-    }
-
-    public oneToMany<D extends RelationTableConstructor>(
-      destination: () => D,
-      foreignKey: keyof this & string,
-      referencedKey: ExtractKeys<D> = "id" as any,
-    ) {
-      return new OneToManyRelation(
-        () => this.constructor as any,
-        destination,
-        foreignKey as any,
-        referencedKey as any,
-      );
-    }
-
-    public manyToOne<D extends RelationTableConstructor>(
-      destination: () => D,
-      foreignKey: keyof this & string,
-      referencedKey: ExtractKeys<D> = "id" as any,
-    ) {
-      return new ManyToOneRelation(
-        () => this.constructor as any,
-        destination,
-        foreignKey as any,
-        referencedKey,
-      );
-    }
-
-    public manyToMany<D extends RelationTableConstructor>(
-      destination: () => D,
-      joinTable: string,
-      sourceKey: keyof this & string,
-      destinationKey: string,
-    ) {
-      return new ManyToManyRelation(
-        () => this.constructor as any,
-        destination,
-        joinTable,
-        sourceKey as any,
-        destinationKey as any,
-      );
+    get relations() {
+      return this[TableRelations];
     }
   }
 
@@ -172,6 +190,31 @@ export type MakeTableObject<
 
 export const TableName = Symbol.for("Yatra/Table/Name");
 
+// Define the type for the relations handler
+export type RelationsHandlerType<T extends TableInstance<any, any>> = {
+  oneToOne<D extends RelationTableConstructor>(
+    destination: () => D,
+    foreignKey: keyof T & string,
+    referencedKey?: ExtractKeys<D>,
+  ): OneToOneRelation<any, D, any, any>;
+  oneToMany<D extends RelationTableConstructor>(
+    destination: () => D,
+    foreignKey: keyof T & string,
+    referencedKey?: ExtractKeys<D>,
+  ): OneToManyRelation<any, D, any, any>;
+  manyToOne<D extends RelationTableConstructor>(
+    destination: () => D,
+    foreignKey: keyof T & string,
+    referencedKey?: ExtractKeys<D>,
+  ): ManyToOneRelation<any, D, any, any>;
+  manyToMany<D extends RelationTableConstructor>(
+    destination: () => D,
+    joinTable: string,
+    sourceKey: keyof T & string,
+    destinationKey: string,
+  ): ManyToManyRelation<any, D, string, any, any>;
+};
+
 export type TableInstance<
   TableName extends string,
   Fields extends FieldsRecord,
@@ -179,27 +222,8 @@ export type TableInstance<
   & {
     [TableName]: TableName;
     [TableFields]: Fields;
-    oneToOne<D extends RelationTableConstructor>(
-      destination: () => D,
-      foreignKey: keyof MakeTableObject<Fields> & string,
-      referencedKey?: ExtractKeys<D>,
-    ): OneToOneRelation<any, D, any, any>;
-    oneToMany<D extends RelationTableConstructor>(
-      destination: () => D,
-      foreignKey: keyof MakeTableObject<Fields> & string,
-      referencedKey?: ExtractKeys<D>,
-    ): OneToManyRelation<any, D, any, any>;
-    manyToOne<D extends RelationTableConstructor>(
-      destination: () => D,
-      foreignKey: keyof MakeTableObject<Fields> & string,
-      referencedKey?: ExtractKeys<D>,
-    ): ManyToOneRelation<any, D, any, any>;
-    manyToMany<D extends RelationTableConstructor>(
-      destination: () => D,
-      joinTable: string,
-      sourceKey: keyof MakeTableObject<Fields> & string,
-      destinationKey: string,
-    ): ManyToManyRelation<any, D, string, any, any>;
+    [TableRelations]: RelationsHandler<any, TableName, Fields>;
+    relations: RelationsHandlerType<TableInstance<TableName, Fields>>;
   }
   & MakeTableObject<Fields>;
 
@@ -238,20 +262,6 @@ export class OneToOneRelation<
   }
 }
 
-export function oneToOne<
-  S extends RelationTableConstructor,
-  D extends RelationTableConstructor,
-  FK extends ExtractKeys<S>,
-  RK extends ExtractKeys<D> = ExtractKeys<D>,
->(
-  source: () => S,
-  destination: () => D,
-  foreignKey: FK,
-  referencedKey: RK = "id" as any,
-) {
-  return new OneToOneRelation(source, destination, foreignKey, referencedKey);
-}
-
 export class OneToManyRelation<
   S extends RelationTableConstructor,
   D extends RelationTableConstructor,
@@ -266,20 +276,6 @@ export class OneToManyRelation<
   ) {
     super(source, destination);
   }
-}
-
-export function oneToMany<
-  S extends RelationTableConstructor,
-  D extends RelationTableConstructor,
-  FK extends ExtractKeys<D>,
-  RK extends ExtractKeys<S> = ExtractKeys<S>,
->(
-  source: () => S,
-  destination: () => D,
-  foreignKey: FK,
-  referencedKey: RK = "id" as any,
-) {
-  return new OneToManyRelation(source, destination, foreignKey, referencedKey);
 }
 
 export class ManyToOneRelation<
@@ -298,20 +294,6 @@ export class ManyToOneRelation<
   }
 }
 
-export function manyToOne<
-  S extends RelationTableConstructor,
-  D extends RelationTableConstructor,
-  FK extends ExtractKeys<S>,
-  RK extends ExtractKeys<D> = ExtractKeys<D>,
->(
-  source: () => S,
-  destination: () => D,
-  foreignKey: FK,
-  referencedKey: RK = "id" as any,
-) {
-  return new ManyToOneRelation(source, destination, foreignKey, referencedKey);
-}
-
 export class ManyToManyRelation<
   S extends RelationTableConstructor,
   D extends RelationTableConstructor,
@@ -328,26 +310,4 @@ export class ManyToManyRelation<
   ) {
     super(source, destination);
   }
-}
-
-export function manyToMany<
-  S extends RelationTableConstructor,
-  D extends RelationTableConstructor,
-  JT extends string,
-  SK extends ExtractKeys<S>,
-  DK extends ExtractKeys<D>,
->(
-  source: () => S,
-  destination: () => D,
-  joinTable: JT,
-  sourceKey: SK,
-  destinationKey: DK,
-) {
-  return new ManyToManyRelation(
-    source,
-    destination,
-    joinTable,
-    sourceKey,
-    destinationKey,
-  );
 }
