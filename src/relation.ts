@@ -198,3 +198,57 @@ export function getRelationNames<T extends Tableish>(
     return table.prototype[key] instanceof Relation;
   }) as any;
 }
+
+// type RelationType =
+//   | "one-to-one"
+//   | "one-to-many"
+//   | "many-to-one"
+//   | "many-to-many";
+//
+// type Reln<
+//   Type extends RelationType,
+//   Source extends Tableish,
+//   Destination extends Tableish,
+//   FK extends QualifiedFieldName<Source>,
+//   DK extends QualifiedFieldName<Destination>,
+//   JoinTable extends string | undefined,
+// > =
+//   & ({ source: () => Source; destination: () => Destination; fk: FK; rk: DK })
+//   & ({
+//     type: "one-to-one" | "one-to-many" | "many-to-one";
+//   } | {
+//     type: "many-to-many";
+//     joinTable: Type extends "many-to-many" ? JoinTable : never;
+//   });
+//
+// export class Relation2<
+//   Type extends RelationType,
+//   Source extends Tableish,
+//   Destination extends Tableish,
+//   FK extends QualifiedFieldName<Source>,
+//   RK extends QualifiedFieldName<Destination>,
+//   JoinTable extends string | undefined,
+// > {
+//   constructor(
+//     public args: Reln<Type, Source, Destination, FK, RK, JoinTable>,
+//   ) {}
+// }
+//
+// export function relation<
+//   Type extends RelationType,
+//   Source extends Tableish,
+//   Destination extends Tableish,
+//   FK extends QualifiedFieldName<Source>,
+//   RK extends QualifiedFieldName<Destination>,
+//   JoinTable extends string | undefined,
+// >(
+//   type: Type,
+//   source: () => Source,
+//   destination: () => Destination,
+//   args: Omit<
+//     Reln<Type, Source, Destination, FK, RK, JoinTable>,
+//     "type" | "source" | "destination"
+//   >,
+// ) {
+//   return new Relation2({ type, source, destination, ...args } as any);
+// }

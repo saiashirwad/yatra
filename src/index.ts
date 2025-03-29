@@ -66,5 +66,3 @@ console.log(book);
 
 const relations = getRelationNames(Book);
 console.log(relations);
-
-const rel = oneToOne(() => Book, () => Author, "book.id", "author.id");
