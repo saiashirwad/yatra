@@ -51,8 +51,7 @@ export function Table<
   return TableClass as TableType<TableName, Args>;
 }
 
-export type GetTableFields<T> = T extends
-  TableType<any, infer Fields> ? Fields
+export type GetTableFields<T> = T extends TableType<any, infer Fields> ? Fields
   : never;
 
 export type TableConstructor<F> = new(
@@ -71,16 +70,14 @@ export type InferFields<
 
 export type NullableFields<Fields = FieldsRecord> = {
   -readonly [
-    k in keyof Fields as IsNullable<Fields[k]> extends true
-      ? k
+    k in keyof Fields as IsNullable<Fields[k]> extends true ? k
       : never
   ]?: InferColumn<Fields[k]>;
 };
 
 export type NonNullableFields<Fields = FieldsRecord> = {
   -readonly [
-    k in keyof Fields as IsNullable<Fields[k]> extends false
-      ? k
+    k in keyof Fields as IsNullable<Fields[k]> extends false ? k
       : never
   ]: InferColumn<Fields[k]>;
 };
@@ -93,5 +90,4 @@ export type TableInstance<
   [TableFields]: Fields;
 } & MakeTableObject<Fields>;
 
-export type ExtractFields<T> = T extends
-  TableType<any, infer F> ? F : never;
+export type ExtractFields<T> = T extends TableType<any, infer F> ? F : never;

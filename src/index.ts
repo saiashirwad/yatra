@@ -1,20 +1,7 @@
-import {
-  date,
-  number,
-  string,
-  uuid,
-} from "./columns/base-columns";
-import {
-  defaultValue,
-  nullable,
-  primaryKey,
-} from "./columns/properties";
+import { date, number, string, uuid } from "./columns/base-columns";
+import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
-import {
-  getRelationNames,
-  oneToMany,
-  oneToOne,
-} from "./relation";
+import { getRelationNames, oneToMany, oneToOne } from "./relation";
 import { Table } from "./table";
 
 class Author extends Table(
@@ -27,12 +14,7 @@ class Author extends Table(
   },
 ) {
   get books() {
-    return oneToMany(
-      () => Author,
-      () => Book,
-      "author.id",
-      "book.id",
-    );
+    return oneToMany(() => Author, () => Book, "author.id", "book.id");
   }
 }
 
@@ -64,21 +46,11 @@ class Book extends Table(
   },
 ) {
   get author() {
-    return oneToOne(
-      () => Book,
-      () => Author,
-      "book.authorId",
-      "author.id",
-    );
+    return oneToOne(() => Book, () => Author, "book.authorId", "author.id");
   }
 
   get tags() {
-    return oneToMany(
-      () => Book,
-      () => Tag,
-      "book.id",
-      "tag.id",
-    );
+    return oneToMany(() => Book, () => Tag, "book.id", "tag.id");
   }
 }
 
@@ -90,12 +62,9 @@ const book = new Book({
   updatedAt: new Date(),
 });
 
+console.log(book);
+
 const relations = getRelationNames(Book);
 console.log(relations);
 
-const rel = oneToOne(
-  () => Book,
-  () => Author,
-  "book.authorId",
-  "author.id",
-);
+const rel = oneToOne(() => Book, () => Author, "book.id", "author.id");

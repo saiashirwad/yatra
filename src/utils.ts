@@ -1,23 +1,12 @@
-import type {
-  FieldsRecord,
-  TableFields,
-  TableName,
-} from "./table";
+import type { FieldsRecord, TableFields, TableName } from "./table";
 
-export type Clean<T> =
-  & { [k in keyof T]: T[k] }
-  & unknown;
+export type Clean<T> = { [k in keyof T]: T[k] } & unknown;
 
-export type Class<
-  O extends Record<string, unknown>,
-> = {
+export type Class<O extends Record<string, unknown>> = {
   new(): InstanceType<new() => O>;
 };
 
-export type Constructor<
-  Args = any,
-  ReturnType = any,
-> = new(
+export type Constructor<Args = any, ReturnType = any> = new(
   ...args: Args[]
 ) => ReturnType;
 
@@ -29,9 +18,7 @@ export type Constructor<
  */
 export function construct<
   T extends new(...args: any[]) => any,
->(
-  constructor: T,
-) {
+>(constructor: T) {
   return <A extends ConstructorParameters<T>>(
     ...args: A
   ): InstanceType<T> => {
@@ -42,8 +29,7 @@ export function construct<
   };
 }
 
-export type ExtractKeys<T> = T extends
-  { prototype: infer P } ? keyof P & string
+export type ExtractKeys<T> = T extends { prototype: infer P } ? keyof P & string
   : string;
 
 export interface Tableish<
@@ -57,22 +43,9 @@ export interface Tableish<
   prototype: any;
 }
 
-export type TableishFields<T extends Tableish> = T extends
-  Tableish<any, infer F> ? F
+export type QualifiedFieldName<T> = T extends Tableish<infer N, infer F>
+  ? `${N}.${keyof F & string}`
   : never;
-
-export type TableishFieldNames<T extends Tableish> =
-  T extends Tableish<any, infer F>
-    ? F extends Record<string, unknown> ? keyof F
-    : never
-    : never;
-
-export type TableishName<T extends Tableish> = T extends
-  Tableish<infer N, any> ? N
-  : never;
-
-export type TableishField<T extends Tableish> =
-  `${TableishName<T>}.${TableishFieldNames<T>}`;
 
 export function extend<This, Brand>(
   instance: This,

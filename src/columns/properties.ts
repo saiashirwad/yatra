@@ -11,8 +11,7 @@ export const columnName = <
   Col extends Column<any, any>,
   const ColName extends string,
 >(name: ColName) =>
-(c: Col) =>
-  extend<Col, ColumnName<ColName>>(c, ColumnName, name);
+(c: Col) => extend<Col, ColumnName<ColName>>(c, ColumnName, name);
 
 export const Nullable = Symbol.for("Yatra/Nullable");
 export type Nullable = { readonly [Nullable]: true };
@@ -53,8 +52,7 @@ export const MinLength = Symbol.for("Yatra/MinLength");
 export type MinLength<T extends number> = {
   readonly [MinLength]: T;
 };
-export type GetMinLength<T> = T extends MinLength<infer V>
-  ? V
+export type GetMinLength<T> = T extends MinLength<infer V> ? V
   : undefined;
 export const minLength = <
   Col extends Column<"string" | "text", any>,
@@ -68,8 +66,7 @@ export const MaxLength = Symbol.for("Yatra/MaxLength");
 export type MaxLength<T extends number> = {
   readonly [MaxLength]: T;
 };
-export type GetMaxLength<T> = T extends MaxLength<infer V>
-  ? V
+export type GetMaxLength<T> = T extends MaxLength<infer V> ? V
   : undefined;
 export const maxLength = <
   Col extends Column<"string" | "text", any>,
@@ -83,11 +80,10 @@ export const Format = Symbol.for("Yatra/Format");
 export type Format<T extends string> = {
   readonly [Format]: T;
 };
-export const format =
-  <Col extends Column<any, any>, const Fmt extends string>(
-    fmt: Fmt,
-  ) =>
-  (c: Col) => extend<Col, Format<Fmt>>(c, Format, fmt);
+export const format = <Col extends Column<any, any>, const Fmt extends string>(
+  fmt: Fmt,
+) =>
+(c: Col) => extend<Col, Format<Fmt>>(c, Format, fmt);
 
 export const Enum = Symbol.for("Yatra/Enum");
 export type Enum<T extends unknown[]> = {
@@ -120,8 +116,8 @@ export const References = Symbol.for("Yatra/References");
 export type References<T extends string> = {
   readonly [References]: { table: T; column: string };
 };
-export type GetReferences<T> = T extends
-  References<infer Table> ? { table: Table; column: string }
+export type GetReferences<T> = T extends References<infer Table>
+  ? { table: Table; column: string }
   : undefined;
 export const references =
   <Col extends Column<any, any>, const T extends string>(
@@ -140,8 +136,7 @@ export const AutoIncrement = Symbol.for(
 export type AutoIncrement = {
   readonly [AutoIncrement]: true;
 };
-export type IsAutoIncrement<T> = T extends AutoIncrement
-  ? true
+export type IsAutoIncrement<T> = T extends AutoIncrement ? true
   : false;
 export const autoIncrement = <Col extends Column<any, any>>(
   c: Col,
@@ -151,35 +146,29 @@ export const Generated = Symbol.for("Yatra/Generated");
 export type Generated<T extends string> = {
   readonly [Generated]: { expression: T };
 };
-export type GetGenerated<T> = T extends
-  Generated<infer Expr> ? Expr
+export type GetGenerated<T> = T extends Generated<infer Expr> ? Expr
   : undefined;
-export const generated =
-  <Col extends Column<any, any>, const T extends string>(
-    expression: T,
-  ) =>
-  (c: Col) =>
-    extend<Col, Generated<T>>(c, Generated, { expression });
+export const generated = <Col extends Column<any, any>, const T extends string>(
+  expression: T,
+) =>
+(c: Col) => extend<Col, Generated<T>>(c, Generated, { expression });
 
 export const Comment = Symbol.for("Yatra/Comment");
 export type Comment<T extends string> = {
   readonly [Comment]: T;
 };
-export type GetComment<T> = T extends Comment<infer Text>
-  ? Text
+export type GetComment<T> = T extends Comment<infer Text> ? Text
   : undefined;
-export const comment =
-  <Col extends Column<any, any>, const T extends string>(
-    text: T,
-  ) =>
-  (c: Col) => extend<Col, Comment<T>>(c, Comment, text);
+export const comment = <Col extends Column<any, any>, const T extends string>(
+  text: T,
+) =>
+(c: Col) => extend<Col, Comment<T>>(c, Comment, text);
 
 export const Precision = Symbol.for("Yatra/Precision");
 export type Precision<T extends number> = {
   readonly [Precision]: T;
 };
-export type GetPrecision<T> = T extends Precision<infer P>
-  ? P
+export type GetPrecision<T> = T extends Precision<infer P> ? P
   : undefined;
 export const precision = <
   Col extends Column<"number" | "decimal", any>,
@@ -207,11 +196,10 @@ export const Check = Symbol.for("Yatra/Check");
 export type Check<T extends string> = {
   readonly [Check]: T;
 };
-export const check =
-  <Col extends Column<any, any>, const T extends string>(
-    expression: T,
-  ) =>
-  (c: Col) => extend<Col, Check<T>>(c, Check, expression);
+export const check = <Col extends Column<any, any>, const T extends string>(
+  expression: T,
+) =>
+(c: Col) => extend<Col, Check<T>>(c, Check, expression);
 
 export const Index = Symbol.for("Yatra/Index");
 export type Index = { readonly [Index]: true };

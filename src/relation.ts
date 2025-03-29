@@ -1,10 +1,5 @@
 import { type Pipeable, pipeArguments } from "./pipeable";
-import type {
-  ExtractKeys,
-  Tableish,
-  TableishField,
-  TableishFieldNames,
-} from "./utils";
+import type { QualifiedFieldName, Tableish } from "./utils";
 
 export class Relation<
   Source extends Tableish,
@@ -32,8 +27,8 @@ export class Relation<
 export class OneToOneRelation<
   S extends Tableish,
   D extends Tableish,
-  const FK = TableishField<S>,
-  const RK = TableishField<D>,
+  const FK = QualifiedFieldName<S>,
+  const RK = QualifiedFieldName<D>,
 > extends Relation<S, D> {
   constructor(
     source: () => S,
@@ -48,8 +43,8 @@ export class OneToOneRelation<
 export function oneToOne<
   S extends Tableish,
   D extends Tableish,
-  const FK extends TableishField<S>,
-  const RK extends TableishField<D>,
+  const FK extends QualifiedFieldName<S>,
+  const RK extends QualifiedFieldName<D>,
 >(
   source: () => S,
   destination: () => D,
@@ -67,8 +62,8 @@ export function oneToOne<
 export class OneToManyRelation<
   S extends Tableish,
   D extends Tableish,
-  const FK extends TableishField<S>,
-  const RK extends TableishField<D>,
+  const FK extends QualifiedFieldName<S>,
+  const RK extends QualifiedFieldName<D>,
 > extends Relation<S, D> {
   constructor(
     source: () => S,
@@ -83,8 +78,8 @@ export class OneToManyRelation<
 export function oneToMany<
   S extends Tableish,
   D extends Tableish,
-  const FK extends TableishField<S>,
-  const RK extends TableishField<D>,
+  const FK extends QualifiedFieldName<S>,
+  const RK extends QualifiedFieldName<D>,
 >(
   source: () => S,
   destination: () => D,
@@ -102,8 +97,8 @@ export function oneToMany<
 export class ManyToOneRelation<
   S extends Tableish,
   D extends Tableish,
-  const FK extends TableishField<S>,
-  const RK extends TableishField<D>,
+  const FK extends QualifiedFieldName<S>,
+  const RK extends QualifiedFieldName<D>,
 > extends Relation<S, D> {
   constructor(
     source: () => S,
@@ -118,8 +113,8 @@ export class ManyToOneRelation<
 export function manyToOne<
   S extends Tableish,
   D extends Tableish,
-  const FK extends TableishField<S>,
-  const RK extends TableishField<D>,
+  const FK extends QualifiedFieldName<S>,
+  const RK extends QualifiedFieldName<D>,
 >(
   source: () => S,
   destination: () => D,
@@ -138,8 +133,8 @@ export class ManyToManyRelation<
   S extends Tableish,
   D extends Tableish,
   const JT extends string,
-  const SK extends TableishField<S>,
-  const DK extends TableishField<D>,
+  const SK extends QualifiedFieldName<S>,
+  const DK extends QualifiedFieldName<D>,
 > extends Relation<S, D> {
   constructor(
     source: () => S,
@@ -156,8 +151,8 @@ export function manyToMany<
   S extends Tableish,
   D extends Tableish,
   const JT extends string,
-  const SK extends TableishField<S>,
-  const DK extends TableishField<D>,
+  const SK extends QualifiedFieldName<S>,
+  const DK extends QualifiedFieldName<D>,
 >(
   source: () => S,
   destination: () => D,
@@ -181,8 +176,7 @@ export type TableRelations<
     -readonly [
       key in keyof T[
         "prototype"
-      ] as T["prototype"][key] extends Relation<any, any>
-        ? key
+      ] as T["prototype"][key] extends Relation<any, any> ? key
         : never
     ]: T["prototype"][key];
   }
