@@ -1,13 +1,12 @@
 import { type Pipeable, pipeArguments } from "./pipeable";
+import type { ExtractKeys, Tableish, TableishFieldNames } from "./utils";
 
-import type { ExtractKeys, TableLike } from "./utils";
-
-const SourceTable = Symbol("SourceTable");
-const DestinationTable = Symbol("DestinationTable");
+const SourceTable = Symbol("Yatra/Relation/SourceTable");
+const DestinationTable = Symbol("Yatra/Relation/DestinationTable");
 
 type RelationArgs = {
-  Source: TableLike;
-  Destination: TableLike;
+  Source: Tableish;
+  Destination: Tableish;
 };
 
 export class Relation<
@@ -41,10 +40,10 @@ export class Relation<
 }
 
 export class OneToOneRelation<
-  S extends TableLike,
-  D extends TableLike,
-  const FK extends string = string,
-  const RK extends ExtractKeys<D> = ExtractKeys<D>,
+  S extends Tableish,
+  D extends Tableish,
+  const FK = TableishFieldNames<S>,
+  const RK = TableishFieldNames<D>,
 > extends Relation<{
   Source: S;
   Destination: D;
@@ -60,10 +59,10 @@ export class OneToOneRelation<
 }
 
 export function oneToOne<
-  S extends TableLike,
-  D extends TableLike,
-  const FK extends string = string,
-  const RK extends ExtractKeys<D> = ExtractKeys<D> & string,
+  S extends Tableish,
+  D extends Tableish,
+  const FK = TableishFieldNames<S>,
+  const RK = TableishFieldNames<D>,
 >(
   source: () => S,
   destination: () => D,
@@ -79,8 +78,8 @@ export function oneToOne<
 }
 
 export class OneToManyRelation<
-  S extends TableLike,
-  D extends TableLike,
+  S extends Tableish,
+  D extends Tableish,
   const FK extends string = string,
   const RK extends ExtractKeys<D> = ExtractKeys<D>,
 > extends Relation<{
@@ -98,8 +97,8 @@ export class OneToManyRelation<
 }
 
 export function oneToMany<
-  S extends TableLike,
-  D extends TableLike,
+  S extends Tableish,
+  D extends Tableish,
   const FK extends string = string,
   const RK extends ExtractKeys<D> = ExtractKeys<D> & string,
 >(
@@ -117,8 +116,8 @@ export function oneToMany<
 }
 
 export class ManyToOneRelation<
-  S extends TableLike,
-  D extends TableLike,
+  S extends Tableish,
+  D extends Tableish,
   FK extends string = string,
   RK extends ExtractKeys<D> = ExtractKeys<D>,
 > extends Relation<{
@@ -136,8 +135,8 @@ export class ManyToOneRelation<
 }
 
 export function manyToOne<
-  S extends TableLike,
-  D extends TableLike,
+  S extends Tableish,
+  D extends Tableish,
   const FK extends string = string,
   const RK extends ExtractKeys<D> = ExtractKeys<D> & string,
 >(
@@ -155,8 +154,8 @@ export function manyToOne<
 }
 
 export class ManyToManyRelation<
-  S extends TableLike,
-  D extends TableLike,
+  S extends Tableish,
+  D extends Tableish,
   const JT extends string = string,
   const SK extends string = string,
   const DK extends string = string,
@@ -176,8 +175,8 @@ export class ManyToManyRelation<
 }
 
 export function manyToMany<
-  S extends TableLike,
-  D extends TableLike,
+  S extends Tableish,
+  D extends Tableish,
   const JT extends string = string,
   const SK extends string = string,
   const DK extends string = string,
@@ -198,7 +197,7 @@ export function manyToMany<
 }
 
 export type TableRelations<
-  T extends TableLike,
+  T extends Tableish,
 > =
   & {
     -readonly [
@@ -210,7 +209,7 @@ export type TableRelations<
   & {};
 
 export function getRelation<
-  T extends TableLike,
+  T extends Tableish,
   const Relations extends keyof {
     [k in keyof T["prototype"]]: T[k];
   },
@@ -218,7 +217,7 @@ export function getRelation<
   return c.prototype[name];
 }
 
-export function getRelationNames<T extends TableLike>(
+export function getRelationNames<T extends Tableish>(
   table: T,
 ): TableRelations<T> {
   return Reflect.ownKeys(table.prototype).filter((key) => {

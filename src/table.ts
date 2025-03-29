@@ -3,8 +3,8 @@ import type { IsNullable } from "./columns/properties";
 
 import type { Clean } from "./utils";
 
-const TableFields = Symbol.for("Yatra/Table/Fields");
-const TableName = Symbol.for("Yatra/Table/Name");
+export const TableFields = Symbol.for("Yatra/Table/Fields");
+export const TableName = Symbol.for("Yatra/Table/Name");
 
 export type FieldsRecord = Record<
   string,
@@ -102,10 +102,6 @@ export type TableInstance<
     [TableFields]: Fields;
   }
   & MakeTableObject<Fields>;
-
-export type TableLike = new(
-  args: any,
-) => TableInstance<string, FieldsRecord>;
 
 export type ExtractFields<T> = T extends TableType<any, infer F> ? F
   : never;

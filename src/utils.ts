@@ -1,3 +1,5 @@
+import type { FieldsRecord, TableFields, TableName } from "./table";
+
 export type Clean<T> =
   & { [k in keyof T]: T[k] }
   & unknown;
@@ -34,7 +36,25 @@ export function construct<T extends new(...args: any[]) => any>(
 export type ExtractKeys<T> = T extends { prototype: infer P } ? keyof P & string
   : string;
 
-export interface TableLike {
-  new(...args: any[]): any;
+export interface Tableish<
+  TableName extends string = string,
+  Fields extends FieldsRecord = FieldsRecord,
+> {
+  new(...args: any[]): {
+    [TableName]: TableName;
+    [TableFields]: Fields;
+  };
   prototype: any;
 }
+
+export type TableishFields<T extends Tableish> = T extends
+  Tableish<any, infer F> ? F
+  : never;
+
+export type TableishFieldNames<T extends Tableish> = T extends
+  Tableish<any, infer F> ? F extends Record<string, unknown> ? keyof F
+  : never
+  : never;
+export type TableishName<T extends Tableish> = T extends Tableish<infer N, any>
+  ? N
+  : never;

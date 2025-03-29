@@ -1,8 +1,14 @@
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
-import { getRelationNames, oneToMany, oneToOne, Relation } from "./relation";
+import { getRelationNames, oneToMany, oneToOne } from "./relation";
 import { Table } from "./table";
+import {
+  type Tableish,
+  type TableishFieldNames,
+  type TableishFields,
+  type TableishName,
+} from "./utils";
 
 class Author extends Table(
   "author",
