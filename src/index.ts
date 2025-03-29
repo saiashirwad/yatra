@@ -1,7 +1,7 @@
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
-import { getRelationNames, oneToMany, oneToOne } from "./relation";
+import { getRelation, oneToMany, oneToOne } from "./relation";
 import { Table } from "./table";
 
 class Author extends Table(
@@ -54,15 +54,6 @@ class Book extends Table(
   }
 }
 
-const book = new Book({
-  authorId: "auth123",
-  createdAt: new Date(),
-  id: "book456",
-  name: "TypeScript ORM Design Patterns",
-  updatedAt: new Date(),
-});
+console.log(Book.map(x => x.authorId));
 
-console.log(book);
-
-const relations = getRelationNames(Book);
-console.log(relations);
+console.log(getRelation(Book, "author"));

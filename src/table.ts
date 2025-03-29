@@ -1,9 +1,11 @@
 import { Column } from "./columns/column";
 import type { IsNullable } from "./columns/properties";
+import { Relation, type TableRelations } from "./relation";
 
-import type { Clean } from "./utils";
+import type { Clean, Tableish } from "./utils";
 
 export const TableFields = Symbol.for("Yatra/Table/Fields");
+export const TableRelationsSym = Symbol.for("Yatra/Table/Relations");
 export const TableName = Symbol.for("Yatra/Table/Name");
 
 export type FieldsRecord = Record<
@@ -18,6 +20,8 @@ export interface TableType<
   new(
     args: MakeTableObject<Fields>,
   ): TableInstance<TableName, Fields>;
+  map<Result>(fn: (fields: Fields) => Result): Result;
+  fields: Fields;
 }
 
 export type MakeTableObject<
@@ -36,6 +40,12 @@ export function Table<
   class TableClass {
     public [TableName]: TableName = tableName;
     public [TableFields]: Args = fields;
+    public static fields: Args = fields;
+
+    static map<Result>(fn: (fields: Args) => Result) {
+      return fn(fields);
+    }
+
     constructor(args: MakeTableObject<Args>) {
       if (typeof args === "object") {
         for (const key in args) {
@@ -48,6 +58,7 @@ export function Table<
       }
     }
   }
+
   return TableClass as TableType<TableName, Args>;
 }
 
