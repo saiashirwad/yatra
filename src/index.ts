@@ -1,7 +1,8 @@
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
-import { Table, TableName } from "./table";
+import { oneToMany, oneToOne } from "./relations";
+import { Table } from "./table";
 
 class Author extends Table(
   "author",
@@ -13,7 +14,7 @@ class Author extends Table(
   },
 ) {
   get books() {
-    return this.relations.oneToMany(() => Book, "id", "id");
+    return oneToMany(() => Author, () => Book, "id", "authorId");
   }
 }
 
@@ -30,7 +31,7 @@ class Book extends Table(
   },
 ) {
   get author() {
-    return this.relations.oneToOne(() => Author, "authorId", "id");
+    return oneToOne(() => Book, () => Author, "authorId", "id");
   }
 }
 
@@ -42,6 +43,4 @@ const book = new Book({
   updatedAt: new Date(),
 });
 
-const result = book[TableName];
-
-const author = book.author;
+console.log(Book.prototype.author);
