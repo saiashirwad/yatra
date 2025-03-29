@@ -1,7 +1,7 @@
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
-import { getRelationNames, oneToMany, oneToOne } from "./relation";
+import { getRelationNames, oneToMany, oneToOne, Relation } from "./relation";
 import { Table } from "./table";
 
 class Author extends Table(
@@ -60,3 +60,17 @@ const book = new Book({
 
 const relations = getRelationNames(Book);
 console.log(relations);
+
+type OptionsBag = {
+  name: string;
+  age: number;
+};
+
+function something<const T extends OptionsBag>(options: T) {
+  return options;
+}
+
+const result = something({
+  age: 2,
+  name: "hi",
+});

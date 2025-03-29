@@ -5,19 +5,20 @@ import type { ExtractKeys, TableLike } from "./utils";
 const SourceTable = Symbol("SourceTable");
 const DestinationTable = Symbol("DestinationTable");
 
-/**
- * Base relation class that all specific relation types extend
- */
+type RelationArgs = {
+  Source: TableLike;
+  Destination: TableLike;
+};
+
 export class Relation<
-  Source extends TableLike,
-  Destination extends TableLike,
+  Args extends RelationArgs,
 > implements Pipeable {
-  public [SourceTable]: Source;
-  public [DestinationTable]: Destination;
+  public [SourceTable]: Args["Source"];
+  public [DestinationTable]: Args["Destination"];
 
   constructor(
-    source: () => Source,
-    destination: () => Destination,
+    source: () => Args["Source"],
+    destination: () => Args["Destination"],
   ) {
     this[SourceTable] = source();
     this[DestinationTable] = destination();
@@ -44,7 +45,10 @@ export class OneToOneRelation<
   D extends TableLike,
   FK extends string = string,
   RK extends ExtractKeys<D> = ExtractKeys<D>,
-> extends Relation<S, D> {
+> extends Relation<{
+  Source: S;
+  Destination: D;
+}> {
   constructor(
     source: () => S,
     destination: () => D,
@@ -77,7 +81,10 @@ export class OneToManyRelation<
   D extends TableLike,
   FK extends string = string,
   RK extends ExtractKeys<D> = ExtractKeys<D>,
-> extends Relation<S, D> {
+> extends Relation<{
+  Source: S;
+  Destination: D;
+}> {
   constructor(
     source: () => S,
     destination: () => D,
@@ -110,7 +117,10 @@ export class ManyToOneRelation<
   D extends TableLike,
   FK extends string = string,
   RK extends ExtractKeys<D> = ExtractKeys<D>,
-> extends Relation<S, D> {
+> extends Relation<{
+  Source: S;
+  Destination: D;
+}> {
   constructor(
     source: () => S,
     destination: () => D,
@@ -144,7 +154,10 @@ export class ManyToManyRelation<
   JT extends string = string,
   SK extends string = string,
   DK extends string = string,
-> extends Relation<S, D> {
+> extends Relation<{
+  Source: S;
+  Destination: D;
+}> {
   constructor(
     source: () => S,
     destination: () => D,
@@ -180,8 +193,9 @@ export type TableRelations<
 > =
   & {
     -readonly [
-      key in keyof T["prototype"] as T["prototype"][key] extends
-        Relation<any, any> ? key : never
+      key in keyof T["prototype"] as T["prototype"][key] extends Relation<any>
+        ? key
+        : never
     ]: T["prototype"][key];
   }
   & {};
