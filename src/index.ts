@@ -1,10 +1,10 @@
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
-import { getRelation, oneToMany, oneToOne } from "./relation";
-import { Table } from "./table";
+import { oneToMany, oneToOne } from "./relation";
+import { info, table } from "./table";
 
-class Author extends Table(
+class Author extends table(
   "author",
   {
     id: pipe(uuid(), primaryKey),
@@ -18,7 +18,7 @@ class Author extends Table(
   }
 }
 
-class Tag extends Table(
+class Tag extends table(
   "tag",
   {
     id: pipe(uuid(), primaryKey),
@@ -29,7 +29,7 @@ class Tag extends Table(
 ) {
 }
 
-class Book extends Table(
+class Book extends table(
   "book",
   {
     id: pipe(uuid(), primaryKey),
@@ -54,6 +54,5 @@ class Book extends Table(
   }
 }
 
-console.log(Book.map(x => x.authorId));
-
-console.log(getRelation(Book, "author"));
+const result = pipe(Author, info);
+console.log(result["relations"]["books"]);

@@ -43,6 +43,8 @@ export interface Tableish<
   prototype: any;
 }
 
+export type TableishFields<T> = T extends Tableish<any, infer F> ? F : never;
+
 export type QualifiedFieldName<T> = T extends Tableish<infer N, infer F>
   ? `${N}.${keyof F & string}`
   : never;

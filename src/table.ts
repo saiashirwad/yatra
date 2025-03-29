@@ -1,8 +1,9 @@
 import { Column } from "./columns/column";
 import type { IsNullable } from "./columns/properties";
+import { type Pipeable, pipeArguments } from "./pipeable";
 import { Relation, type TableRelations } from "./relation";
 
-import type { Clean, Tableish } from "./utils";
+import type { Clean, Tableish, TableishFields } from "./utils";
 
 export const TableFields = Symbol.for("Yatra/Table/Fields");
 export const TableRelationsSym = Symbol.for("Yatra/Table/Relations");
@@ -13,16 +14,16 @@ export type FieldsRecord = Record<
   Column<any, any>
 >;
 
-export interface TableType<
+export type TableType<
   TableName extends string,
   Fields extends FieldsRecord,
-> {
+> = {
   new(
     args: MakeTableObject<Fields>,
   ): TableInstance<TableName, Fields>;
   map<Result>(fn: (fields: Fields) => Result): Result;
   fields: Fields;
-}
+};
 
 export type MakeTableObject<
   Fields = FieldsRecord,
@@ -30,7 +31,7 @@ export type MakeTableObject<
   NonNullable = NonNullableFields<Fields>,
 > = Clean<Nullable & NonNullable>;
 
-export function Table<
+export function table<
   TableName extends string,
   Args extends FieldsRecord,
 >(
@@ -60,6 +61,28 @@ export function Table<
   }
 
   return TableClass as TableType<TableName, Args>;
+}
+
+interface TableInfo<T extends Tableish> {
+  fields: TableishFields<T>;
+  relations: TableRelations<T>;
+}
+
+export function info<T extends Tableish>(
+  table: T,
+): TableInfo<T> {
+  const keys = Reflect.ownKeys(table.prototype);
+  let relations: any = {};
+  for (const key of keys) {
+    // @ts-ignore
+    if (table.prototype[key] instanceof Relation) {
+      // @ts-ignore
+      relations[key] = table.prototype[key];
+    }
+  }
+  // @ts-ignore
+  const fields = table.fields;
+  return { fields, relations };
 }
 
 export type GetTableFields<T> = T extends TableType<any, infer Fields> ? Fields
