@@ -1,6 +1,5 @@
 import { Column } from "./columns/column";
 import type { IsNullable } from "./columns/properties";
-import { type Pipeable, pipeArguments } from "./pipeable";
 import { Relation, type TableRelations } from "./relation";
 
 import type { Clean, Tableish, TableishFields } from "./utils";
@@ -63,7 +62,7 @@ export function table<
   return TableClass as TableType<TableName, Args>;
 }
 
-interface TableInfo<T extends Tableish> {
+export interface TableInfo<T extends Tableish> {
   fields: TableishFields<T>;
   relations: TableRelations<T>;
 }

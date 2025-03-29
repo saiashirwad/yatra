@@ -1,14 +1,16 @@
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
+import { query, type QueryContext, select } from "./query";
 import { oneToMany, oneToOne } from "./relation";
-import { info, table } from "./table";
+import { table } from "./table";
 
 class Author extends table(
   "author",
   {
     id: pipe(uuid(), primaryKey),
     name: pipe(string()),
+    description: pipe(string(), nullable),
     createdAt: pipe(date(), defaultValue(new Date())),
     updatedAt: pipe(date(), defaultValue(new Date())),
   },
@@ -54,5 +56,13 @@ class Book extends table(
   }
 }
 
-const result = pipe(Author, info);
-console.log(result["relations"]["books"]);
+const result = pipe(
+  Author,
+  select(c => c("id", "name", "createdAt", "description", "books")),
+);
+console.log(result);
+
+const asdf = pipe(
+  Author,
+  query,
+);
