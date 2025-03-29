@@ -1,8 +1,7 @@
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
-import { Relation } from "./relation";
-import { oneToMany, oneToOne } from "./relations";
+import { oneToMany, oneToOne, Relation } from "./relation";
 import { Table } from "./table";
 import type { TableLike } from "./utils";
 
