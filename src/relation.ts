@@ -1,26 +1,19 @@
 import { type Pipeable, pipeArguments } from "./pipeable";
 import type { ExtractKeys, Tableish, TableishFieldNames } from "./utils";
 
-const SourceTable = Symbol("Yatra/Relation/SourceTable");
-const DestinationTable = Symbol("Yatra/Relation/DestinationTable");
-
-type RelationArgs = {
-  Source: Tableish;
-  Destination: Tableish;
-};
-
 export class Relation<
-  const Args extends RelationArgs,
+  Source extends Tableish,
+  Destination extends Tableish,
 > implements Pipeable {
-  public [SourceTable]: Args["Source"];
-  public [DestinationTable]: Args["Destination"];
+  public sourceTable: Source;
+  public destinationTable: Destination;
 
   constructor(
-    source: () => Args["Source"],
-    destination: () => Args["Destination"],
+    source: () => Source,
+    destination: () => Destination,
   ) {
-    this[SourceTable] = source();
-    this[DestinationTable] = destination();
+    this.sourceTable = source();
+    this.destinationTable = destination();
   }
 
   pipe(...fns: Array<Function>) {
@@ -29,14 +22,6 @@ export class Relation<
       arguments,
     );
   }
-
-  get sourceTable() {
-    return this[SourceTable];
-  }
-
-  get destinationTable() {
-    return this[DestinationTable];
-  }
 }
 
 export class OneToOneRelation<
@@ -44,10 +29,7 @@ export class OneToOneRelation<
   D extends Tableish,
   const FK = TableishFieldNames<S>,
   const RK = TableishFieldNames<D>,
-> extends Relation<{
-  Source: S;
-  Destination: D;
-}> {
+> extends Relation<S, D> {
   constructor(
     source: () => S,
     destination: () => D,
@@ -82,10 +64,7 @@ export class OneToManyRelation<
   D extends Tableish,
   const FK extends string = string,
   const RK extends ExtractKeys<D> = ExtractKeys<D>,
-> extends Relation<{
-  Source: S;
-  Destination: D;
-}> {
+> extends Relation<S, D> {
   constructor(
     source: () => S,
     destination: () => D,
@@ -120,10 +99,7 @@ export class ManyToOneRelation<
   D extends Tableish,
   FK extends string = string,
   RK extends ExtractKeys<D> = ExtractKeys<D>,
-> extends Relation<{
-  Source: S;
-  Destination: D;
-}> {
+> extends Relation<S, D> {
   constructor(
     source: () => S,
     destination: () => D,
@@ -159,10 +135,7 @@ export class ManyToManyRelation<
   const JT extends string = string,
   const SK extends string = string,
   const DK extends string = string,
-> extends Relation<{
-  Source: S;
-  Destination: D;
-}> {
+> extends Relation<S, D> {
   constructor(
     source: () => S,
     destination: () => D,
@@ -201,8 +174,8 @@ export type TableRelations<
 > =
   & {
     -readonly [
-      key in keyof T["prototype"] as T["prototype"][key] extends Relation<any>
-        ? key
+      key in keyof T["prototype"] as T["prototype"][key] extends
+        Relation<any, any> ? key
         : never
     ]: T["prototype"][key];
   }
