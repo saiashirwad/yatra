@@ -1,6 +1,9 @@
 import { type Pipeable, pipeArguments } from "./pipeable";
-import { DestinationTable, SourceTable } from "./symbols";
+
 import type { ExtractKeys, TableLike } from "./utils";
+
+const SourceTable = Symbol("SourceTable");
+const DestinationTable = Symbol("DestinationTable");
 
 /**
  * Base relation class that all specific relation types extend

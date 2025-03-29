@@ -1,7 +1,10 @@
 import { Column } from "./columns/column";
 import type { IsNullable } from "./columns/properties";
-import { TableFields, TableName } from "./symbols";
+
 import type { Clean } from "./utils";
+
+const TableFields = Symbol.for("Yatra/Table/Fields");
+const TableName = Symbol.for("Yatra/Table/Name");
 
 export type FieldsRecord = Record<
   string,
