@@ -52,7 +52,7 @@ export function Table<
     }
   }
 
-  return TableClass as any as TableType<
+  return TableClass as TableType<
     TableName,
     Args
   >;

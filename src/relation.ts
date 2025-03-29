@@ -174,3 +174,31 @@ export function manyToMany<
     destinationKey,
   );
 }
+
+export type TableRelations<
+  T extends TableLike,
+> =
+  & {
+    -readonly [
+      key in keyof T["prototype"] as T["prototype"][key] extends
+        Relation<any, any> ? key : never
+    ]: T["prototype"][key];
+  }
+  & {};
+
+export function getRelation<
+  T extends TableLike,
+  const Relations extends keyof {
+    [k in keyof T["prototype"]]: T[k];
+  },
+>(c: T, name: Relations): T["prototype"][Relations] {
+  return c.prototype[name];
+}
+
+export function getRelationNames<T extends TableLike>(
+  table: T,
+): TableRelations<T> {
+  return Reflect.ownKeys(table.prototype).filter((key) => {
+    return table.prototype[key] instanceof Relation;
+  }) as any;
+}

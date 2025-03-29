@@ -1,9 +1,8 @@
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
-import { oneToMany, oneToOne, Relation } from "./relation";
+import { getRelationNames, oneToMany, oneToOne } from "./relation";
 import { Table } from "./table";
-import type { TableLike } from "./utils";
 
 class Author extends Table(
   "author",
@@ -59,32 +58,5 @@ const book = new Book({
   updatedAt: new Date(),
 });
 
-function getRelation<
-  T extends TableLike,
-  const Relations extends keyof {
-    [k in keyof T["prototype"]]: T[k];
-  },
->(c: T, name: Relations): T["prototype"][Relations] {
-  return c.prototype[name];
-}
-
-type TableRelations<
-  T extends TableLike,
-> =
-  & {
-    -readonly [
-      key in keyof T["prototype"] as T["prototype"][key] extends
-        Relation<any, any> ? key : never
-    ]: T["prototype"][key];
-  }
-  & {};
-
-function getRelationNames<T extends TableLike>(table: T): TableRelations<T> {
-  return Reflect.ownKeys(table.prototype).filter((key) => {
-    return table.prototype[key] instanceof Relation;
-  }) as any;
-}
-
 const relations = getRelationNames(Book);
-type relations = typeof relations;
 console.log(relations);
