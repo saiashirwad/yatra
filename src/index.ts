@@ -1,26 +1,18 @@
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
-import { query, type QueryContext, select } from "./query";
+import {
+  orderBy,
+  query,
+  type QueryContext,
+  select,
+  toSQL,
+  where,
+} from "./query";
 import { oneToMany, oneToOne } from "./relation";
-import { table } from "./table";
+import { Table } from "./table";
 
-class Author extends table(
-  "author",
-  {
-    id: pipe(uuid(), primaryKey),
-    name: pipe(string()),
-    description: pipe(string(), nullable),
-    createdAt: pipe(date(), defaultValue(new Date())),
-    updatedAt: pipe(date(), defaultValue(new Date())),
-  },
-) {
-  get books() {
-    return oneToMany(() => Author, () => Book, "author.id", "book.id");
-  }
-}
-
-class Tag extends table(
+class Tag extends Table(
   "tag",
   {
     id: pipe(uuid(), primaryKey),
@@ -31,7 +23,7 @@ class Tag extends table(
 ) {
 }
 
-class Book extends table(
+class Book extends Table(
   "book",
   {
     id: pipe(uuid(), primaryKey),
@@ -56,13 +48,26 @@ class Book extends table(
   }
 }
 
+class Author extends Table(
+  "author",
+  {
+    id: pipe(uuid(), primaryKey),
+    name: pipe(string()),
+    description: pipe(string(), nullable),
+    createdAt: pipe(date(), defaultValue(new Date())),
+    updatedAt: pipe(date(), defaultValue(new Date())),
+  },
+) {
+  get books() {
+    return oneToMany(() => Author, () => Book, "author.id", "book.authorId");
+  }
+}
+
 const result = pipe(
   Author,
-  select(c => c("id", "name", "createdAt", "description", "books")),
-);
-console.log(result);
-
-const asdf = pipe(
-  Author,
   query,
+  select("id", "name", "books"),
+  orderBy("id", "desc"),
+  where("author.id", "=", "asdf"),
+  toSQL,
 );

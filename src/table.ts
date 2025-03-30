@@ -30,7 +30,7 @@ export type MakeTableObject<
   NonNullable = NonNullableFields<Fields>,
 > = Clean<Nullable & NonNullable>;
 
-export function table<
+export function Table<
   TableName extends string,
   Args extends FieldsRecord,
 >(
