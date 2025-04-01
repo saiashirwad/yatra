@@ -79,18 +79,54 @@ const authorWithBooks = pipe(
 );
 
 
-// option 3
+// with hydration
+const authorWithBooks = pipe(
+  Author,
+  query,
+  hydrate,
+  select(
+    "id",
+    "name",
+    'books.id',
+    'books.name',
+    'books.tags.id'
+  ),
+);
+
+{
+  id: string
+  name: string
+  books: {
+    id: string
+    name: string
+    tags: {
+      id: string
+    }
+  }[]
+}
+
+// without hydration
 const authorWithBooks = pipe(
   Author,
   query,
   select(
     "id",
     "name",
-    'books.id as bookId',
-    'books.name as bookName',
-    'books.tags.id as bookTagId'
+    as('books.id', 'bookId'),
+    as('books.name', 'bookName'),
+    as('books.tags.id','bookTagId')
   ),
 );
+// without hydrate
+{
+  id: string
+  name: string
+}
+```
+
+```sql
+select id, name, books.id as bookId, books.name as bookName, tags.id as books__tags__name
+where ... left joins
 ```
 
 ```sql

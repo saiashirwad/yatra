@@ -1,29 +1,8 @@
-import {
-  date,
-  number,
-  string,
-  uuid,
-} from "./columns/base-columns";
-import {
-  defaultValue,
-  nullable,
-  primaryKey,
-} from "./columns/properties";
+import { date, number, string, uuid } from "./columns/base-columns";
+import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
-import { orderBy, query, select, where } from "./query";
-import {
-  type GetField,
-  type GetPath,
-  type GetRelation,
-  type QualifiedField,
-  qualifiedField,
-} from "./query-2";
-import {
-  oneToMany,
-  oneToOne,
-  Relations,
-  type TableRelations,
-} from "./relation";
+import { get } from "./query-2";
+import { oneToMany, oneToOne } from "./relation";
 import { Table } from "./table";
 
 class Tag extends Table(
@@ -51,30 +30,16 @@ class Book extends Table(
     createdAt: pipe(date(), defaultValue(new Date())),
     updatedAt: pipe(date(), defaultValue(new Date())),
     authorId: string(),
-    description: pipe(
-      string(),
-      defaultValue("what"),
-      nullable,
-    ),
+    description: pipe(string(), defaultValue("what"), nullable),
     price: pipe(number(), nullable),
   },
 ) {
   get author() {
-    return oneToOne(
-      () => Book,
-      () => Author,
-      "book.authorId",
-      "author.id",
-    );
+    return oneToOne(() => Book, () => Author, "book.authorId", "author.id");
   }
 
   get tags() {
-    return oneToMany(
-      () => Book,
-      () => Tag,
-      "book.id",
-      "tag.id",
-    );
+    return oneToMany(() => Book, () => Tag, "book.id", "tag.id");
   }
 }
 
@@ -92,33 +57,10 @@ class Author extends Table(
   },
 ) {
   get books() {
-    return oneToMany(
-      () => Author,
-      () => Book,
-      "author.id",
-      "book.authorId",
-    );
+    return oneToMany(() => Author, () => Book, "author.id", "book.authorId");
   }
 }
 
-const result = pipe(
-  Author,
-  query,
-  select("id", "name", "books"),
-  select("description"),
-  orderBy("id", "desc"),
-  where("author.id", "=", "asdf"),
-);
-
-const asdf = pipe(
-  Book,
-  query,
-  select("id", "name", "author", "updatedAt", "tags"),
-);
-
-const lol = qualifiedField(Book, "book.authorId");
-
-type bookrelations = TableRelations<typeof Book>;
-type asdfasdf = GetRelation<typeof Book, "author">;
-
-type wer = GetPath<typeof Book, "author.description">;
+const lol = get(Author, "description");
+const lol2 = get(Author, "books.createdAt");
+const lol3 = get(Author, "books.tags.name");
