@@ -60,7 +60,3 @@ class Author extends Table(
     return oneToMany(() => Author, () => Book, "author.id", "book.authorId");
   }
 }
-
-const lol = get(Author, "description");
-const lol2 = get(Author, "books.createdAt");
-const lol3 = get(Author, "books.tags.name");
