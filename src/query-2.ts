@@ -9,6 +9,49 @@ type QueryState = {
   readonly _orderBy?: unknown;
 };
 
+export type QueryContext<
+  T extends Tableish,
+  State extends QueryState = {},
+  Selected extends ReadonlyArray<string> = readonly [],
+> = {
+  readonly table: T;
+  readonly selected: Selected;
+  readonly state: State;
+};
+
+export function query<T extends Tableish>(
+  table: T,
+): QueryContext<T> {
+  return {
+    table,
+    selected: [] as const,
+    state: {},
+  };
+}
+
+export function select<
+  T extends Tableish,
+  State extends QueryState,
+  const Paths extends ReadonlyArray<string>,
+>(...paths: [...{ [K in keyof Paths]: Conform<Paths[K], string & ValidatePath<T, Paths[K]>> }]) {
+  return (
+    ctx: QueryContext<T, State>,
+  ): QueryContext<
+    T,
+    State & { _selection: true },
+    typeof paths
+  > => {
+    return {
+      ...ctx,
+      selected: paths,
+      state: {
+        ...ctx.state,
+        _selection: true,
+      } as State & { _selection: true },
+    };
+  };
+}
+
 export type QualifiedField<T extends Tableish> = T extends Tableish<infer TName, infer F> ? {
     [K in keyof F & string]: `${TName}.${K}`;
   }[keyof F & string]

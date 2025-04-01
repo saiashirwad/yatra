@@ -1,6 +1,7 @@
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
+import { query, select } from "./query-2";
 import { get } from "./query-2";
 import { oneToMany, oneToOne } from "./relation";
 import { Table } from "./table";
@@ -60,3 +61,11 @@ class Author extends Table(
     return oneToMany(() => Author, () => Book, "author.id", "book.authorId");
   }
 }
+
+// const result = get(Author, "books.tags.id");
+
+const result = pipe(
+  Author,
+  query,
+  select("id", "description", "books.createdAt", "books.tags.id as tagId"),
+);
