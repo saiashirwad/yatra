@@ -1,23 +1,80 @@
 # yatra
 
-A playground for exploring ideas for a new, type-safe ORM for typescript.
-Currently designed only with Postgres in mind
+A playground for exploring ideas for a new, type-safe ORM for typescript. Currently designed only with Postgres in mind
 
 ## Query builder ideas
 
-pipe(Author, select('id', 'name', 'createdAt', 'books'))
+```typescript
+class Book extends Table(
+  "book",
+  {
+    id: pipe(uuid(), primaryKey),
+    name: pipe(string()),
+    createdAt: pipe(date(), defaultValue(new Date())),
+    updatedAt: pipe(date(), defaultValue(new Date())),
+    authorId: string(),
+    description: pipe(string(), defaultValue("what"), nullable),
+    price: pipe(number(), nullable),
+  },
+) {
+  get author() {
+    return oneToOne(
+      () => Book, () => Author,
+      "book.authorId", "author.id",
+    );
+  }
 
-pipe(Author, select('id', 'name', 'createdAt', 'books.id as bookId'))
+class Author extends Table(
+  "author",
+  {
+    id: pipe(uuid(), primaryKey),
+    name: pipe(string()),
+    description: pipe(string(), nullable),
+    createdAt: pipe(date(), defaultValue(new Date())),
+    updatedAt: pipe(date(), defaultValue(new Date())),
+  },
+) {
+  get books() {
+    return oneToMany(
+      () => Author, () => Book,
+      "author.id", "book.authorId",
+    );
+  }
+}
 
-const selectIdAndCreatedAt = <T extends { id: string, createdAt: Date }>() =>
-select<T>(ctx => ({ id: ctx.id, createdAt: ctx.createdAt }))
 
-const createdYesterday = <T extends { createdAt: Date }>() =>
-where<T>(ctx => ctx('createdAt', '<', add(new Date(), { days: -1})))
+const authorWithBooks = pipe(
+  Author,
+  query,
+  select([
+    "id",
+    "name",
+    {
+      "books": [
+        "id",
+        "name",
+        "authorId",
+        {
+          "tags": ["id", "name"],
+        },
+      ],
+    },
+  ]),
+);
 
-pipe(
-Author,
-selectIdAndCreatedAt,
-createdYesterday,
-orderBy(ctx => ctx.createdAt)
-)
+
+{
+  selection: [{
+    table: 'author',
+    fields: ['id', 'name']
+  }, {
+    table: 'book',
+    fields: ['id', 'name', 'authorId', ...]
+  }],
+  joins: [{
+    type: 'auto',
+    source: "author",
+    target: 'book',
+  }]
+}
+```

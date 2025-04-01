@@ -1,8 +1,7 @@
 {
   "typescript": {
-    "lineWidth": 80
+    "lineWidth": 60
   },
-  "json": {},
   "markdown": {},
   "excludes": [
     "**/node_modules",

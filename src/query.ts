@@ -12,7 +12,9 @@ type QueryState = {
 
 export type QualifiedField<T extends Tableish> = T extends
   Tableish<infer TName, infer F>
-  ? { [K in keyof F & string]: `${TName}.${K}` }[keyof F & string]
+  ? {
+    [K in keyof F & string]: `${TName}.${K}`;
+  }[keyof F & string]
   : never;
 
 export type FieldSelector<T extends Tableish> =
@@ -52,10 +54,13 @@ export interface OrderByClause<T extends Tableish> {
 export type QueryContext<
   T extends Tableish,
   State extends QueryState = {},
-  SelectedFields extends ReadonlyArray<FieldSelector<T>> = readonly [],
+  SelectedFields extends ReadonlyArray<FieldSelector<T>> =
+    readonly [],
   Joins extends ReadonlyArray<JoinClause<T>> = readonly [],
-  WhereConditions extends ReadonlyArray<WhereCondition<T>> = readonly [],
-  OrderByClauses extends ReadonlyArray<OrderByClause<T>> = readonly [],
+  WhereConditions extends ReadonlyArray<WhereCondition<T>> =
+    readonly [],
+  OrderByClauses extends ReadonlyArray<OrderByClause<T>> =
+    readonly [],
 > = {
   readonly table: T;
   readonly selected: SelectedFields;
@@ -67,7 +72,14 @@ export type QueryContext<
 
 export function query<T extends Tableish>(
   table: T,
-): QueryContext<T, {}, readonly [], readonly [], readonly [], readonly []> {
+): QueryContext<
+  T,
+  {},
+  readonly [],
+  readonly [],
+  readonly [],
+  readonly []
+> {
   return {
     table,
     selected: [] as const,
@@ -108,7 +120,10 @@ export function select<
     T,
     State & { _selection: Fields },
     readonly [...Fields],
-    readonly [...CurrentJoins, ...ComputeJoins<T, Fields, CurrentJoins>],
+    readonly [
+      ...CurrentJoins,
+      ...ComputeJoins<T, Fields, CurrentJoins>,
+    ],
     WhereConditions,
     OrderByClauses
   > => {
@@ -117,8 +132,12 @@ export function select<
       ...ComputeJoins<T, Fields, CurrentJoins>,
     ];
     const relationFields = fields.filter(field => {
-      return typeof field === "string" && ctx.table.prototype[field]
-        && typeof Object.getOwnPropertyDescriptor(ctx.table.prototype, field)
+      return typeof field === "string"
+        && ctx.table.prototype[field]
+        && typeof Object.getOwnPropertyDescriptor(
+            ctx.table.prototype,
+            field,
+          )
             ?.get === "function";
     });
 
@@ -134,7 +153,10 @@ export function select<
             let sourceKey = "";
             let targetKey = "";
 
-            if ("foreignKey" in relation && "referencedKey" in relation) {
+            if (
+              "foreignKey" in relation
+              && "referencedKey" in relation
+            ) {
               sourceKey = String(relation.foreignKey);
               targetKey = String(relation.referencedKey);
 
@@ -167,13 +189,18 @@ type ComputeJoins<
   Fields extends ReadonlyArray<FieldSelector<T>>,
   ExistingJoins extends ReadonlyArray<JoinClause<T>>,
 > = {
-  [K in keyof Fields]: Fields[K] extends keyof TableRelations<T> & string
-    ? ExistingJoins extends ReadonlyArray<{ target: infer Target }>
-      ? Target extends TableRelations<T>[Fields[K]]["destinationTable"] ? never // Already joined
+  [K in keyof Fields]: Fields[K] extends
+    keyof TableRelations<T> & string
+    ? ExistingJoins extends
+      ReadonlyArray<{ target: infer Target }>
+      ? Target extends
+        TableRelations<T>[Fields[K]]["destinationTable"]
+        ? never // Already joined
       : JoinClause<T> // Need to join
     : JoinClause<T> // Need to join
     : never;
-}[number][] extends infer R ? R extends never[] ? readonly []
+}[number][] extends infer R
+  ? R extends never[] ? readonly []
   : R
   : readonly [];
 
@@ -205,13 +232,19 @@ export function orderBy<
     SelectedFields,
     Joins,
     WhereConditions,
-    readonly [...OrderByClauses, { field: Field; direction: Direction }]
+    readonly [
+      ...OrderByClauses,
+      { field: Field; direction: Direction },
+    ]
   > => {
     const orderByClause = { field, direction } as const;
 
     return {
       ...ctx,
-      orderByClauses: [...ctx.orderByClauses, orderByClause] as readonly [
+      orderByClauses: [
+        ...ctx.orderByClauses,
+        orderByClause,
+      ] as readonly [
         ...OrderByClauses,
         { field: Field; direction: Direction },
       ],
@@ -258,11 +291,18 @@ export function where<
     ],
     OrderByClauses
   > => {
-    const whereCondition = { field, operator, value } as const;
+    const whereCondition = {
+      field,
+      operator,
+      value,
+    } as const;
 
     return {
       ...ctx,
-      whereConditions: [...ctx.whereConditions, whereCondition] as readonly [
+      whereConditions: [
+        ...ctx.whereConditions,
+        whereCondition,
+      ] as readonly [
         ...WhereConditions,
         { field: Field; operator: Operator; value: Value },
       ],
@@ -302,14 +342,17 @@ export function join<
     SelectedFields,
     readonly [...Joins, {
       type: JT;
-      target: TableRelations<T>[RelationName]["destinationTable"];
+      target: TableRelations<
+        T
+      >[RelationName]["destinationTable"];
       sourceKey: string;
       targetKey: string;
     }],
     WhereConditions,
     OrderByClauses
   > => {
-    const relation = ctx.table.prototype[relationName] as Relation<T, any>;
+    const relation = ctx.table
+      .prototype[relationName] as Relation<T, any>;
 
     if (!relation) {
       throw new Error(
@@ -322,11 +365,18 @@ export function join<
     let sourceKey = "";
     let targetKey = "";
 
-    if ("foreignKey" in relation && "referencedKey" in relation) {
+    if (
+      "foreignKey" in relation
+      && "referencedKey" in relation
+    ) {
       sourceKey = String(relation.foreignKey);
       targetKey = String(relation.referencedKey);
     } else {
-      throw new Error(`Unsupported relation type for ${String(relationName)}`);
+      throw new Error(
+        `Unsupported relation type for ${
+          String(relationName)
+        }`,
+      );
     }
 
     const joinClause = {
@@ -338,12 +388,17 @@ export function join<
 
     return {
       ...ctx,
-      joins: [...ctx.joins, joinClause] as readonly [...Joins, {
-        type: JT;
-        target: TableRelations<T>[RelationName]["destinationTable"];
-        sourceKey: string;
-        targetKey: string;
-      }],
+      joins: [...ctx.joins, joinClause] as readonly [
+        ...Joins,
+        {
+          type: JT;
+          target: TableRelations<
+            T
+          >[RelationName]["destinationTable"];
+          sourceKey: string;
+          targetKey: string;
+        },
+      ],
       state: {
         ...ctx.state,
         _joins: true,

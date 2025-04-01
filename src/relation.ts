@@ -176,7 +176,8 @@ export type TableRelations<
     -readonly [
       key in keyof T[
         "prototype"
-      ] as T["prototype"][key] extends Relation<any, any> ? key
+      ] as T["prototype"][key] extends Relation<any, any>
+        ? key
         : never
     ]: T["prototype"][key];
   }
@@ -187,16 +188,24 @@ export function getRelation<
   const Relations extends keyof {
     [k in keyof T["prototype"]]: T[k];
   },
->(c: T, name: Relations): T["prototype"][Relations] {
+>(
+  c: T,
+  name: Relations,
+): T["prototype"][Relations] {
   return c.prototype[name];
 }
 
-export function getRelationNames<T extends Tableish>(
+export function getRelationNames<
+  T extends Tableish,
+>(
   table: T,
 ): TableRelations<T> {
-  return Reflect.ownKeys(table.prototype).filter((key) => {
-    return table.prototype[key] instanceof Relation;
-  }) as any;
+  return Reflect.ownKeys(table.prototype).filter(
+    (key) => {
+      return table.prototype[key]
+        instanceof Relation;
+    },
+  ) as any;
 }
 
 // type RelationType =
