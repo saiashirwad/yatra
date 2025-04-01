@@ -42,7 +42,7 @@ class Author extends Table(
   }
 }
 
-
+// option 1
 const authorWithBooks = pipe(
   Author,
   query,
@@ -62,19 +62,77 @@ const authorWithBooks = pipe(
   ]),
 );
 
+// option 2
+const authorWithBooks = pipe(
+  Author,
+  query,
+  select(
+    "id",
+    "name",
+    jsonAgg("books", [
+      "id",
+      "name",
+      "authorId",
+      jsonAgg("tags", ["id", "name"]),
+    ]),
+  ),
+);
 
-{
-  selection: [{
-    table: 'author',
-    fields: ['id', 'name']
-  }, {
-    table: 'book',
-    fields: ['id', 'name', 'authorId', ...]
-  }],
-  joins: [{
-    type: 'auto',
-    source: "author",
-    target: 'book',
-  }]
-}
+
+// option 3
+const authorWithBooks = pipe(
+  Author,
+  query,
+  select(
+    "id",
+    "name",
+    'books.id as bookId',
+    'books.name as bookName',
+    'books.tags.id as bookTagId'
+  ),
+);
+```
+
+```sql
+SELECT
+    u.user_id,
+    u.username,
+    u.email,
+    COALESCE(
+        jsonb_agg(
+            json_build_object(
+                'book_id', b.book_id,
+                'title', b.title,
+                'author', b.author,
+                'published_year', b.published_year,
+                'pages', ( 
+                    SELECT
+                        COALESCE(
+                            jsonb_agg(
+                                json_build_object(
+                                    'page_id', p.page_id,
+                                    'page_number', p.page_number,
+                                    'summary', p.content_summary
+                                ) ORDER BY p.page_number 
+                            ) FILTER (WHERE p.page_id IS NOT NULL), 
+                            '[]'::jsonb 
+                        )
+                    FROM
+                        pages p
+                    WHERE
+                        p.book_id = b.book_id 
+                )   
+            )
+            ORDER BY b.title
+        ) FILTER (WHERE b.book_id IS NOT NULL), 
+        '[]'::jsonb 
+    ) AS books_with_pages_json
+FROM
+    users u
+LEFT JOIN
+    books b ON u.user_id = b.user_id
+GROUP BY
+    u.user_id, u.username, u.email
+ORDER BY
+    u.username;
 ```

@@ -1,5 +1,43 @@
 import { type Pipeable, pipeArguments } from "./pipeable";
-import type { QualifiedFieldName, Tableish } from "./utils";
+import type {
+  Clean,
+  QualifiedFieldName,
+  Tableish,
+} from "./utils";
+
+export namespace Relations {
+  export type OneToOne<
+    Source extends Tableish,
+    Destination extends Tableish,
+    FK = QualifiedFieldName<Source>,
+    RK = QualifiedFieldName<Destination>,
+  > = Clean<{
+    readonly type: "one-to-one";
+    source: Source;
+    destination: Destination;
+    foreignKey: FK;
+    referencedKey: RK;
+  }>;
+}
+export const Relations = {
+  oneToOne: <
+    Source extends Tableish,
+    Destination extends Tableish,
+    FK = QualifiedFieldName<Source>,
+    RK = QualifiedFieldName<Destination>,
+  >(
+    source: () => Source,
+    destination: () => Destination,
+    foreignKey: FK,
+    referencedKey: RK,
+  ): Relations.OneToOne<Source, Destination, FK, RK> => ({
+    type: "one-to-one",
+    source: source(),
+    destination: destination(),
+    foreignKey,
+    referencedKey,
+  }),
+};
 
 export class Relation<
   Source extends Tableish,
@@ -179,7 +217,7 @@ export type TableRelations<
       ] as T["prototype"][key] extends Relation<any, any>
         ? key
         : never
-    ]: T["prototype"][key];
+    ]: Clean<T["prototype"][key]>;
   }
   & {};
 

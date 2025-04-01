@@ -11,8 +11,7 @@ type QueryState = {
 };
 
 export type QualifiedField<T extends Tableish> = T extends
-  Tableish<infer TName, infer F>
-  ? {
+  Tableish<infer TName, infer F> ? {
     [K in keyof F & string]: `${TName}.${K}`;
   }[keyof F & string]
   : never;
