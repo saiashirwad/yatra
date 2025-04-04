@@ -2,11 +2,7 @@ import { Column } from "./columns/column";
 import type { IsNullable } from "./columns/properties";
 import { Relation, type TableRelations } from "./relation";
 
-import type {
-  Clean,
-  Tableish,
-  TableishFields,
-} from "./utils";
+import type { Clean, Tableish, TableishFields } from "./utils";
 
 export const TableFields = Symbol.for(
   "Yatra/Table/Fields",
@@ -100,8 +96,7 @@ export function info<T extends Tableish>(
   return { fields, relations };
 }
 
-export type GetTableFields<T> = T extends
-  TableType<any, infer Fields> ? Fields
+export type GetTableFields<T> = T extends TableType<any, infer Fields> ? Fields
   : never;
 
 export type TableConstructor<F> = new(
@@ -148,5 +143,4 @@ export type TableInstance<
   [TableFields]: Fields;
 } & MakeTableObject<Fields>;
 
-export type ExtractFields<T> = T extends
-  TableType<any, infer F> ? F : never;
+export type ExtractFields<T> = T extends TableType<any, infer F> ? F : never;

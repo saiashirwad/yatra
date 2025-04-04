@@ -1,6 +1,6 @@
 import type { TableRelations } from "./relation";
-import { type GetTableFields, TableName } from "./table";
-import type { Clean, Tableish, TableishFields } from "./utils";
+import { TableName } from "./table";
+import type { Tableish, TableishFields } from "./utils";
 
 type QueryState = {
   readonly _selection?: unknown;
@@ -72,19 +72,16 @@ export type GetRelation<T extends Tableish, Key> = Key extends keyof TableRelati
   ? TableRelations<T>[Key]["destinationTable"]
   : never;
 
-// New type to handle aliased fields
 type AliasedField<T, Alias> = {
   readonly field: T;
   readonly alias: Alias;
 };
 
-// Modified GetPath to handle aliased fields
 export type GetPath<T extends Tableish, Path> = Path extends `${infer BasePath} as ${infer Alias}`
   ? AliasedField<GetPath<T, BasePath>, Alias>
   : Path extends `${infer Head}.${infer Tail}` ? GetPath<GetRelation<T, Head>, Tail>
   : GetField<T, Path>;
 
-// Modified ValidatePath to handle aliases
 type ValidatePath<T extends Tableish, Path extends string, Prefix extends string = ""> =
   Path extends `${infer BasePath} as ${infer Alias}`
     ? `${ValidatePath<T, BasePath, Prefix>} as ${Alias}`

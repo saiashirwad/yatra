@@ -1,9 +1,5 @@
 import { type Pipeable, pipeArguments } from "./pipeable";
-import type {
-  Clean,
-  QualifiedFieldName,
-  Tableish,
-} from "./utils";
+import type { Clean, QualifiedFieldName, Tableish } from "./utils";
 
 export namespace Relations {
   export type OneToOne<
@@ -214,8 +210,7 @@ export type TableRelations<
     -readonly [
       key in keyof T[
         "prototype"
-      ] as T["prototype"][key] extends Relation<any, any>
-        ? key
+      ] as T["prototype"][key] extends Relation<any, any> ? key
         : never
     ]: Clean<T["prototype"][key]>;
   }
