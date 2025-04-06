@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/complexity/noBannedTypes: <explanation> */
 export function pipe<A>(a: A): A;
 export function pipe<A, B = never>(a: A, ab: (a: A) => B): B;
 export function pipe<A, B = never, C = never>(a: A, ab: (a: A) => B, bc: (b: B) => C): C;
@@ -204,7 +205,6 @@ export function pipe<
   jk: (j: J) => K,
   kl: (k: K) => L,
   lm: (l: L) => M,
-  mn: (m: M) => N,
 ): N;
 export function pipe<
   A,

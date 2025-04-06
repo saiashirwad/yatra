@@ -1,6 +1,8 @@
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
+import { query, select } from "./query";
+import { get } from "./query-2";
 import { oneToMany, oneToOne } from "./relation";
 import { Table } from "./table";
 

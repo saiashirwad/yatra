@@ -16,6 +16,8 @@ export type Constructor<Args = any, ReturnType = any> = new (...args: Args[]) =>
  * @param constructor - The constructor function to invoke
  * @returns A function that accepts constructor arguments and returns an instance
  */
+
+// biome-ignore lint/suspicious/noShadowRestrictedNames: <explanation>
 export function construct<T extends new (...args: any[]) => any>(constructor: T) {
   return <A extends ConstructorParameters<T>>(...args: A): InstanceType<T> => {
     return Reflect.construct(constructor, args) as InstanceType<T>;

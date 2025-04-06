@@ -102,8 +102,3 @@ export type TableInstance<TableName extends string, Fields extends FieldsRecord>
 } & MakeTableObject<Fields>;
 
 export type ExtractFields<T> = T extends TableType<any, infer F> ? F : never;
-
-const something = "Hi";
-function what() {
-  console.log("hi");
-}
