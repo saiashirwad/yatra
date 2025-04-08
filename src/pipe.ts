@@ -1,45 +1,21 @@
+/** biome-ignore-all lint/complexity/noBannedTypes: <explanation> */
 export function pipe<A>(a: A): A;
-export function pipe<A, B = never>(
-  a: A,
-  ab: (a: A) => B,
-): B;
-export function pipe<A, B = never, C = never>(
-  a: A,
-  ab: (a: A) => B,
-  bc: (b: B) => C,
-): C;
-export function pipe<
-  A,
-  B = never,
-  C = never,
-  D = never,
->(
+export function pipe<A, B = never>(a: A, ab: (a: A) => B): B;
+export function pipe<A, B = never, C = never>(a: A, ab: (a: A) => B, bc: (b: B) => C): C;
+export function pipe<A, B = never, C = never, D = never>(
   a: A,
   ab: (a: A) => B,
   bc: (b: B) => C,
   cd: (c: C) => D,
 ): D;
-export function pipe<
-  A,
-  B = never,
-  C = never,
-  D = never,
-  E = never,
->(
+export function pipe<A, B = never, C = never, D = never, E = never>(
   a: A,
   ab: (a: A) => B,
   bc: (b: B) => C,
   cd: (c: C) => D,
   de: (d: D) => E,
 ): E;
-export function pipe<
-  A,
-  B = never,
-  C = never,
-  D = never,
-  E = never,
-  F = never,
->(
+export function pipe<A, B = never, C = never, D = never, E = never, F = never>(
   a: A,
   ab: (a: A) => B,
   bc: (b: B) => C,
@@ -47,15 +23,7 @@ export function pipe<
   de: (d: D) => E,
   ef: (e: E) => F,
 ): F;
-export function pipe<
-  A,
-  B = never,
-  C = never,
-  D = never,
-  E = never,
-  F = never,
-  G = never,
->(
+export function pipe<A, B = never, C = never, D = never, E = never, F = never, G = never>(
   a: A,
   ab: (a: A) => B,
   bc: (b: B) => C,
@@ -237,7 +205,6 @@ export function pipe<
   jk: (j: J) => K,
   kl: (k: K) => L,
   lm: (l: L) => M,
-  mn: (m: M) => N,
 ): N;
 export function pipe<
   A,
@@ -496,9 +463,7 @@ export function pipe(
     case 8:
       return gh!(fg!(ef!(de!(cd!(bc!(ab!(a)))))));
     case 9:
-      return hi!(
-        gh!(fg!(ef!(de!(cd!(bc!(ab!(a))))))),
-      );
+      return hi!(gh!(fg!(ef!(de!(cd!(bc!(ab!(a))))))));
     default: {
       let ret = arguments[0];
       for (let i = 1; i < arguments.length; i++) {

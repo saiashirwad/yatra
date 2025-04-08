@@ -11,38 +11,21 @@
 export interface Pipeable {
   pipe<A>(this: A): A;
   pipe<A, B = never>(this: A, ab: (_: A) => B): B;
-  pipe<A, B = never, C = never>(
-    this: A,
-    ab: (_: A) => B,
-    bc: (_: B) => C,
-  ): C;
+  pipe<A, B = never, C = never>(this: A, ab: (_: A) => B, bc: (_: B) => C): C;
   pipe<A, B = never, C = never, D = never>(
     this: A,
     ab: (_: A) => B,
     bc: (_: B) => C,
     cd: (_: C) => D,
   ): D;
-  pipe<
-    A,
-    B = never,
-    C = never,
-    D = never,
-    E = never,
-  >(
+  pipe<A, B = never, C = never, D = never, E = never>(
     this: A,
     ab: (_: A) => B,
     bc: (_: B) => C,
     cd: (_: C) => D,
     de: (_: D) => E,
   ): E;
-  pipe<
-    A,
-    B = never,
-    C = never,
-    D = never,
-    E = never,
-    F = never,
-  >(
+  pipe<A, B = never, C = never, D = never, E = never, F = never>(
     this: A,
     ab: (_: A) => B,
     bc: (_: B) => C,
@@ -50,15 +33,7 @@ export interface Pipeable {
     de: (_: D) => E,
     ef: (_: E) => F,
   ): F;
-  pipe<
-    A,
-    B = never,
-    C = never,
-    D = never,
-    E = never,
-    F = never,
-    G = never,
-  >(
+  pipe<A, B = never, C = never, D = never, E = never, F = never, G = never>(
     this: A,
     ab: (_: A) => B,
     bc: (_: B) => C,
@@ -67,16 +42,7 @@ export interface Pipeable {
     ef: (_: E) => F,
     fg: (_: F) => G,
   ): G;
-  pipe<
-    A,
-    B = never,
-    C = never,
-    D = never,
-    E = never,
-    F = never,
-    G = never,
-    H = never,
-  >(
+  pipe<A, B = never, C = never, D = never, E = never, F = never, G = never, H = never>(
     this: A,
     ab: (_: A) => B,
     bc: (_: B) => C,
@@ -86,17 +52,7 @@ export interface Pipeable {
     fg: (_: F) => G,
     gh: (_: G) => H,
   ): H;
-  pipe<
-    A,
-    B = never,
-    C = never,
-    D = never,
-    E = never,
-    F = never,
-    G = never,
-    H = never,
-    I = never,
-  >(
+  pipe<A, B = never, C = never, D = never, E = never, F = never, G = never, H = never, I = never>(
     this: A,
     ab: (_: A) => B,
     bc: (_: B) => C,
@@ -565,10 +521,7 @@ export interface Pipeable {
 /**
  * @since 2.0.0
  */
-export const pipeArguments = <A>(
-  self: A,
-  args: IArguments,
-): unknown => {
+export const pipeArguments = <A>(self: A, args: IArguments): unknown => {
   switch (args.length) {
     case 0:
       return self;
@@ -579,64 +532,20 @@ export const pipeArguments = <A>(
     case 3:
       return args[2](args[1](args[0](self)));
     case 4:
-      return args[3](
-        args[2](args[1](args[0](self))),
-      );
+      return args[3](args[2](args[1](args[0](self))));
     case 5:
-      return args[4](
-        args[3](args[2](args[1](args[0](self)))),
-      );
+      return args[4](args[3](args[2](args[1](args[0](self)))));
     case 6:
-      return args[5](
-        args[4](
-          args[3](
-            args[2](args[1](args[0](self))),
-          ),
-        ),
-      );
+      return args[5](args[4](args[3](args[2](args[1](args[0](self))))));
     case 7:
-      return args[6](
-        args[5](
-          args[4](
-            args[3](
-              args[2](args[1](args[0](self))),
-            ),
-          ),
-        ),
-      );
+      return args[6](args[5](args[4](args[3](args[2](args[1](args[0](self)))))));
     case 8:
-      return args[7](
-        args[6](
-          args[5](
-            args[4](
-              args[3](
-                args[2](args[1](args[0](self))),
-              ),
-            ),
-          ),
-        ),
-      );
+      return args[7](args[6](args[5](args[4](args[3](args[2](args[1](args[0](self))))))));
     case 9:
-      return args[8](
-        args[7](
-          args[6](
-            args[5](
-              args[4](
-                args[3](
-                  args[2](args[1](args[0](self))),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
+      return args[8](args[7](args[6](args[5](args[4](args[3](args[2](args[1](args[0](self)))))))));
     default: {
       let ret = self;
-      for (
-        let i = 0, len = args.length;
-        i < len;
-        i++
-      ) {
+      for (let i = 0, len = args.length; i < len; i++) {
         ret = args[i](ret);
       }
       return ret;

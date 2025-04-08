@@ -3,10 +3,7 @@ import { type Pipeable, pipeArguments } from "../pipeable";
 export const Type = Symbol.for("Yatra/Column/Type");
 export const DataType = Symbol.for("Yatra/Column/DataType");
 
-export class Column<
-  CT extends ColumnType,
-  DT extends any,
-> implements Pipeable {
+export class Column<CT extends ColumnType, DT> implements Pipeable {
   readonly [Type]: CT;
   declare readonly [DataType]: DT;
 
@@ -15,11 +12,9 @@ export class Column<
     this[DataType] = null as any;
   }
 
+  // biome-ignore lint/complexity/noBannedTypes: <explanation>
   pipe(..._: Array<Function>) {
-    return pipeArguments(
-      this,
-      arguments,
-    );
+    return pipeArguments(this, arguments);
   }
 }
 
@@ -44,5 +39,4 @@ export type ColumnType =
   | "decimal"
   | "enum";
 
-export type GetDataType<T> = T extends Column<any, infer DataType> ? DataType
-  : never;
+export type GetDataType<T> = T extends Column<any, infer DataType> ? DataType : never;

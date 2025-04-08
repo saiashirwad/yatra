@@ -55,10 +55,7 @@ class BigIntColumn extends Column<"bigint", bigint | number> {
   }
 }
 
-class TimestampColumn extends Column<
-  "timestamp",
-  Date | string | number
-> {
+class TimestampColumn extends Column<"timestamp", Date | string | number> {
   private withTz: boolean;
 
   constructor(withTimezone: boolean = true) {
@@ -88,10 +85,7 @@ class TimeColumn extends Column<"time", string | Date> {
   }
 }
 
-class BinaryColumn extends Column<
-  "binary",
-  Uint8Array | Buffer | string
-> {
+class BinaryColumn extends Column<"binary", Uint8Array | Buffer | string> {
   constructor() {
     super("binary");
   }
@@ -104,9 +98,7 @@ class DecimalColumn extends Column<"decimal", string | number> {
 }
 
 const LiteralValue = Symbol.for("Yatra/LiteralValue");
-class LiteralColumn<
-  T extends string | number | boolean,
-> extends Column<"literal", T> {
+class LiteralColumn<T extends string | number | boolean> extends Column<"literal", T> {
   readonly [LiteralValue]: T;
 
   constructor(value: T) {
@@ -116,9 +108,7 @@ class LiteralColumn<
 }
 
 const ArrayItemType = Symbol.for("Yatra/ItemType");
-class ArrayColumn<
-  ItemType extends Column<any, any>,
-> extends Column<
+class ArrayColumn<ItemType extends Column<any, any>> extends Column<
   "array",
   Array<ItemType[typeof DataType]>
 > {
@@ -175,15 +165,11 @@ export function bigint(): BigIntColumn {
   return new BigIntColumn();
 }
 
-export function timestamp(
-  withTimezone: boolean = true,
-): TimestampColumn {
+export function timestamp(withTimezone: boolean = true): TimestampColumn {
   return new TimestampColumn(withTimezone);
 }
 
-export function time(
-  withTimezone: boolean = false,
-): TimeColumn {
+export function time(withTimezone: boolean = false): TimeColumn {
   return new TimeColumn(withTimezone);
 }
 
@@ -195,22 +181,14 @@ export function decimal(): DecimalColumn {
   return new DecimalColumn();
 }
 
-export function literal<
-  T extends string | number | boolean,
->(
-  value: T,
-): LiteralColumn<T> {
+export function literal<T extends string | number | boolean>(value: T): LiteralColumn<T> {
   return new LiteralColumn<T>(value);
 }
 
-export function array<T extends Column<any, any>>(
-  itemType: T,
-): ArrayColumn<T> {
+export function array<T extends Column<any, any>>(itemType: T): ArrayColumn<T> {
   return new ArrayColumn<T>(itemType);
 }
 
-export function enum_<T extends string[]>(
-  values: T,
-): EnumColumn<T> {
+export function enum_<T extends string[]>(values: T): EnumColumn<T> {
   return new EnumColumn<T>(values);
 }

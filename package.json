@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "devDependencies": {
+    "@biomejs/biome": "^2.0.0-beta.1",
     "@types/bun": "latest"
   },
   "peerDependencies": {
@@ -14,6 +15,7 @@
     "typecheck-watch": "bun tsc --noEmit --incremental --watch"
   },
   "dependencies": {
-    "effect": "^3.14.1"
+    "effect": "^3.14.1",
+    "yatra": "."
   }
 }

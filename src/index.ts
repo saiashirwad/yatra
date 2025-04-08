@@ -1,45 +1,59 @@
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
+import { query, select } from "./query-2";
+import { oneToMany, oneToOne } from "./relation";
 import { Table } from "./table";
+import type { Tableish } from "./utils";
 
-class Author extends Table(
-  "author",
-  {
-    id: pipe(uuid(), primaryKey),
-    name: pipe(string()),
-    createdAt: pipe(date(), defaultValue(new Date())),
-    updatedAt: pipe(date(), defaultValue(new Date())),
-  },
-) {
-  get books() {
-    return this.relations.oneToMany(() => Book, "id", "id");
-  }
-}
+class Tag extends Table("tag", {
+  id: pipe(uuid(), primaryKey),
+  name: pipe(string()),
+  createdAt: pipe(date(), defaultValue(new Date())),
+  updatedAt: pipe(date(), defaultValue(new Date())),
+}) {}
 
-class Book extends Table(
-  "book",
-  {
-    id: pipe(uuid(), primaryKey),
-    name: pipe(string()),
-    createdAt: pipe(date(), defaultValue(new Date())),
-    updatedAt: pipe(date(), defaultValue(new Date())),
-    authorId: string(),
-    description: pipe(string(), defaultValue("what"), nullable),
-    price: pipe(number(), nullable),
-  },
-) {
+class Book extends Table("book", {
+  id: pipe(uuid(), primaryKey),
+  name: pipe(string()),
+  createdAt: pipe(date(), defaultValue(new Date())),
+  updatedAt: pipe(date(), defaultValue(new Date())),
+  authorId: string(),
+  description: pipe(string(), defaultValue("what"), nullable),
+  price: pipe(number(), nullable),
+}) {
   get author() {
-    return this.relations.oneToOne(() => Author, "authorId", "id");
+    return oneToOne(
+      () => Book,
+      () => Author,
+      "book.authorId",
+      "author.id",
+    );
+  }
+
+  get tags() {
+    return oneToMany(
+      () => Book,
+      () => Tag,
+      "book.id",
+      "tag.id",
+    );
   }
 }
 
-const book = new Book({
-  authorId: "auth123",
-  createdAt: new Date(),
-  id: "book456",
-  name: "TypeScript ORM Design Patterns",
-  updatedAt: new Date(),
-});
-
-const author = book.author;
+class Author extends Table("author", {
+  id: pipe(uuid(), primaryKey),
+  name: pipe(string()),
+  description: pipe(string(), nullable),
+  createdAt: pipe(date(), defaultValue(new Date())),
+  updatedAt: pipe(date(), defaultValue(new Date())),
+}) {
+  get books() {
+    return oneToMany(
+      () => Author,
+      () => Book,
+      "author.id",
+      "book.authorId",
+    );
+  }
+}
