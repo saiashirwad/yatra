@@ -1,9 +1,10 @@
 import { date, number, string, uuid } from "./columns/base-columns";
 import { defaultValue, nullable, primaryKey } from "./columns/properties";
 import { pipe } from "./pipe";
-import { get, query, select } from "./query-2";
+import { query, select } from "./query-2";
 import { oneToMany, oneToOne } from "./relation";
 import { Table } from "./table";
+import type { Tableish } from "./utils";
 
 class Tag extends Table("tag", {
   id: pipe(uuid(), primaryKey),
@@ -56,5 +57,3 @@ class Author extends Table("author", {
     );
   }
 }
-
-const something = pipe(Author, query, select("id", "books.price"));
