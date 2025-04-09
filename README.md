@@ -141,7 +141,7 @@ SELECT
                 'title', b.title,
                 'author', b.author,
                 'published_year', b.published_year,
-                'pages', ( 
+                'pages', (
                     SELECT
                         COALESCE(
                             jsonb_agg(
@@ -149,19 +149,19 @@ SELECT
                                     'page_id', p.page_id,
                                     'page_number', p.page_number,
                                     'summary', p.content_summary
-                                ) ORDER BY p.page_number 
-                            ) FILTER (WHERE p.page_id IS NOT NULL), 
-                            '[]'::jsonb 
+                                ) ORDER BY p.page_number
+                            ) FILTER (WHERE p.page_id IS NOT NULL),
+                            '[]'::jsonb
                         )
                     FROM
                         pages p
                     WHERE
-                        p.book_id = b.book_id 
-                )   
+                        p.book_id = b.book_id
+                )
             )
             ORDER BY b.title
-        ) FILTER (WHERE b.book_id IS NOT NULL), 
-        '[]'::jsonb 
+        ) FILTER (WHERE b.book_id IS NOT NULL),
+        '[]'::jsonb
     ) AS books_with_pages_json
 FROM
     users u

@@ -1,15 +1,15 @@
 class Entity<T extends Record<string, any>> {
-  private data: T;
+  private data: T
 
-  declare _data: T;
-  declare _nameType: T["name"];
+  declare _data: T
+  declare _nameType: T["name"]
 
   constructor(data: T) {
-    this.data = data;
+    this.data = data
   }
 
   get name(): this["_nameType"] {
-    return this.data["name"] as any;
+    return this.data["name"] as any
   }
 }
 

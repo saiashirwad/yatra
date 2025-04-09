@@ -1,124 +1,118 @@
-type Clean<T> =
-  & { [k in keyof T]: T[k] }
-  & unknown;
+type Clean<T> = { [k in keyof T]: T[k] } & unknown
 
 function set<const R>(r: R) {
-  return r;
+  return r
 }
 
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
-  k: infer I,
-) => void ? I
-  : never;
+type UnionToIntersection<U> =
+  (U extends any ? (k: U) => void : never) extends (
+    (k: infer I) => void
+  ) ?
+    I
+  : never
 
-type GeneratorResult<R> = R extends Generator<infer V> ? V
-  : never;
+type GeneratorResult<R> =
+  R extends Generator<infer V> ? V : never
 
-type CleanResult<
-  T extends (...args: any[]) => any,
-> = Clean<
-  UnionToIntersection<
-    GeneratorResult<ReturnType<T>>
-  >
->;
+type CleanResult<T extends (...args: any[]) => any> = Clean<
+  UnionToIntersection<GeneratorResult<ReturnType<T>>>
+>
 
 type TableSchema = Record<
   string,
   {
-    columns: Record<string, any>;
+    columns: Record<string, any>
   }
->;
+>
 
-let currentQueryContext: any = null;
+let currentQueryContext: any = null
 
 type QueryContext<
   Schema extends TableSchema,
-  T extends keyof Schema,
+  T extends keyof Schema
 > = {
-  schema: Schema;
-  table: T;
-  query: any;
-};
+  schema: Schema
+  table: T
+  query: any
+}
 
 function* select<
   Schema extends TableSchema,
   T extends keyof Schema,
-  const S extends readonly (keyof Schema[T][
-    "columns"
-  ])[],
+  const S extends readonly (keyof Schema[T]["columns"])[]
 >(
   context: QueryContext<Schema, T>,
-  fields: S,
+  fields: S
 ): Generator<{ select: S }> {
-  yield set({ select: fields });
-  currentQueryContext = { ...context, fields };
-  return currentQueryContext;
+  yield set({ select: fields })
+  currentQueryContext = { ...context, fields }
+  return currentQueryContext
 }
 
 function* where<
   Schema extends TableSchema,
   T extends keyof Schema,
-  const C extends Record<string, any>,
+  const C extends Record<string, any>
 >(
   context: QueryContext<Schema, T>,
-  condition: C,
+  condition: C
 ): Generator<{ where: C }> {
-  yield set({ where: condition });
-  return context;
+  yield set({ where: condition })
+  return context
 }
 
 function* orderBy<
   Schema extends TableSchema,
   T extends keyof Schema,
-  const O extends Record<string, any>,
+  const O extends Record<string, any>
 >(
   context: QueryContext<Schema, T>,
-  orderByVal: O,
+  orderByVal: O
 ): Generator<{ orderBy: O }> {
-  yield set({ orderBy: orderByVal });
-  return context;
+  yield set({ orderBy: orderByVal })
+  return context
 }
 
 function* limit<
   Schema extends TableSchema,
   T extends keyof Schema,
-  const L extends number,
+  const L extends number
 >(
   context: QueryContext<Schema, T>,
-  limitVal: L,
+  limitVal: L
 ): Generator<{ limit: L }> {
-  yield set({ limit: limitVal });
-  return context;
+  yield set({ limit: limitVal })
+  return context
 }
 
 type TestSchema = {
   users: {
     columns: {
-      id: number;
-      name: string;
-      email: string;
-      createdAt: Date;
-    };
-  };
+      id: number
+      name: string
+      email: string
+      createdAt: Date
+    }
+  }
   posts: {
     columns: {
-      id: number;
-      title: string;
-      content: string;
-      userId: number;
-      published: boolean;
-    };
-  };
-};
+      id: number
+      title: string
+      content: string
+      userId: number
+      published: boolean
+    }
+  }
+}
 
 function query<T extends (...args: any[]) => any>(
-  t: T,
+  t: T
 ): CleanResult<T> {
-  return {} as any;
+  return {} as any
 }
 
 function createDb<Schema extends TableSchema>(
-  schema: Schema,
+  schema: Schema
 ) {
   return {
     selectFrom<T extends keyof Schema>(table: T) {
@@ -126,25 +120,22 @@ function createDb<Schema extends TableSchema>(
         const context: QueryContext<Schema, T> = {
           schema,
           table,
-          query: { from: table },
-        };
-        currentQueryContext = context;
-        yield set({ from: table });
-        return context;
+          query: { from: table }
+        }
+        currentQueryContext = context
+        yield set({ from: table })
+        return context
       }
 
-      return _selectFrom();
-    },
-  };
+      return _selectFrom()
+    }
+  }
 }
-const db = createDb<TestSchema>({} as TestSchema);
+const db = createDb<TestSchema>({} as TestSchema)
 
-const example = query(function*() {
-  const ctx = yield* db.selectFrom("posts");
-  yield* select(ctx, ["id", "content", "title"]);
-  yield* where(ctx, { published: true });
-  yield* orderBy(ctx, { createdAt: "desc" });
-});
-
-
-
+const example = query(function* () {
+  const ctx = yield* db.selectFrom("posts")
+  yield* select(ctx, ["id", "content", "title"])
+  yield* where(ctx, { published: true })
+  yield* orderBy(ctx, { createdAt: "desc" })
+})

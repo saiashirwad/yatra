@@ -4,18 +4,28 @@
   "type": "module",
   "private": true,
   "devDependencies": {
-    "@biomejs/biome": "^2.0.0-beta.1",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "prettier": "^3.5.3"
   },
   "peerDependencies": {
     "typescript": "^5.8.2"
   },
   "scripts": {
     "typecheck": "bun tsc --noEmit --incremental",
-    "typecheck-watch": "bun tsc --noEmit --incremental --watch"
+    "typecheck-watch": "bun tsc --noEmit --incremental --watch",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "effect": "^3.14.1",
     "yatra": "."
+  },
+  "prettier": {
+    "printWidth": 60,
+    "useTabs": false,
+    "semi": false,
+    "trailingComma": "none",
+    "experimentalTernaries": true,
+    "experimentalOperatorPosition": "end",
+    "arrowParens": "avoid"
   }
 }
