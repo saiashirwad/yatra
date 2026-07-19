@@ -1,9 +1,13 @@
 import {
+  as,
+  asc,
   count,
   date,
   defaultValue,
   hydrate,
   hydrateRows,
+  ilike,
+  inArray,
   jsonAgg,
   limit,
   nullable,
@@ -74,9 +78,13 @@ class Author extends Table("author", {
 const flat = pipe(
   Author,
   query,
-  select("id", "name", "books.tags.id as tagsId"),
-  where("name", "ilike", "%w00t%"),
-  orderBy("name", "asc"),
+  select(t => [
+    t.id,
+    t.name,
+    as(t.books.tags.id, "tagsId")
+  ]),
+  where(t => ilike(t.name, "%w00t%")),
+  orderBy(t => asc(t.name)),
   limit(10),
   offset(0),
   toSQL
@@ -87,13 +95,13 @@ console.log(flat.params)
 const hydrated = pipe(
   Author,
   query,
-  select(
-    "id",
-    "name",
-    "books.id",
-    "books.name",
-    "books.tags.id"
-  ),
+  select(t => [
+    t.id,
+    t.name,
+    t.books.id,
+    t.books.name,
+    t.books.tags.id
+  ]),
   hydrate
 )
 console.log("\n--- hydrated (sql) ---")
@@ -133,26 +141,28 @@ const nested: Result<typeof hydrated> = hydrateRows(
   rows
 )
 console.log("\n--- hydrated (rows) ---")
+
 console.dir(nested, { depth: null })
-const bookList = jsonAgg("books", [
-  "id",
-  "name",
-  "price",
-  jsonAgg("tags", ["id", "name"])
-])
+
 const withBooks = pipe(
   Author,
   query,
-  select(
-    "id",
-    "name",
-    bookList,
-    count("books", { as: "bookCount" })
-  ),
-  where("id", "in", ["a1", "a2"]),
-  toSQL
+  select(t => [
+    t.id,
+    t.name,
+    jsonAgg(t.books, b => [
+      b.id,
+      b.name,
+      b.price,
+      jsonAgg(b.tags, g => [g.id, g.name])
+    ]),
+    as(count(t.books), "bookCount")
+  ]),
+  where(t => inArray(t.id, ["a1", "a2"]))
 )
+
 console.log("\n--- jsonAgg / count ---")
-console.log(withBooks.sql)
-console.log(withBooks.params)
+const compiled = toSQL(withBooks)
+console.log(compiled.sql)
+console.log(compiled.params)
 type _Check = Result<typeof withBooks>

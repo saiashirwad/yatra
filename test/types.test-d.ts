@@ -1,7 +1,13 @@
 import {
+  as,
   count,
+  eq,
   hydrate,
+  ilike,
+  inArray,
+  isNull,
   jsonAgg,
+  lower,
   nullable,
   number,
   oneToMany,
@@ -14,8 +20,7 @@ import {
   Table,
   uuid,
   where,
-  type Result,
-  type ValidatePath
+  type Result
 } from "../src/index.ts"
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <
@@ -68,12 +73,12 @@ class Author extends Table("author", {
 const flat = pipe(
   Author,
   query,
-  select(
-    "id",
-    "description",
-    "books.name",
-    "books.name as bookName"
-  )
+  select(t => [
+    t.id,
+    t.description,
+    t.books.name,
+    as(t.books.name, "bookName")
+  ])
 )
 type _flat = Expect<
   Equal<
@@ -89,13 +94,13 @@ type _flat = Expect<
 const hydrated = pipe(
   Author,
   query,
-  select(
-    "id",
-    "name",
-    "books.id",
-    "books.name",
-    "books.tags.id"
-  ),
+  select(t => [
+    t.id,
+    t.name,
+    t.books.id,
+    t.books.name,
+    t.books.tags.id
+  ]),
   hydrate
 )
 type _hydrated = Expect<
@@ -117,7 +122,7 @@ type _hydrated = Expect<
 const toOne = pipe(
   Book,
   query,
-  select("id", "author.id", "author.name"),
+  select(t => [t.id, t.author.id, t.author.name]),
   hydrate
 )
 type _toOne = Expect<
@@ -132,20 +137,19 @@ type _toOne = Expect<
     }>
   >
 >
-const bookList = jsonAgg("books", [
-  "id",
-  "name",
-  "price",
-  jsonAgg("tags", ["id", "name"])
-])
 const withAggs = pipe(
   Author,
   query,
-  select(
-    "id",
-    bookList,
-    count("books", { as: "bookCount" })
-  )
+  select(t => [
+    t.id,
+    jsonAgg(t.books, b => [
+      b.id,
+      b.name,
+      b.price,
+      jsonAgg(b.tags, g => [g.id, g.name])
+    ]),
+    as(count(t.books), "bookCount")
+  ])
 )
 type _withAggs = Expect<
   Equal<
@@ -165,47 +169,72 @@ type _withAggs = Expect<
     }>
   >
 >
-type _suggestField = Expect<
-  Equal<ValidatePath<typeof Author, "d">, "description">
->
-type _suggestRelation = Expect<
-  Equal<ValidatePath<typeof Author, "b">, "books.">
->
-type _suggestAfterDot = Expect<
-  Equal<
-    ValidatePath<typeof Author, "books.">,
-    | "books.id"
-    | "books.name"
-    | "books.authorId"
-    | "books.price"
-    | "books.author."
-    | "books.tags."
-  >
->
-type _suggestNestedLeaf = Expect<
-  Equal<
-    ValidatePath<typeof Author, "books.na">,
-    "books.name"
-  >
->
-type _suggestDeep = Expect<
-  Equal<
-    ValidatePath<typeof Author, "books.tags.">,
-    "books.tags.id" | "books.tags.name"
-  >
->
-// @ts-expect-error unknown field
-pipe(Author, query, select("nope"))
-// @ts-expect-error unknown relation
-pipe(Author, query, select("magazines.id"))
-// @ts-expect-error unknown field behind a valid relation
-pipe(Author, query, select("books.nope"))
-// @ts-expect-error jsonAgg over a non-relation key
-pipe(Author, query, select("id", jsonAgg("name", ["id"])))
-// @ts-expect-error where value must match the column type
-pipe(Book, query, where("price", "=", "not a number"))
-// @ts-expect-error "in" requires an array
-pipe(Book, query, where("id", "in", "a1"))
-pipe(Book, query, where("price", "=", 42))
-pipe(Book, query, where("id", "in", ["a1", "a2"]))
-pipe(Book, query, where("price", "is", null))
+pipe(
+  Author,
+  query,
+  // @ts-expect-error unknown field
+  select(t => [t.nope])
+)
+pipe(
+  Author,
+  query,
+  // @ts-expect-error unknown relation
+  select(t => [t.magazines.id])
+)
+pipe(
+  Author,
+  query,
+  // @ts-expect-error unknown field behind a valid relation
+  select(t => [t.books.nope])
+)
+pipe(
+  Author,
+  query,
+  // @ts-expect-error jsonAgg needs a relation, not a column
+  select(t => [t.id, jsonAgg(t.name, b => [b.id])])
+)
+pipe(
+  Author,
+  query,
+  // @ts-expect-error a bare relation is not selectable
+  select(t => [t.id, t.books])
+)
+pipe(
+  Author,
+  query,
+  // @ts-expect-error expressions need an alias
+  select(t => [t.id, lower(t.name)])
+)
+pipe(
+  Book,
+  query,
+  // @ts-expect-error ilike only works on string columns
+  where(t => ilike(t.price, "%x%"))
+)
+pipe(
+  Book,
+  query,
+  // @ts-expect-error where value must match the column type
+  where(t => eq(t.price, "not a number"))
+)
+pipe(
+  Book,
+  query,
+  // @ts-expect-error inArray requires an array
+  where(t => inArray(t.id, "a1"))
+)
+pipe(
+  Book,
+  query,
+  where(t => eq(t.price, 42))
+)
+pipe(
+  Book,
+  query,
+  where(t => inArray(t.id, ["a1", "a2"]))
+)
+pipe(
+  Book,
+  query,
+  where(t => isNull(t.price))
+)

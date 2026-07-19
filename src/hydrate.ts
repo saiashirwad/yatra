@@ -1,5 +1,5 @@
 import { flatAlias } from "./compile.ts"
-import { isAggSpec } from "./query.ts"
+import { dataOf } from "./ref.ts"
 import { info } from "./table.ts"
 import type { Tableish } from "./utils.ts"
 import type { QueryContext, Result } from "./query.ts"
@@ -25,22 +25,23 @@ function buildTree(
 ): SelTree {
   const root = emptyTree()
   for (const item of items) {
-    if (isAggSpec(item)) {
-      const key = item.alias ?? item.relation
-      root.fields.push({ outKey: key, col: key })
+    const data = dataOf(item)
+    if (!data) continue
+    if (data.kind === "as") {
+      root.fields.push({
+        outKey: data.alias,
+        col: data.alias
+      })
       continue
     }
-    if (typeof item !== "string") continue
-    const aliasIdx = item.indexOf(" as ")
-    if (aliasIdx !== -1) {
-      const alias = item.slice(aliasIdx + 4)
-      root.fields.push({ outKey: alias, col: alias })
+    if (data.kind === "agg") {
+      root.fields.push({ outKey: data.key, col: data.key })
       continue
     }
-    const segments = item.split(".")
+    if (data.kind !== "col") continue
     let tree = root
     let current = table
-    for (const seg of segments.slice(0, -1)) {
+    for (const seg of data.chain) {
       let child = tree.children.find(c => c.name === seg)
       if (!child) {
         const relation = info(current).relations[seg]
@@ -56,10 +57,12 @@ function buildTree(
       }
       tree = child.tree
     }
-    const leaf = segments[segments.length - 1]
     tree.fields.push({
-      outKey: leaf,
-      col: segments.length > 1 ? flatAlias(item) : leaf
+      outKey: data.key,
+      col:
+        data.chain.length > 0
+          ? flatAlias([...data.chain, data.key].join("."))
+          : data.key
     })
   }
   return root

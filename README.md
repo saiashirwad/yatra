@@ -30,13 +30,13 @@ class Author extends Table("author", {
 const q = pipe(
   Author,
   query,
-  select(
-    "id",
-    "name",
-    "books.name",
-    jsonAgg("books", ["id", "name"])
-  ),
-  where("name", "ilike", "%rowling%"),
+  select(t => [
+    t.id,
+    t.name,
+    t.books.name,
+    jsonAgg(t.books, b => [b.id, b.name])
+  ]),
+  where(t => ilike(t.name, "%rowling%")),
   hydrate
 )
 

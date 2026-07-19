@@ -2,11 +2,14 @@ import { ManyToManyRelation, Relation } from "./relation.ts"
 import { info, tableName } from "./table.ts"
 import type { Tableish } from "./utils.ts"
 import {
-  isAggSpec,
-  type AggSpec,
-  type QueryContext,
-  type WhereClause
-} from "./query.ts"
+  dataOf,
+  type AggData,
+  type ColData,
+  type ExprData,
+  type NodeData,
+  type PredData
+} from "./ref.ts"
+import type { QueryContext } from "./query.ts"
 export interface CompiledQuery {
   readonly dialect: string
   readonly sql: string
@@ -30,14 +33,6 @@ export function compileWith<C extends Compiler>(
 const qi = (ident: string) => `"${ident}"`
 export const flatAlias = (path: string) =>
   path.replaceAll(".", "__")
-const stripAlias = (path: string) => {
-  const i = path.indexOf(" as ")
-  return i === -1 ? path : path.slice(0, i)
-}
-const takeAlias = (path: string) => {
-  const i = path.indexOf(" as ")
-  return i === -1 ? undefined : path.slice(i + 4)
-}
 interface TreeNode {
   alias: string
   table: Tableish
@@ -53,10 +48,12 @@ const makeRoot = (
   table,
   children: new Map()
 })
-function ensurePath(root: TreeNode, path: string) {
-  const segments = stripAlias(path).split(".")
+function ensureChain(
+  root: TreeNode,
+  chain: readonly string[]
+) {
   let node = root
-  for (const seg of segments.slice(0, -1)) {
+  for (const seg of chain) {
     let child = node.children.get(seg)
     if (!child) {
       const relation = info(node.table).relations[seg]
@@ -130,78 +127,146 @@ function renderJoins(node: TreeNode): string {
   }
   return sql
 }
-function resolveColumn(
+function resolveChain(
   root: TreeNode,
-  path: string
+  chain: readonly string[],
+  key: string
 ): string {
-  const segments = stripAlias(path).split(".")
   let node = root
-  for (const seg of segments.slice(0, -1)) {
+  for (const seg of chain) {
     const child = node.children.get(seg)
     if (!child) {
-      throw new Error(`No join found for path '${path}'`)
+      throw new Error(`No join found for relation '${seg}'`)
     }
     node = child
   }
-  return `${qi(node.alias)}.${qi(segments[segments.length - 1])}`
+  return `${qi(node.alias)}.${qi(key)}`
 }
 interface SelectExpr {
   sql: string
   alias?: string
 }
 type AddParam = (value: unknown) => string
-function compileItems(
+function collectChains(
+  data: NodeData,
+  out: Array<readonly string[]>
+) {
+  switch (data.kind) {
+    case "col":
+      out.push(data.chain)
+      break
+    case "as":
+      collectChains(data.target, out)
+      break
+    case "expr":
+      for (const a of data.args) {
+        const d = dataOf(a)
+        if (d) collectChains(d, out)
+      }
+      break
+    case "pred":
+      for (const a of data.args) {
+        const d = dataOf(a)
+        if (d) collectChains(d, out)
+      }
+      break
+    case "order":
+      collectChains(data.ref, out)
+      break
+    default:
+      break
+  }
+}
+function compileColSql(
   root: TreeNode,
-  items: readonly unknown[],
+  data: ColData
+): string {
+  return resolveChain(root, data.chain, data.key)
+}
+function compileExprSql(
+  root: TreeNode,
+  data: ExprData,
+  p: AddParam
+): string {
+  const argSql = (a: unknown): string => {
+    const d = dataOf(a)
+    if (!d) return p(a)
+    if (d.kind === "col") return compileColSql(root, d)
+    if (d.kind === "expr") return compileExprSql(root, d, p)
+    throw new Error(
+      `Invalid expression argument of kind '${d.kind}'`
+    )
+  }
+  switch (data.op) {
+    case "lower":
+      return `lower(${argSql(data.args[0])})`
+    case "mul":
+      return `(${argSql(data.args[0])} * ${argSql(data.args[1])})`
+    default:
+      throw new Error(`Unknown expression op '${data.op}'`)
+  }
+}
+function compileItem(
+  root: TreeNode,
+  item: unknown,
   mode: "flat" | "hydrate",
   p: AddParam
-): SelectExpr[] {
-  const out: SelectExpr[] = []
-  for (const item of items) {
-    if (typeof item === "string") {
-      const base = stripAlias(item)
-      const explicit = takeAlias(item)
-      const dotted = base.includes(".")
-      const sql = dotted
-        ? resolveColumn(root, base)
-        : `${qi(root.alias)}.${qi(base)}`
-      const alias =
-        explicit ??
-        (dotted
-          ? mode === "hydrate"
-            ? flatAlias(base)
-            : base
-          : base)
-      out.push(alias ? { sql, alias } : { sql })
-    } else if (isAggSpec(item)) {
-      out.push({
-        sql: compileAgg(root, item, p),
-        alias: item.alias ?? item.relation
-      })
-    } else {
-      throw new Error(
-        `Invalid selection item: ${String(item)}`
-      )
-    }
+): SelectExpr {
+  const data = dataOf(item)
+  if (!data) {
+    throw new Error(
+      `Invalid selection item: ${String(item)}`
+    )
   }
-  return out
+  return compileItemData(root, data, mode, p)
+}
+function compileItemData(
+  root: TreeNode,
+  data: NodeData,
+  mode: "flat" | "hydrate",
+  p: AddParam
+): SelectExpr {
+  switch (data.kind) {
+    case "col": {
+      const sql = compileColSql(root, data)
+      const dotted = [...data.chain, data.key].join(".")
+      const alias =
+        data.chain.length > 0
+          ? mode === "hydrate"
+            ? flatAlias(dotted)
+            : dotted
+          : data.key
+      return { sql, alias }
+    }
+    case "as": {
+      const inner = compileItemData(
+        root,
+        data.target,
+        mode,
+        p
+      )
+      return { sql: inner.sql, alias: data.alias }
+    }
+    case "agg":
+      return {
+        sql: compileAgg(root, data, p),
+        alias: data.key
+      }
+    default:
+      throw new Error(
+        `Item of kind '${data.kind}' is not selectable`
+      )
+  }
 }
 function compileAgg(
   source: TreeNode,
-  spec: AggSpec,
+  spec: AggData,
   p: AddParam
 ): string {
-  const relation = info(source.table).relations[
-    spec.relation
-  ]
-  if (!relation) {
-    throw new Error(
-      `'${spec.relation}' is not a relation of table '${tableName(source.table)}'`
-    )
-  }
+  const relation = spec.relation
   const dest = relation.destinationTable
   const destName = tableName(dest)
-  const subAlias = `${source.alias}_${spec.relation}`
+  const subAlias = `${source.alias}_${spec.key}`
   if (relation instanceof ManyToManyRelation) {
     throw new Error(
       "jsonAgg/count over many-to-many relations is not supported yet"
@@ -212,21 +277,21 @@ function compileAgg(
     destName
   )
   const cond = `${qi(subAlias)}.${qi(dstCol)} = ${qi(source.alias)}.${qi(srcCol)}`
-  if (spec.kind === "count") {
+  if (spec.aggKind === "count") {
     return (
       `(SELECT count(*)::int FROM ${qi(destName)} ${qi(subAlias)}` +
       ` WHERE ${cond})`
     )
   }
   const subRoot = makeRoot(dest, subAlias)
+  const chains: Array<readonly string[]> = []
   for (const item of spec.items) {
-    if (typeof item === "string") ensurePath(subRoot, item)
+    const d = dataOf(item)
+    if (d) collectChains(d, chains)
   }
-  const inner = compileItems(
-    subRoot,
-    spec.items,
-    "hydrate",
-    p
+  for (const chain of chains) ensureChain(subRoot, chain)
+  const inner = spec.items.map(item =>
+    compileItem(subRoot, item, "hydrate", p)
   )
   const buildArgs = inner
     .flatMap(it => [`'${it.alias ?? it.sql}'`, it.sql])
@@ -239,21 +304,55 @@ function compileAgg(
 }
 function renderWhere(
   root: TreeNode,
-  w: WhereClause,
+  pred: PredData,
   p: AddParam
 ): string {
-  const col = resolveColumn(root, w.path)
-  switch (w.op) {
+  const argSql = (a: unknown): string => {
+    const d = dataOf(a)
+    if (!d) return p(a)
+    if (d.kind === "col") return compileColSql(root, d)
+    if (d.kind === "expr") return compileExprSql(root, d, p)
+    throw new Error(
+      `Invalid where argument of kind '${d.kind}'`
+    )
+  }
+  const sub = (a: unknown): string => {
+    const d = dataOf(a)
+    if (!d || d.kind !== "pred") {
+      throw new Error("Expected a predicate")
+    }
+    return renderWhere(root, d, p)
+  }
+  const [a0, a1] = pred.args
+  switch (pred.op) {
+    case "eq":
+      return `${argSql(a0)} = ${argSql(a1)}`
+    case "ne":
+      return `${argSql(a0)} <> ${argSql(a1)}`
+    case "gt":
+      return `${argSql(a0)} > ${argSql(a1)}`
+    case "gte":
+      return `${argSql(a0)} >= ${argSql(a1)}`
+    case "lt":
+      return `${argSql(a0)} < ${argSql(a1)}`
+    case "lte":
+      return `${argSql(a0)} <= ${argSql(a1)}`
+    case "like":
+      return `${argSql(a0)} LIKE ${argSql(a1)}`
+    case "ilike":
+      return `${argSql(a0)} ILIKE ${argSql(a1)}`
     case "in":
-      return `${col} = ANY(${p(w.value)})`
-    case "not in":
-      return `${col} <> ALL(${p(w.value)})`
-    case "is":
-      return `${col} IS NULL`
-    case "is not":
-      return `${col} IS NOT NULL`
-    default:
-      return `${col} ${w.op.toUpperCase()} ${p(w.value)}`
+      return `${argSql(a0)} = ANY(${p(a1)})`
+    case "isNull":
+      return `${argSql(a0)} IS NULL`
+    case "isNotNull":
+      return `${argSql(a0)} IS NOT NULL`
+    case "and":
+      return `(${pred.args.map(sub).join(" AND ")})`
+    case "or":
+      return `(${pred.args.map(sub).join(" OR ")})`
+    case "not":
+      return `NOT (${sub(a0)})`
   }
 }
 export const postgres: Compiler = {
@@ -266,16 +365,27 @@ export const postgres: Compiler = {
     }
     const base = tableName(ctx.table)
     const root = makeRoot(ctx.table, base)
-    const paths: string[] = []
+    const chains: Array<readonly string[]> = []
     for (const item of ctx.selection) {
-      if (typeof item === "string") paths.push(item)
+      const d = dataOf(item)
+      if (d) collectChains(d, chains)
     }
-    for (const w of ctx.where) paths.push(w.path)
-    for (const o of ctx.orderBy) paths.push(o.path)
-    for (const path of paths) ensurePath(root, path)
-    const exprs =
+    for (const w of ctx.where) {
+      const d = dataOf(w)
+      if (d) collectChains(d, chains)
+    }
+    for (const o of ctx.orderBy) {
+      const d = dataOf(o)
+      if (d) collectChains(d, chains)
+    }
+    for (const chain of chains) {
+      ensureChain(root, chain)
+    }
+    const exprs: SelectExpr[] =
       ctx.selection.length > 0
-        ? compileItems(root, ctx.selection, ctx.mode, p)
+        ? ctx.selection.map((item: unknown) =>
+            compileItem(root, item, ctx.mode, p)
+          )
         : [{ sql: `${qi(root.alias)}.*` }]
     const selectList = exprs
       .map(e =>
@@ -288,16 +398,24 @@ export const postgres: Compiler = {
     ]
     if (ctx.where.length > 0) {
       clauses.push(
-        `WHERE ${ctx.where.map(w => renderWhere(root, w, p)).join(" AND ")}`
+        `WHERE ${ctx.where
+          .map(w =>
+            renderWhere(root, dataOf(w) as PredData, p)
+          )
+          .join(" AND ")}`
       )
     }
     if (ctx.orderBy.length > 0) {
       clauses.push(
         `ORDER BY ${ctx.orderBy
-          .map(
-            o =>
-              `${resolveColumn(root, o.path)} ${o.direction.toUpperCase()}`
-          )
+          .map(o => {
+            const d = dataOf(o) as {
+              direction: "asc" | "desc"
+              ref: NodeData
+            }
+            const ref = d.ref as ColData
+            return `${compileColSql(root, ref)} ${d.direction.toUpperCase()}`
+          })
           .join(", ")}`
       )
     }
