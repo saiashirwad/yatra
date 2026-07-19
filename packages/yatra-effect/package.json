@@ -1,0 +1,24 @@
+{
+  "name": "yatra-effect",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "demo": "node examples/demo.ts"
+  },
+  "dependencies": {
+    "yatra": "workspace:*"
+  },
+  "devDependencies": {
+    "@effect/sql-pglite": "4.0.0-beta.99",
+    "effect": "4.0.0-beta.99"
+  },
+  "peerDependencies": {
+    "@effect/sql-pglite": ">=4.0.0-beta.99",
+    "effect": ">=4.0.0-beta.99"
+  }
+}
