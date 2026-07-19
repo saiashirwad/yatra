@@ -34,18 +34,21 @@ export function query<T extends Tableish>(
 }
 export function select<
   T extends Tableish,
-  const Items extends readonly unknown[]
+  const NewItems extends readonly unknown[]
 >(
-  fn: (t: Accessor<T>) => CheckItems<Items>
-): <M extends Mode>(
-  ctx: QueryContext<T, M, any>
-) => QueryContext<T, M, Items> {
+  fn: (t: Accessor<T>) => CheckItems<NewItems>
+): <M extends Mode, Items extends readonly unknown[]>(
+  ctx: QueryContext<T, M, Items>
+) => QueryContext<T, M, readonly [...Items, ...NewItems]> {
   return (ctx => ({
     ...ctx,
-    selection: fn(accessor(ctx.table)) as unknown as Items
-  })) as <M extends Mode>(
-    ctx: QueryContext<T, M, any>
-  ) => QueryContext<T, M, Items>
+    selection: [
+      ...ctx.selection,
+      ...(fn(accessor(ctx.table)) as unknown as NewItems)
+    ]
+  })) as <M extends Mode, Items extends readonly unknown[]>(
+    ctx: QueryContext<T, M, Items>
+  ) => QueryContext<T, M, readonly [...Items, ...NewItems]>
 }
 export function where<T extends Tableish>(
   fn: (t: Accessor<T>) => PredRef | readonly PredRef[]

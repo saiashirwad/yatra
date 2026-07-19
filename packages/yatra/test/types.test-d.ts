@@ -20,6 +20,8 @@ import {
   Table,
   uuid,
   where,
+  type Accessor,
+  type ChainLink,
   type Result
 } from "../src/index.ts"
 type Equal<A, B> =
@@ -169,6 +171,53 @@ type _withAggs = Expect<
     }>
   >
 >
+// select appends: each call concats onto the accumulated selection
+const chained = pipe(
+  Author,
+  query,
+  select(t => [t.id]),
+  select(t => [t.name, t.books.name])
+)
+type _chained = Expect<
+  Equal<
+    Result<typeof chained>,
+    Array<{
+      id: string
+      name: string
+      "books.name": string | null
+    }>
+  >
+>
+// fragments compose: independent select steps, chain-generic fragment
+const bookCard = <Chain extends readonly ChainLink[]>(
+  b: Accessor<typeof Book, Chain>
+) => [b.id, b.name] as const
+const composed = pipe(
+  Author,
+  query,
+  select(t => [t.id]),
+  select(t => bookCard(t.books)),
+  hydrate
+)
+type _composed = Expect<
+  Equal<
+    Result<typeof composed>,
+    Array<{
+      id: string
+      books: Array<{
+        id: string
+        name: string
+      }>
+    }>
+  >
+>
+pipe(
+  Author,
+  query,
+  select(t => [t.id]),
+  // @ts-expect-error invalid items still error in a later select
+  select(t => [t.books])
+)
 pipe(
   Author,
   query,

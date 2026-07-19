@@ -29,13 +29,14 @@ import {
   type ColRef
 } from "yatra"
 import { pgliteExecutor } from "../src/index.ts"
-// --- schema ---
+
 class Book extends Table("book", {
   id: pipe(uuid, primaryKey),
   name: pipe(string),
   authorId: pipe(uuid),
   price: pipe(number, nullable)
 }) {}
+
 class Author extends Table("author", {
   id: pipe(uuid, primaryKey),
   name: pipe(string),
@@ -50,6 +51,7 @@ class Author extends Table("author", {
     )
   }
 }
+
 // --- a real (in-memory) postgres ---
 const db = new PGlite()
 const exec = pgliteExecutor(db)
@@ -112,6 +114,19 @@ const hydrated = await pipe(
 )
 console.log("\n--- hydrated ---")
 console.dir(hydrated, { depth: null })
+
+const composed = await pipe(
+  Author,
+  query,
+  select(t => [t.id, t.name]),
+  select(t => [t.books.id, t.books.name, t.books.price]),
+  orderBy(t => asc(t.name)),
+  hydrate,
+  run(exec)
+)
+
+console.log("\n--- composed selects (flat) ---")
+console.dir(composed, { depth: null })
 
 const yeet = run(exec)
 
