@@ -1,13 +1,3 @@
-// https://github.com/Effect-TS/effect/blob/main/packages/effect/src/Pipeable.ts
-
-/**
- * @since 2.0.0
- */
-
-/**
- * @since 2.0.0
- * @category models
- */
 export interface Pipeable {
   pipe<A>(this: A): A
   pipe<A, B = never>(this: A, ab: (_: A) => B): B
@@ -555,10 +545,6 @@ export interface Pipeable {
     tu: (_: T) => U
   ): U
 }
-
-/**
- * @since 2.0.0
- */
 export const pipeArguments = <A>(
   self: A,
   args: IArguments

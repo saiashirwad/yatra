@@ -3,16 +3,10 @@ import { isAggSpec } from "./query.ts"
 import { info } from "./table.ts"
 import type { Tableish } from "./utils.ts"
 import type { QueryContext, Result } from "./query.ts"
-
-// ---------------------------------------------------------------------------
-// Runtime hydration — turns flat joined rows into nested objects
-// ---------------------------------------------------------------------------
-
 interface FieldSpec {
   outKey: string
   col: string
 }
-
 interface SelTree {
   fields: FieldSpec[]
   children: Array<{
@@ -21,12 +15,10 @@ interface SelTree {
     tree: SelTree
   }>
 }
-
 const emptyTree = (): SelTree => ({
   fields: [],
   children: []
 })
-
 function buildTree(
   table: Tableish,
   items: readonly unknown[]
@@ -34,21 +26,17 @@ function buildTree(
   const root = emptyTree()
   for (const item of items) {
     if (isAggSpec(item)) {
-      // The backend already returned these as nested JSON — pass through.
       const key = item.alias ?? item.relation
       root.fields.push({ outKey: key, col: key })
       continue
     }
     if (typeof item !== "string") continue
-
     const aliasIdx = item.indexOf(" as ")
     if (aliasIdx !== -1) {
-      // Explicit aliases lift the value to the top level.
       const alias = item.slice(aliasIdx + 4)
       root.fields.push({ outKey: alias, col: alias })
       continue
     }
-
     const segments = item.split(".")
     let tree = root
     let current = table
@@ -76,7 +64,6 @@ function buildTree(
   }
   return root
 }
-
 function group(
   tree: SelTree,
   rows: readonly Record<string, unknown>[]
@@ -88,11 +75,8 @@ function group(
       rows: Record<string, unknown>[]
     }
   >()
-
   for (const row of rows) {
     const vals = tree.fields.map(f => row[f.col])
-    // A row where every selected value is NULL is an empty LEFT JOIN
-    // slot — skip it.
     if (
       tree.fields.length > 0 &&
       vals.every(v => v == null)
@@ -110,23 +94,18 @@ function group(
     }
     g.rows.push(row)
   }
-
   const out: Record<string, unknown>[] = []
   for (const { obj, rows: groupRows } of groups.values()) {
     for (const child of tree.children) {
       const nested = group(child.tree, groupRows)
-      obj[child.name] =
-        child.toMany ? nested : (nested[0] ?? null)
+      obj[child.name] = child.toMany
+        ? nested
+        : (nested[0] ?? null)
     }
     out.push(obj)
   }
   return out
 }
-
-/**
- * Hydrate flat rows (as returned for a hydrate-mode query) into the
- * nested shape described by the query's selection.
- */
 export function hydrateRows<
   T extends Tableish,
   Items extends readonly unknown[]

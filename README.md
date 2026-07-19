@@ -1,8 +1,7 @@
 # yatra
 
-**Work in progress.** An experiment in building an extremely type-safe,
-extremely composable ORM for TypeScript. Postgres-flavored for now.
-
+**Work in progress.** TypeScript ORM that leans hard on types and
+pipe composition. Postgres-flavored for now.
 
 ```sh
 pnpm install
@@ -34,14 +33,13 @@ const q = pipe(
   select(
     "id",
     "name",
-    "books.name", // autocompletes as you type
-    jsonAgg("books", ["id", "name"]) // composable blocks
+    "books.name",
+    jsonAgg("books", ["id", "name"])
   ),
   where("name", "ilike", "%rowling%"),
   hydrate
 )
 
-type Rows = Result<typeof q> // fully typed nested rows
-const { sql, params } = toSQL(q) // any backend can plug in here
+type Rows = Result<typeof q>
+const { sql, params } = toSQL(q)
 ```
-

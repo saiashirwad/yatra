@@ -7,23 +7,15 @@ import {
   type QueryContext,
   type WhereClause
 } from "./query.ts"
-
-// ---------------------------------------------------------------------------
-// Backend interface — swap compilers to swap backends
-// ---------------------------------------------------------------------------
-
 export interface CompiledQuery {
   readonly dialect: string
   readonly sql: string
   readonly params: readonly unknown[]
 }
-
 export interface Compiler {
   readonly dialect: string
   compile(ctx: QueryContext<any, any, any>): CompiledQuery
 }
-
-/** Pipe step: compile with a specific backend. */
 export function compileWith<C extends Compiler>(
   compiler: C
 ) {
@@ -35,31 +27,17 @@ export function compileWith<C extends Compiler>(
     ctx: QueryContext<T, M, Items>
   ): CompiledQuery => compiler.compile(ctx)
 }
-
-// ---------------------------------------------------------------------------
-// Shared helpers
-// ---------------------------------------------------------------------------
-
 const qi = (ident: string) => `"${ident}"`
-
-/** Column alias used for a dotted path in hydrate mode. */
 export const flatAlias = (path: string) =>
   path.replaceAll(".", "__")
-
 const stripAlias = (path: string) => {
   const i = path.indexOf(" as ")
   return i === -1 ? path : path.slice(0, i)
 }
-
 const takeAlias = (path: string) => {
   const i = path.indexOf(" as ")
   return i === -1 ? undefined : path.slice(i + 4)
 }
-
-// ---------------------------------------------------------------------------
-// Join tree — relations referenced by dotted paths become LEFT JOINs
-// ---------------------------------------------------------------------------
-
 interface TreeNode {
   alias: string
   table: Tableish
@@ -67,7 +45,6 @@ interface TreeNode {
   relation?: Relation<any, any>
   children: Map<string, TreeNode>
 }
-
 const makeRoot = (
   table: Tableish,
   alias: string
@@ -76,7 +53,6 @@ const makeRoot = (
   table,
   children: new Map()
 })
-
 function ensurePath(root: TreeNode, path: string) {
   const segments = stripAlias(path).split(".")
   let node = root
@@ -101,36 +77,30 @@ function ensurePath(root: TreeNode, path: string) {
     node = child
   }
 }
-
-/**
- * Splits a relation's two qualified keys into
- * [column on the source side, column on the destination side].
- */
 function joinColumns(
-  rel: { foreignKey: unknown; referencedKey?: unknown },
+  rel: {
+    foreignKey: unknown
+    referencedKey?: unknown
+  },
   destName: string
 ): [sourceCol: string, destCol: string] {
   const fk = String(rel.foreignKey)
   const rk = String(rel.referencedKey)
   const [fkTable, fkCol] = fk.split(".")
   const [rkTable, rkCol] = rk.split(".")
-  return (
-    fkTable === destName ? [rkCol, fkCol]
-    : rkTable === destName ? [fkCol, rkCol]
-    : [fkCol, rkCol]
-  )
+  return fkTable === destName
+    ? [rkCol, fkCol]
+    : rkTable === destName
+      ? [fkCol, rkCol]
+      : [fkCol, rkCol]
 }
-
 function renderJoin(
   parent: TreeNode,
   child: TreeNode
 ): string {
   const rel = child.relation!
   const destName = tableName(child.table)
-
   if (rel instanceof ManyToManyRelation) {
-    // Join-table columns follow the convention
-    // `<table>_<field>` derived from the qualified keys.
     const jtAlias = `${child.alias}__jt`
     const srcCol = rel.sourceKey.replace(".", "_")
     const dstCol = rel.destinationKey.replace(".", "_")
@@ -143,7 +113,6 @@ function renderJoin(
       ` ON ${qi(child.alias)}.${qi(dstField)} = ${qi(jtAlias)}.${qi(dstCol)}`
     )
   }
-
   if ("foreignKey" in rel) {
     const [srcCol, dstCol] = joinColumns(rel, destName)
     return (
@@ -151,10 +120,8 @@ function renderJoin(
       ` ON ${qi(child.alias)}.${qi(dstCol)} = ${qi(parent.alias)}.${qi(srcCol)}`
     )
   }
-
   throw new Error(`Unsupported relation '${child.name}'`)
 }
-
 function renderJoins(node: TreeNode): string {
   let sql = ""
   for (const child of node.children.values()) {
@@ -163,7 +130,6 @@ function renderJoins(node: TreeNode): string {
   }
   return sql
 }
-
 function resolveColumn(
   root: TreeNode,
   path: string
@@ -179,18 +145,11 @@ function resolveColumn(
   }
   return `${qi(node.alias)}.${qi(segments[segments.length - 1])}`
 }
-
-// ---------------------------------------------------------------------------
-// Postgres compiler
-// ---------------------------------------------------------------------------
-
 interface SelectExpr {
   sql: string
   alias?: string
 }
-
 type AddParam = (value: unknown) => string
-
 function compileItems(
   root: TreeNode,
   items: readonly unknown[],
@@ -203,17 +162,16 @@ function compileItems(
       const base = stripAlias(item)
       const explicit = takeAlias(item)
       const dotted = base.includes(".")
-      const sql =
-        dotted ?
-          resolveColumn(root, base)
+      const sql = dotted
+        ? resolveColumn(root, base)
         : `${qi(root.alias)}.${qi(base)}`
       const alias =
         explicit ??
-        (dotted ?
-          mode === "hydrate" ?
-            flatAlias(base)
-          : base
-        : base)
+        (dotted
+          ? mode === "hydrate"
+            ? flatAlias(base)
+            : base
+          : base)
       out.push(alias ? { sql, alias } : { sql })
     } else if (isAggSpec(item)) {
       out.push({
@@ -228,7 +186,6 @@ function compileItems(
   }
   return out
 }
-
 function compileAgg(
   source: TreeNode,
   spec: AggSpec,
@@ -245,26 +202,22 @@ function compileAgg(
   const dest = relation.destinationTable
   const destName = tableName(dest)
   const subAlias = `${source.alias}_${spec.relation}`
-
   if (relation instanceof ManyToManyRelation) {
     throw new Error(
       "jsonAgg/count over many-to-many relations is not supported yet"
     )
   }
-
   const [srcCol, dstCol] = joinColumns(
     relation as any,
     destName
   )
   const cond = `${qi(subAlias)}.${qi(dstCol)} = ${qi(source.alias)}.${qi(srcCol)}`
-
   if (spec.kind === "count") {
     return (
       `(SELECT count(*)::int FROM ${qi(destName)} ${qi(subAlias)}` +
       ` WHERE ${cond})`
     )
   }
-
   const subRoot = makeRoot(dest, subAlias)
   for (const item of spec.items) {
     if (typeof item === "string") ensurePath(subRoot, item)
@@ -278,14 +231,12 @@ function compileAgg(
   const buildArgs = inner
     .flatMap(it => [`'${it.alias ?? it.sql}'`, it.sql])
     .join(", ")
-
   return (
     `coalesce((SELECT jsonb_agg(DISTINCT jsonb_build_object(${buildArgs}))` +
     ` FROM ${qi(destName)} ${qi(subAlias)}${renderJoins(subRoot)}` +
     ` WHERE ${cond}), '[]'::jsonb)`
   )
 }
-
 function renderWhere(
   root: TreeNode,
   w: WhereClause,
@@ -305,20 +256,16 @@ function renderWhere(
       return `${col} ${w.op.toUpperCase()} ${p(w.value)}`
   }
 }
-
 export const postgres: Compiler = {
   dialect: "postgres",
-
   compile(ctx) {
     const params: unknown[] = []
     const p: AddParam = value => {
       params.push(value)
       return `$${params.length}`
     }
-
     const base = tableName(ctx.table)
     const root = makeRoot(ctx.table, base)
-
     const paths: string[] = []
     for (const item of ctx.selection) {
       if (typeof item === "string") paths.push(item)
@@ -326,23 +273,19 @@ export const postgres: Compiler = {
     for (const w of ctx.where) paths.push(w.path)
     for (const o of ctx.orderBy) paths.push(o.path)
     for (const path of paths) ensurePath(root, path)
-
     const exprs =
-      ctx.selection.length > 0 ?
-        compileItems(root, ctx.selection, ctx.mode, p)
-      : [{ sql: `${qi(root.alias)}.*` }]
-
+      ctx.selection.length > 0
+        ? compileItems(root, ctx.selection, ctx.mode, p)
+        : [{ sql: `${qi(root.alias)}.*` }]
     const selectList = exprs
       .map(e =>
         e.alias ? `${e.sql} AS ${qi(e.alias)}` : e.sql
       )
       .join(", ")
-
     const clauses = [
       `SELECT ${selectList}`,
       `FROM ${qi(base)} ${qi(root.alias)}${renderJoins(root)}`
     ]
-
     if (ctx.where.length > 0) {
       clauses.push(
         `WHERE ${ctx.where.map(w => renderWhere(root, w, p)).join(" AND ")}`
@@ -363,7 +306,6 @@ export const postgres: Compiler = {
     if (ctx.offset !== undefined) {
       clauses.push(`OFFSET ${ctx.offset}`)
     }
-
     return {
       dialect: "postgres",
       sql: clauses.join("\n"),
@@ -371,8 +313,6 @@ export const postgres: Compiler = {
     }
   }
 }
-
-/** Pipe step: compile with the Postgres backend. */
 export function toSQL<
   T extends Tableish,
   M extends "flat" | "hydrate",

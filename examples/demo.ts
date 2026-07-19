@@ -23,14 +23,12 @@ import {
   where,
   type Result
 } from "../src/index.ts"
-
 class Tag extends Table("tag", {
   id: pipe(uuid, primaryKey),
   name: pipe(string),
   createdAt: pipe(date, defaultValue(new Date())),
   updatedAt: pipe(date, defaultValue(new Date()))
 }) {}
-
 class Book extends Table("book", {
   id: pipe(uuid, primaryKey),
   name: pipe(string),
@@ -48,7 +46,6 @@ class Book extends Table("book", {
       "author.id"
     )
   }
-
   get tags() {
     return oneToMany(
       () => Book,
@@ -58,7 +55,6 @@ class Book extends Table("book", {
     )
   }
 }
-
 class Author extends Table("author", {
   id: pipe(uuid, primaryKey),
   name: pipe(string),
@@ -75,7 +71,6 @@ class Author extends Table("author", {
     )
   }
 }
-
 const flat = pipe(
   Author,
   query,
@@ -84,10 +79,11 @@ const flat = pipe(
   orderBy("name", "asc"),
   limit(10),
   offset(0),
-  // hydrate,
   toSQL
 )
-
+console.log("--- flat ---")
+console.log(flat.sql)
+console.log(flat.params)
 const hydrated = pipe(
   Author,
   query,
@@ -100,10 +96,8 @@ const hydrated = pipe(
   ),
   hydrate
 )
-
 console.log("\n--- hydrated (sql) ---")
 console.log(toSQL(hydrated).sql)
-
 const rows = [
   {
     id: "a1",
@@ -134,21 +128,18 @@ const rows = [
     books__tags__id: null
   }
 ]
-
 const nested: Result<typeof hydrated> = hydrateRows(
   hydrated,
   rows
 )
 console.log("\n--- hydrated (rows) ---")
 console.dir(nested, { depth: null })
-
 const bookList = jsonAgg("books", [
   "id",
   "name",
   "price",
   jsonAgg("tags", ["id", "name"])
 ])
-
 const withBooks = pipe(
   Author,
   query,
@@ -161,9 +152,7 @@ const withBooks = pipe(
   where("id", "in", ["a1", "a2"]),
   toSQL
 )
-
 console.log("\n--- jsonAgg / count ---")
 console.log(withBooks.sql)
 console.log(withBooks.params)
-
 type _Check = Result<typeof withBooks>

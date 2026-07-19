@@ -1,31 +1,25 @@
 {
   "name": "yatra",
   "version": "0.0.1",
-  "module": "src/index.ts",
-  "type": "module",
   "private": true,
-  "packageManager": "pnpm@11.13.0",
-  "engines": {
-    "node": ">=24"
-  },
+  "type": "module",
+  "module": "src/index.ts",
   "scripts": {
     "demo": "node examples/demo.ts",
     "typecheck": "tsc --noEmit",
     "typecheck-watch": "tsc --noEmit --watch",
-    "format": "prettier --write ."
+    "lint": "oxlint",
+    "format": "oxfmt",
+    "check": "oxfmt --check && oxlint && tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
-    "prettier": "^3.5.3",
+    "oxfmt": "^0.59.0",
+    "oxlint": "^1.74.0",
     "typescript": "^5.8.2"
   },
-  "prettier": {
-    "printWidth": 60,
-    "useTabs": false,
-    "semi": false,
-    "trailingComma": "none",
-    "experimentalTernaries": true,
-    "experimentalOperatorPosition": "end",
-    "arrowParens": "avoid"
-  }
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@11.13.0"
 }
