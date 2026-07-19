@@ -6,6 +6,7 @@
   "module": "src/index.ts",
   "scripts": {
     "demo": "node examples/demo.ts",
+    "test": "node --test test/execute.test.ts",
     "typecheck": "tsc --noEmit",
     "typecheck-watch": "tsc --noEmit --watch",
     "lint": "oxlint",
@@ -13,6 +14,7 @@
     "check": "oxfmt --check && oxlint && tsc --noEmit"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.4",
     "@types/node": "^26.1.1",
     "oxfmt": "^0.59.0",
     "oxlint": "^1.74.0",

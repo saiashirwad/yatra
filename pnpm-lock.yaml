@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@electric-sql/pglite':
+        specifier: ^0.5.4
+        version: 0.5.4
       '@types/node':
         specifier: ^26.1.1
         version: 26.1.1
@@ -22,6 +25,9 @@ importers:
         version: 5.9.3
 
 packages:
+
+  '@electric-sql/pglite@0.5.4':
+    resolution: {integrity: sha512-yYZUyyXrHU7tPlCjwZQJ6hIG9DscdCCn7Uk0mYKwC1FeHX286AbcmFveMiRBEak8e9iPupjsoVImN3yJZVed2g==}
 
   '@oxfmt/binding-android-arm-eabi@0.59.0':
     resolution: {integrity: sha512-bNTnfbuG7sAwb2PakMNaDukx5kXeW9duXOBeWtTOiLz3fXz3q2DlWguufPZ+c2IHEVrRXHD+M4aUgEWm841LDA==}
@@ -309,6 +315,8 @@ packages:
     resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
 snapshots:
+
+  '@electric-sql/pglite@0.5.4': {}
 
   '@oxfmt/binding-android-arm-eabi@0.59.0':
     optional: true

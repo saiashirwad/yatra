@@ -8,6 +8,7 @@ export * from "./ops.ts"
 export * from "./query.ts"
 export * from "./compile.ts"
 export * from "./hydrate.ts"
+export * from "./execute.ts"
 export { pipe } from "./pipe.ts"
 export type {
   Clean,
