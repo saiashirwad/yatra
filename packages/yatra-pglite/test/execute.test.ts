@@ -22,9 +22,9 @@ import {
   string,
   Table,
   uuid,
-  where,
-  type Executor
-} from "../src/index.ts"
+  where
+} from "yatra"
+import { pgliteExecutor } from "../src/index.ts"
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <
     T
@@ -53,12 +53,7 @@ class Author extends Table("author", {
   }
 }
 const db = new PGlite()
-const exec: Executor = {
-  query: async (sql, params) => {
-    const res = await db.query(sql, params as unknown[])
-    return res.rows as Record<string, unknown>[]
-  }
-}
+const exec = pgliteExecutor(db)
 const URSULA = "11111111-1111-1111-1111-111111111111"
 const OCTAVIA = "22222222-2222-2222-2222-222222222222"
 before(async () => {

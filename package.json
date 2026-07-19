@@ -1,24 +1,21 @@
 {
-  "name": "yatra",
+  "name": "yatra-monorepo",
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "module": "src/index.ts",
   "scripts": {
-    "demo": "node examples/demo.ts",
-    "test": "node --test test/execute.test.ts",
-    "typecheck": "tsc --noEmit",
-    "typecheck-watch": "tsc --noEmit --watch",
+    "demo": "pnpm --filter yatra-pglite demo",
+    "test": "pnpm --filter yatra-pglite test",
+    "typecheck": "pnpm -r typecheck",
     "lint": "oxlint",
     "format": "oxfmt",
-    "check": "oxfmt --check && oxlint && tsc --noEmit"
+    "check": "oxfmt --check && oxlint && pnpm -r typecheck"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.4",
     "@types/node": "^26.1.1",
     "oxfmt": "^0.59.0",
     "oxlint": "^1.74.0",
-    "typescript": "^5.8.2"
+    "typescript": "^7.0.2"
   },
   "engines": {
     "node": ">=24"

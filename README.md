@@ -5,9 +5,20 @@ pipe composition. Postgres-flavored for now.
 
 ```sh
 pnpm install
-pnpm demo        # node examples/demo.ts
-pnpm typecheck   # tsc --noEmit (includes compile-time type tests)
+pnpm demo        # runs queries against in-memory Postgres (PGlite)
+pnpm test        # real-DB tests via PGlite
+pnpm check       # format + lint + typecheck (includes compile-time type tests)
 ```
+
+## Layout
+
+pnpm workspace, two packages:
+
+- `packages/yatra` — the core: tables, columns, relations, the ref
+  IR, query ops, the postgres compiler, hydration, and the typed
+  `run`/`runOne` executors. Zero dependencies.
+- `packages/yatra-pglite` — `pgliteExecutor(db)` adapter plus the
+  demo and the real-DB test suite.
 
 ## Taste
 

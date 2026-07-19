@@ -26,9 +26,9 @@ import {
   where,
   type Accessor,
   type ChainLink,
-  type ColRef,
-  type Executor
-} from "../src/index.ts"
+  type ColRef
+} from "yatra"
+import { pgliteExecutor } from "../src/index.ts"
 // --- schema ---
 class Book extends Table("book", {
   id: pipe(uuid, primaryKey),
@@ -52,11 +52,7 @@ class Author extends Table("author", {
 }
 // --- a real (in-memory) postgres ---
 const db = new PGlite()
-const exec: Executor = {
-  query: async (sql, params) =>
-    (await db.query(sql, params as unknown[]))
-      .rows as Record<string, unknown>[]
-}
+const exec = pgliteExecutor(db)
 await db.exec(`
   create table author (
     id uuid primary key,
@@ -116,19 +112,22 @@ const hydrated = await pipe(
 )
 console.log("\n--- hydrated ---")
 console.dir(hydrated, { depth: null })
-// --- aggregations ---
+
+const yeet = run(exec)
+
 const withBooks = await pipe(
   Author,
   query,
   select(t => [
     t.id,
     t.name,
-    jsonAgg(t.books, b => bookCard(b)),
+    jsonAgg(t.books, b => [b.id, b.name, b.price]),
     as(count(t.books), "bookCount")
   ]),
   orderBy(t => desc(t.name)),
-  run(exec)
+  yeet
 )
+
 console.log("\n--- jsonAgg + count ---")
 console.dir(withBooks, { depth: null })
 // --- one row, filtered by a reusable predicate ---

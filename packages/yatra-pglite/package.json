@@ -1,0 +1,23 @@
+{
+  "name": "yatra-pglite",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/execute.test.ts",
+    "demo": "node examples/demo.ts"
+  },
+  "dependencies": {
+    "yatra": "workspace:*"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.4"
+  },
+  "peerDependencies": {
+    "@electric-sql/pglite": ">=0.5"
+  }
+}
