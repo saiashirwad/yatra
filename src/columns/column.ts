@@ -1,11 +1,15 @@
-import { type Pipeable, pipeArguments } from "../pipeable"
+import {
+  type Pipeable,
+  pipeArguments
+} from "../pipeable.ts"
 
 export const Type = Symbol.for("Yatra/Column/Type")
 export const DataType = Symbol.for("Yatra/Column/DataType")
 
-export class Column<CT extends ColumnType, DT>
-  implements Pipeable
-{
+export class Column<
+  CT extends ColumnType,
+  DT
+> implements Pipeable {
   readonly [Type]: CT
   declare readonly [DataType]: DT
 

@@ -2,7 +2,7 @@ import type {
   FieldsRecord,
   TableFields,
   TableName
-} from "./table"
+} from "./table.ts"
 
 export type Clean<T> = {
   [k in keyof T]: T[k]

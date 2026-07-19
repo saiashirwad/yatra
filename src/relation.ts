@@ -1,49 +1,24 @@
-import { type Pipeable, pipeArguments } from "./pipeable"
+import { type Pipeable, pipeArguments } from "./pipeable.ts"
 import type {
-  Clean,
   QualifiedFieldName,
   Tableish
-} from "./utils"
+} from "./utils.ts"
 
-export namespace Relations {
-  export type OneToOne<
-    Source extends Tableish,
-    Destination extends Tableish,
-    FK = QualifiedFieldName<Source>,
-    RK = QualifiedFieldName<Destination>
-  > = Clean<{
-    readonly type: "one-to-one"
-    source: Source
-    destination: Destination
-    foreignKey: FK
-    referencedKey: RK
-  }>
-}
-export const Relations = {
-  oneToOne: <
-    Source extends Tableish,
-    Destination extends Tableish,
-    FK = QualifiedFieldName<Source>,
-    RK = QualifiedFieldName<Destination>
-  >(
-    source: () => Source,
-    destination: () => Destination,
-    foreignKey: FK,
-    referencedKey: RK
-  ): Relations.OneToOne<Source, Destination, FK, RK> => ({
-    type: "one-to-one",
-    source: source(),
-    destination: destination(),
-    foreignKey,
-    referencedKey
-  })
-}
+export type RelationType =
+  | "one-to-one"
+  | "one-to-many"
+  | "many-to-one"
+  | "many-to-many"
 
+/**
+ * Base class for all relations. `source` and `destination` are
+ * thunks so table classes can reference each other circularly.
+ */
 export class Relation<
   Source extends Tableish,
   Destination extends Tableish
-> implements Pipeable
-{
+> implements Pipeable {
+  declare readonly type: RelationType
   public sourceTable: Source
   public destinationTable: Destination
 
@@ -55,7 +30,7 @@ export class Relation<
     this.destinationTable = destination()
   }
 
-  pipe(...fns: Array<Function>) {
+  pipe(..._: Array<Function>) {
     return pipeArguments(this, arguments)
   }
 }
@@ -66,13 +41,19 @@ export class OneToOneRelation<
   const FK = QualifiedFieldName<S>,
   const RK = QualifiedFieldName<D>
 > extends Relation<S, D> {
+  readonly type = "one-to-one" as const
+  readonly foreignKey: FK
+  readonly referencedKey: RK
+
   constructor(
     source: () => S,
     destination: () => D,
-    public foreignKey: FK,
-    public referencedKey: RK = "id" as any
+    foreignKey: FK,
+    referencedKey: RK = "id" as RK
   ) {
     super(source, destination)
+    this.foreignKey = foreignKey
+    this.referencedKey = referencedKey
   }
 }
 
@@ -98,16 +79,22 @@ export function oneToOne<
 export class OneToManyRelation<
   S extends Tableish,
   D extends Tableish,
-  const FK extends QualifiedFieldName<S>,
-  const RK extends QualifiedFieldName<D>
+  const FK = QualifiedFieldName<S>,
+  const RK = QualifiedFieldName<D>
 > extends Relation<S, D> {
+  readonly type = "one-to-many" as const
+  readonly foreignKey: FK
+  readonly referencedKey: RK
+
   constructor(
     source: () => S,
     destination: () => D,
-    public foreignKey: FK,
-    public referencedKey: RK = "id" as any
+    foreignKey: FK,
+    referencedKey: RK = "id" as RK
   ) {
     super(source, destination)
+    this.foreignKey = foreignKey
+    this.referencedKey = referencedKey
   }
 }
 
@@ -120,7 +107,7 @@ export function oneToMany<
   source: () => S,
   destination: () => D,
   foreignKey: FK,
-  referencedKey: RK = "id" as any
+  referencedKey: RK = "id" as RK
 ) {
   return new OneToManyRelation(
     source,
@@ -133,16 +120,22 @@ export function oneToMany<
 export class ManyToOneRelation<
   S extends Tableish,
   D extends Tableish,
-  const FK extends QualifiedFieldName<S>,
-  const RK extends QualifiedFieldName<D>
+  const FK = QualifiedFieldName<S>,
+  const RK = QualifiedFieldName<D>
 > extends Relation<S, D> {
+  readonly type = "many-to-one" as const
+  readonly foreignKey: FK
+  readonly referencedKey: RK
+
   constructor(
     source: () => S,
     destination: () => D,
-    public foreignKey: FK,
-    public referencedKey: RK = "id" as any
+    foreignKey: FK,
+    referencedKey: RK = "id" as RK
   ) {
     super(source, destination)
+    this.foreignKey = foreignKey
+    this.referencedKey = referencedKey
   }
 }
 
@@ -155,7 +148,7 @@ export function manyToOne<
   source: () => S,
   destination: () => D,
   foreignKey: FK,
-  referencedKey: RK = "id" as any
+  referencedKey: RK = "id" as RK
 ) {
   return new ManyToOneRelation(
     source,
@@ -168,18 +161,26 @@ export function manyToOne<
 export class ManyToManyRelation<
   S extends Tableish,
   D extends Tableish,
-  const JT extends string,
-  const SK extends QualifiedFieldName<S>,
-  const DK extends QualifiedFieldName<D>
+  const JT extends string = string,
+  const SK = QualifiedFieldName<S>,
+  const DK = QualifiedFieldName<D>
 > extends Relation<S, D> {
+  readonly type = "many-to-many" as const
+  readonly joinTable: JT
+  readonly sourceKey: SK
+  readonly destinationKey: DK
+
   constructor(
     source: () => S,
     destination: () => D,
-    public joinTable: JT,
-    public sourceKey: SK,
-    public destinationKey: DK
+    joinTable: JT,
+    sourceKey: SK,
+    destinationKey: DK
   ) {
     super(source, destination)
+    this.joinTable = joinTable
+    this.sourceKey = sourceKey
+    this.destinationKey = destinationKey
   }
 }
 
@@ -205,81 +206,21 @@ export function manyToMany<
   )
 }
 
+/** Extracts the relation getters declared on a table class prototype. */
 export type TableRelations<T extends Tableish> = {
-  -readonly [key in keyof T["prototype"] as T["prototype"][key] extends (
-    Relation<any, any>
-  ) ?
-    key
-  : never]: Clean<T["prototype"][key]>
+  -readonly [
+    key in keyof T["prototype"] as T["prototype"][key] extends (
+      Relation<any, any>
+    ) ?
+      key
+    : never
+  ]: T["prototype"][key]
 } & {}
-
-export function getRelation<
-  T extends Tableish,
-  const Relations extends keyof {
-    [k in keyof T["prototype"]]: T[k]
-  }
->(c: T, name: Relations): T["prototype"][Relations] {
-  return c.prototype[name]
-}
 
 export function getRelationNames<T extends Tableish>(
   table: T
-): TableRelations<T> {
-  return Reflect.ownKeys(table.prototype).filter(key => {
-    return table.prototype[key] instanceof Relation
-  }) as any
+): Array<keyof TableRelations<T> & string> {
+  return Reflect.ownKeys(table.prototype).filter(
+    key => table.prototype[key] instanceof Relation
+  ) as any
 }
-
-// type RelationType =
-//   | "one-to-one"
-//   | "one-to-many"
-//   | "many-to-one"
-//   | "many-to-many";
-//
-// type Reln<
-//   Type extends RelationType,
-//   Source extends Tableish,
-//   Destination extends Tableish,
-//   FK extends QualifiedFieldName<Source>,
-//   DK extends QualifiedFieldName<Destination>,
-//   JoinTable extends string | undefined,
-// > =
-//   & ({ source: () => Source; destination: () => Destination; fk: FK; rk: DK })
-//   & ({
-//     type: "one-to-one" | "one-to-many" | "many-to-one";
-//   } | {
-//     type: "many-to-many";
-//     joinTable: Type extends "many-to-many" ? JoinTable : never;
-//   });
-//
-// export class Relation2<
-//   Type extends RelationType,
-//   Source extends Tableish,
-//   Destination extends Tableish,
-//   FK extends QualifiedFieldName<Source>,
-//   RK extends QualifiedFieldName<Destination>,
-//   JoinTable extends string | undefined,
-// > {
-//   constructor(
-//     public args: Reln<Type, Source, Destination, FK, RK, JoinTable>,
-//   ) {}
-// }
-//
-// export function relation<
-//   Type extends RelationType,
-//   Source extends Tableish,
-//   Destination extends Tableish,
-//   FK extends QualifiedFieldName<Source>,
-//   RK extends QualifiedFieldName<Destination>,
-//   JoinTable extends string | undefined,
-// >(
-//   type: Type,
-//   source: () => Source,
-//   destination: () => Destination,
-//   args: Omit<
-//     Reln<Type, Source, Destination, FK, RK, JoinTable>,
-//     "type" | "source" | "destination"
-//   >,
-// ) {
-//   return new Relation2({ type, source, destination, ...args } as any);
-// }

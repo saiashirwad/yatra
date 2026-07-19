@@ -94,18 +94,20 @@ type ParseEntry<E, S extends DbScopeSchema> =
   : never
 
 type ResolveRelationFields<E, S extends DbScopeSchema> = {
-  [K in keyof E as E[K] extends string ?
-    ParseFieldDefinition<E[K], S>["modifiers"] extends (
-      {
-        relation: {
-          foreignKeyField: infer ForeignKeyField extends
-            string // Add constraint here
+  [
+    K in keyof E as E[K] extends string ?
+      ParseFieldDefinition<E[K], S>["modifiers"] extends (
+        {
+          relation: {
+            foreignKeyField: infer ForeignKeyField extends
+              string // Add constraint here
+          }
         }
-      }
-    ) ?
-      ForeignKeyField
+      ) ?
+        ForeignKeyField
+      : never
     : never
-  : never]: string
+  ]: string
 }
 
 type ResolvedDbScope<S extends DbScopeSchema> = Resolve<{

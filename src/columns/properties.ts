@@ -1,5 +1,5 @@
-import { extend } from "../utils"
-import type { Column, DataType } from "./column"
+import { extend } from "../utils.ts"
+import type { Column, DataType } from "./column.ts"
 
 export type ColumnPropertyName = string | symbol
 

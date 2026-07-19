@@ -1,5 +1,5 @@
-import { Column, DataType } from "./column"
-import { EnumValues } from "./properties"
+import { Column, DataType } from "./column.ts"
+import { EnumValues } from "./properties.ts"
 
 class StringColumn extends Column<"string", string> {
   constructor() {

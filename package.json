@@ -1,23 +1,23 @@
 {
   "name": "yatra",
-  "module": "index.ts",
+  "version": "0.0.1",
+  "module": "src/index.ts",
   "type": "module",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "latest",
-    "prettier": "^3.5.3"
-  },
-  "peerDependencies": {
-    "typescript": "^5.8.2"
+  "packageManager": "pnpm@11.13.0",
+  "engines": {
+    "node": ">=24"
   },
   "scripts": {
-    "typecheck": "bun tsc --noEmit --incremental",
-    "typecheck-watch": "bun tsc --noEmit --incremental --watch",
+    "demo": "node examples/demo.ts",
+    "typecheck": "tsc --noEmit",
+    "typecheck-watch": "tsc --noEmit --watch",
     "format": "prettier --write ."
   },
-  "dependencies": {
-    "effect": "^3.14.1",
-    "yatra": "."
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2"
   },
   "prettier": {
     "printWidth": 60,

@@ -1,27 +1,23 @@
-import { Column } from "./columns/column"
-import type { IsNullable } from "./columns/properties"
-import { Relation, type TableRelations } from "./relation"
-import type {
-  Clean,
-  Tableish,
-  TableishFields
-} from "./utils"
+import { Column } from "./columns/column.ts"
+import type { IsNullable } from "./columns/properties.ts"
+import {
+  Relation,
+  type TableRelations
+} from "./relation.ts"
+import type { Clean, Tableish } from "./utils.ts"
 
 export const TableFields = Symbol.for("Yatra/Table/Fields")
-export const TableRelationsSym = Symbol.for(
-  "Yatra/Table/Relations"
-)
 export const TableName = Symbol.for("Yatra/Table/Name")
 
 export type FieldsRecord = Record<string, Column<any, any>>
 
 export type TableType<
-  TableName extends string,
+  Name extends string,
   Fields extends FieldsRecord
 > = {
   new (
     args: MakeTableObject<Fields>
-  ): TableInstance<TableName, Fields>
+  ): TableInstance<Name, Fields>
   map<Result>(fn: (fields: Fields) => Result): Result
   fields: Fields
 }
@@ -33,15 +29,10 @@ export type MakeTableObject<
 > = Clean<Nullable & NonNullable>
 
 export function Table<
-  TableName extends string,
+  Name extends string,
   Args extends FieldsRecord
->(
-  tableName: TableName,
-  fields: Args
-): TableType<TableName, Args> {
+>(tableName: Name, fields: Args): TableType<Name, Args> {
   class TableClass {
-    public [TableName]: TableName = tableName
-    public [TableFields]: Args = fields
     public static fields: Args = fields
 
     static map<Result>(fn: (fields: Args) => Result) {
@@ -51,47 +42,58 @@ export function Table<
     constructor(args: MakeTableObject<Args>) {
       if (typeof args === "object") {
         for (const key in args) {
-          const value = (args as any)[key]
-          if (value instanceof Column) {
-            console.log(key, value)
-          }
           ;(this as any)[key] = (args as any)[key]
         }
       }
     }
   }
 
-  return TableClass as TableType<TableName, Args>
+  // Assigned to the prototype (not as instance fields) so metadata
+  // is reachable from the class itself without constructing a row.
+  ;(TableClass.prototype as any)[TableName] = tableName
+  ;(TableClass.prototype as any)[TableFields] = fields
+
+  return TableClass as TableType<Name, Args>
+}
+
+export function tableName<T extends Tableish>(
+  table: T
+): string {
+  return table.prototype[TableName]
+}
+
+export function tableFields<T extends Tableish>(
+  table: T
+): FieldsRecord {
+  return table.prototype[TableFields]
 }
 
 export interface TableInfo<T extends Tableish> {
-  fields: TableishFields<T>
-  relations: TableRelations<T>
+  name: string
+  fields: FieldsRecord
+  relations: Record<string, Relation<any, any>>
 }
 
+/** Runtime introspection: table name, fields and relation getters. */
 export function info<T extends Tableish>(
   table: T
 ): TableInfo<T> {
-  const keys = Reflect.ownKeys(table.prototype)
-  let relations: any = {}
-  for (const key of keys) {
-    // @ts-ignore
-    if (table.prototype[key] instanceof Relation) {
-      // @ts-ignore
-      relations[key] = table.prototype[key]
+  const relations: Record<string, Relation<any, any>> = {}
+  for (const key of Reflect.ownKeys(table.prototype)) {
+    const value = table.prototype[key]
+    if (value instanceof Relation) {
+      relations[key as string] = value
     }
   }
-  // @ts-ignore
-  const fields = table.fields
-  return { fields, relations }
+  return {
+    name: tableName(table),
+    fields: tableFields(table),
+    relations
+  }
 }
 
 export type GetTableFields<T> =
   T extends TableType<any, infer Fields> ? Fields : never
-
-export type TableConstructor<F> = new (...args: any[]) => {
-  fields: F
-}
 
 export type InferColumn<C> =
   C extends Column<any, infer T> ?
@@ -107,26 +109,30 @@ export type InferFields<
 }
 
 export type NullableFields<Fields = FieldsRecord> = {
-  -readonly [k in keyof Fields as IsNullable<
-    Fields[k]
-  > extends true ?
-    k
-  : never]?: InferColumn<Fields[k]>
+  -readonly [
+    k in keyof Fields as IsNullable<Fields[k]> extends (
+      true
+    ) ?
+      k
+    : never
+  ]?: InferColumn<Fields[k]>
 }
 
 export type NonNullableFields<Fields = FieldsRecord> = {
-  -readonly [k in keyof Fields as IsNullable<
-    Fields[k]
-  > extends false ?
-    k
-  : never]: InferColumn<Fields[k]>
+  -readonly [
+    k in keyof Fields as IsNullable<Fields[k]> extends (
+      false
+    ) ?
+      k
+    : never
+  ]: InferColumn<Fields[k]>
 }
 
 export type TableInstance<
-  TableName extends string,
+  Name extends string,
   Fields extends FieldsRecord
 > = {
-  [TableName]: TableName
+  [TableName]: Name
   [TableFields]: Fields
 } & MakeTableObject<Fields>
 
