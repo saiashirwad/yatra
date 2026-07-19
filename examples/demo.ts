@@ -1,70 +1,45 @@
+import { PGlite } from "@electric-sql/pglite"
 import {
   as,
   asc,
   count,
-  date,
-  defaultValue,
+  desc,
+  gt,
   hydrate,
-  hydrateRows,
   ilike,
-  inArray,
   jsonAgg,
   limit,
   nullable,
   number,
-  offset,
   oneToMany,
-  oneToOne,
   orderBy,
   pipe,
   primaryKey,
   query,
+  run,
+  runOne,
   select,
   string,
   Table,
   toSQL,
   uuid,
   where,
-  type Result
+  type Accessor,
+  type ChainLink,
+  type ColRef,
+  type Executor
 } from "../src/index.ts"
-class Tag extends Table("tag", {
-  id: pipe(uuid, primaryKey),
-  name: pipe(string),
-  createdAt: pipe(date, defaultValue(new Date())),
-  updatedAt: pipe(date, defaultValue(new Date()))
-}) {}
+// --- schema ---
 class Book extends Table("book", {
   id: pipe(uuid, primaryKey),
   name: pipe(string),
-  createdAt: pipe(date, defaultValue(new Date())),
-  updatedAt: pipe(date, defaultValue(new Date())),
-  authorId: string,
-  description: pipe(string, defaultValue("what"), nullable),
+  authorId: pipe(uuid),
   price: pipe(number, nullable)
-}) {
-  get author() {
-    return oneToOne(
-      () => Book,
-      () => Author,
-      "book.authorId",
-      "author.id"
-    )
-  }
-  get tags() {
-    return oneToMany(
-      () => Book,
-      () => Tag,
-      "book.id",
-      "tag.id"
-    )
-  }
-}
+}) {}
 class Author extends Table("author", {
   id: pipe(uuid, primaryKey),
   name: pipe(string),
-  description: pipe(string, nullable),
-  createdAt: pipe(date, defaultValue(new Date())),
-  updatedAt: pipe(date, defaultValue(new Date()))
+  description: pipe(string, nullable)
 }) {
   get books() {
     return oneToMany(
@@ -75,94 +50,96 @@ class Author extends Table("author", {
     )
   }
 }
+// --- a real (in-memory) postgres ---
+const db = new PGlite()
+const exec: Executor = {
+  query: async (sql, params) =>
+    (await db.query(sql, params as unknown[]))
+      .rows as Record<string, unknown>[]
+}
+await db.exec(`
+  create table author (
+    id uuid primary key,
+    name text not null,
+    description text
+  );
+  create table book (
+    id uuid primary key,
+    name text not null,
+    "authorId" uuid not null references author(id),
+    price double precision
+  );
+  insert into author (id, name, description) values
+    ('11111111-1111-1111-1111-111111111111', 'Ursula', 'Earthsea author'),
+    ('22222222-2222-2222-2222-222222222222', 'Octavia', null);
+  insert into book (id, name, "authorId", price) values
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Earthsea', '11111111-1111-1111-1111-111111111111', 12.5),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Lathe of Heaven', '11111111-1111-1111-1111-111111111111', null),
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'Kindred', '22222222-2222-2222-2222-222222222222', 9.99);
+`)
+// --- composable bricks: plain functions over refs ---
+// a selection fragment — works at any depth of the ref tree
+const bookCard = <Chain extends readonly ChainLink[]>(
+  b: Accessor<typeof Book, Chain>
+) => [b.id, b.name, b.price] as const
+// a predicate fragment
+const pricey = <Chain extends readonly ChainLink[]>(
+  b: Accessor<typeof Book, Chain>
+) => gt(b.price, 10)
+// a predicate that works on ANY table with a name column
+const matchesName =
+  (pattern: string) =>
+  (t: { readonly name: ColRef<string | null, any, any> }) =>
+    ilike(t.name, pattern)
+// --- flat rows ---
 const flat = pipe(
   Author,
   query,
-  select(t => [
-    t.id,
-    t.name,
-    as(t.books.tags.id, "tagsId")
-  ]),
-  where(t => ilike(t.name, "%w00t%")),
+  select(t => [t.id, t.name, t.books.name]),
+  where(t => matchesName("%ursula%")(t)),
+  orderBy(t => desc(t.books.name)),
+  limit(10)
+)
+console.log("--- flat (sql) ---")
+console.log(toSQL(flat).sql)
+const flatRows = await pipe(flat, run(exec))
+console.log("\n--- flat (rows) ---")
+console.dir(flatRows, { depth: null })
+// --- hydrated, reusing the fragment through a relation ---
+const hydrated = await pipe(
+  Author,
+  query,
+  select(t => [t.id, t.name, ...bookCard(t.books)]),
   orderBy(t => asc(t.name)),
-  limit(10),
-  offset(0),
-  toSQL
+  hydrate,
+  run(exec)
 )
-console.log("--- flat ---")
-console.log(flat.sql)
-console.log(flat.params)
-const hydrated = pipe(
+console.log("\n--- hydrated ---")
+console.dir(hydrated, { depth: null })
+// --- aggregations ---
+const withBooks = await pipe(
   Author,
   query,
   select(t => [
     t.id,
     t.name,
-    t.books.id,
-    t.books.name,
-    t.books.tags.id
-  ]),
-  hydrate
-)
-console.log("\n--- hydrated (sql) ---")
-console.log(toSQL(hydrated).sql)
-const rows = [
-  {
-    id: "a1",
-    name: "Ursula",
-    books__id: "b1",
-    books__name: "Earthsea",
-    books__tags__id: "t1"
-  },
-  {
-    id: "a1",
-    name: "Ursula",
-    books__id: "b1",
-    books__name: "Earthsea",
-    books__tags__id: "t2"
-  },
-  {
-    id: "a1",
-    name: "Ursula",
-    books__id: "b2",
-    books__name: "Lathe of Heaven",
-    books__tags__id: null
-  },
-  {
-    id: "a2",
-    name: "Octavia",
-    books__id: null,
-    books__name: null,
-    books__tags__id: null
-  }
-]
-const nested: Result<typeof hydrated> = hydrateRows(
-  hydrated,
-  rows
-)
-console.log("\n--- hydrated (rows) ---")
-
-console.dir(nested, { depth: null })
-
-const withBooks = pipe(
-  Author,
-  query,
-  select(t => [
-    t.id,
-    t.name,
-    jsonAgg(t.books, b => [
-      b.id,
-      b.name,
-      b.price,
-      jsonAgg(b.tags, g => [g.id, g.name])
-    ]),
+    jsonAgg(t.books, b => bookCard(b)),
     as(count(t.books), "bookCount")
   ]),
-  where(t => inArray(t.id, ["a1", "a2"]))
+  orderBy(t => desc(t.name)),
+  run(exec)
 )
-
-console.log("\n--- jsonAgg / count ---")
-const compiled = toSQL(withBooks)
-console.log(compiled.sql)
-console.log(compiled.params)
-type _Check = Result<typeof withBooks>
+console.log("\n--- jsonAgg + count ---")
+console.dir(withBooks, { depth: null })
+// --- one row, filtered by a reusable predicate ---
+const firstPricey = await pipe(
+  Book,
+  query,
+  select(b => bookCard(b)),
+  where(b => pricey(b)),
+  orderBy(b => desc(b.price)),
+  limit(1),
+  runOne(exec)
+)
+console.log("\n--- runOne (first pricey book) ---")
+console.dir(firstPricey, { depth: null })
