@@ -5,7 +5,7 @@ Intermediates (CTEs, subqueries, recursive walks) are modeled as **query values*
 ## Idea
 
 1. A query is a value: `const q = pipe(...)`.
-2. Other steps can take that value (`exists`, `join`, `semiJoin`, further `pipe`).
+2. Other steps can take that value (`exists`, `link`, further `pipe`).
 3. There is no `asSource("name")` or `withSources(...)` in the API.
 4. If the same value appears more than once, or recursion is required, a backend may emit a CTE (or equivalent). If not, it may inline or run multiple round-trips.
 
@@ -59,27 +59,24 @@ const q = pipe(
 
 Same `cheap` value twice. A SQL compiler may emit `WITH ... AS (...)`; that is a plan choice, not part of the user API.
 
-## Join
+## Link it into scope
+
+Bring the intermediate's columns into the outer query with `link`
+(see link-and-joins.md); the other side of a link can be any query
+value, not only a schema relation:
 
 ```ts
 const q = pipe(
   Author,
   query,
-  semiJoin(cheap, (a, c) => eq(a.id, c.authorId)),
-  select(a => [a.id, a.name])
-)
-```
-
-Or keep columns from both sides:
-
-```ts
-const q = pipe(
-  Author,
-  query,
-  join(cheap, (a, c) => eq(a.id, c.authorId)),
+  link(cheap, (a, c) => eq(a.id, c.authorId)),
   select((a, c) => [a.id, a.name, c.price])
 )
 ```
+
+There is no separate `join` / `semiJoin` step. When you only need
+"parent has a match," filter with `exists` (above) instead of
+linking — that keeps parent row counts stable.
 
 ## Refine an intermediate
 
@@ -184,7 +181,7 @@ Same IR, different execution:
 
 | Layer    | Responsibility                                         |
 | -------- | ------------------------------------------------------ |
-| API      | Query values, project, filter, join, exists, recursive |
+| API      | Query values, project, filter, link, exists, recursive |
 | IR       | Scopes, correlation, result shapes                     |
 | Compiler | SQL / Cypher / pipeline / multi-query                  |
 | Runtime  | Execute the plan                                       |
@@ -193,4 +190,4 @@ Portable concepts live in the IR (projection, filter, named intermediate as a va
 
 ## Status
 
-This is a design note, not implemented API. Current Yatra has single-scope `query` / `select` / `where` and a Postgres compiler. Scopes, `exists` over query values, join-to-query, recursion, and materialize hints are future work built on the same pipe + IR direction.
+This is a design note, not implemented API. Current Yatra has single-scope `query` / `select` / `where` and a Postgres compiler. Scopes, `exists` over query values, link-to-query, recursion, and materialize hints are future work built on the same pipe + IR direction.

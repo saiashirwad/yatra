@@ -104,7 +104,7 @@ pipe(
 
 ## Link a query value
 
-Same hook; the other side is any query (projection / intermediate), not only a schema relation:
+Same hook; the other side is any query (projection / intermediate), not only a schema relation. This subsumes a standalone `join` step: `link` with the default left policy is a left join, and `{ match: "required" }` is the inner variant:
 
 ```ts
 const cheap = pipe(
