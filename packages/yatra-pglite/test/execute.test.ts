@@ -5,9 +5,11 @@ import {
   as,
   asc,
   count,
+  del,
   eq,
   hydrate,
   ilike,
+  insert,
   jsonAgg,
   nullable,
   number,
@@ -16,11 +18,13 @@ import {
   pipe,
   primaryKey,
   query,
+  returning,
   run,
   runOne,
   select,
   string,
   Table,
+  update,
   uuid,
   where
 } from "yatra"
@@ -205,4 +209,90 @@ test("runOne returns one row or null", async () => {
     runOne(exec)
   )
   assert.equal(nobody, null)
+})
+
+// --- mutations ---
+test("insert with returning gives typed rows back", async () => {
+  const rows = await pipe(
+    Author,
+    insert({
+      id: "33333333-3333-3333-3333-333333333333",
+      name: "Italo"
+    }),
+    returning(t => [t.id, t.name, t.description]),
+    run(exec)
+  )
+  type _rows = Expect<
+    Equal<
+      typeof rows,
+      Array<{
+        id: string
+        name: string
+        description: string | null
+      }>
+    >
+  >
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].name, "Italo")
+  assert.equal(rows[0].description, null)
+})
+test("insert many fills missing keys with DEFAULT", async () => {
+  const rows = await pipe(
+    Book,
+    insert([
+      {
+        id: "dddddddd-dddd-dddd-dddd-dddddddddddd",
+        name: "The Dispossessed",
+        authorId: URSULA,
+        price: 11.0
+      },
+      {
+        id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+        name: "The Left Hand of Darkness",
+        authorId: URSULA
+      }
+    ]),
+    returning(t => [t.name, t.price]),
+    run(exec)
+  )
+  assert.equal(rows.length, 2)
+  const leftHand = rows.find(
+    r => r.name === "The Left Hand of Darkness"
+  )!
+  assert.equal(leftHand.price, null)
+})
+test("update with where and returning", async () => {
+  const rows = await pipe(
+    Book,
+    update({ price: 7.5 }),
+    where(t => eq(t.name, "Earthsea")),
+    returning(t => [t.id, t.price]),
+    run(exec)
+  )
+  type _rows = Expect<
+    Equal<
+      typeof rows,
+      Array<{ id: string; price: number | null }>
+    >
+  >
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].price, 7.5)
+})
+test("del removes rows and returns nothing", async () => {
+  const out = await pipe(
+    Book,
+    del,
+    where(t => eq(t.name, "Lathe of Heaven")),
+    run(exec)
+  )
+  type _out = Expect<Equal<typeof out, void>>
+  assert.equal(out, undefined)
+  const remaining = await pipe(
+    Book,
+    query,
+    select(t => [t.name]),
+    where(t => eq(t.name, "Lathe of Heaven")),
+    run(exec)
+  )
+  assert.equal(remaining.length, 0)
 })

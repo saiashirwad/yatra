@@ -1,10 +1,14 @@
 import {
   as,
+  autoIncrement,
   count,
+  defaultValue,
+  del,
   eq,
   hydrate,
   ilike,
   inArray,
+  insert,
   isNull,
   jsonAgg,
   lower,
@@ -15,13 +19,16 @@ import {
   pipe,
   primaryKey,
   query,
+  returning,
   select,
   string,
   Table,
+  update,
   uuid,
   where,
   type Accessor,
   type ChainLink,
+  type MutationResult,
   type Result
 } from "../src/index.ts"
 type Equal<A, B> =
@@ -286,4 +293,92 @@ pipe(
   Book,
   query,
   where(t => isNull(t.price))
+)
+
+// --- mutations ---
+class Widget extends Table("widget", {
+  id: pipe(number, primaryKey, autoIncrement),
+  name: pipe(string),
+  label: pipe(string, defaultValue("unlabeled")),
+  note: pipe(string, nullable)
+}) {}
+// db-computed (autoIncrement, default) and nullable fields are optional
+const ins = pipe(
+  Widget,
+  insert({ name: "a" }),
+  returning(t => [t.id, t.label])
+)
+type _ins = Expect<
+  Equal<
+    MutationResult<typeof ins>,
+    Array<{ id: number; label: string }>
+  >
+>
+pipe(
+  Widget,
+  insert([
+    { name: "a" },
+    { name: "b", label: "x", note: null }
+  ])
+)
+pipe(
+  Widget,
+  // @ts-expect-error insert missing a required field
+  insert({ label: "x" })
+)
+pipe(
+  Widget,
+  // @ts-expect-error insert value of the wrong type
+  insert({ name: 42 })
+)
+pipe(
+  Widget,
+  // @ts-expect-error insert with an unknown column
+  insert({ nam: "x" })
+)
+const upd = pipe(
+  Widget,
+  update({ name: "b", note: null }),
+  where(t => eq(t.id, 1)),
+  returning(t => [t.id, t.name])
+)
+type _upd = Expect<
+  Equal<
+    MutationResult<typeof upd>,
+    Array<{ id: number; name: string }>
+  >
+>
+pipe(
+  Widget,
+  // @ts-expect-error update value of the wrong type
+  update({ name: 42 })
+)
+pipe(
+  Widget,
+  // @ts-expect-error update with an unknown column
+  update({ nope: 1 })
+)
+const delQ = pipe(
+  Widget,
+  del,
+  where(t => eq(t.name, "x"))
+)
+type _del = Expect<Equal<MutationResult<typeof delQ>, void>>
+const delReturning = pipe(
+  Widget,
+  del,
+  where(t => eq(t.name, "x")),
+  returning(t => [t.id])
+)
+type _delReturning = Expect<
+  Equal<
+    MutationResult<typeof delReturning>,
+    Array<{ id: number }>
+  >
+>
+pipe(
+  Widget,
+  del,
+  // @ts-expect-error where value must match the column type
+  where(t => eq(t.name, 42))
 )

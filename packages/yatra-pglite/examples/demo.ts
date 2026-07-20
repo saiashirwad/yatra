@@ -3,10 +3,14 @@ import {
   as,
   asc,
   count,
+  del,
   desc,
+  eq,
   gt,
   hydrate,
   ilike,
+  insert,
+  isNull,
   jsonAgg,
   limit,
   nullable,
@@ -16,12 +20,14 @@ import {
   pipe,
   primaryKey,
   query,
+  returning,
   run,
   runOne,
   select,
   string,
   Table,
   toSQL,
+  update,
   uuid,
   where,
   type Accessor,
@@ -157,3 +163,40 @@ const firstPricey = await pipe(
 )
 console.log("\n--- runOne (first pricey book) ---")
 console.dir(firstPricey, { depth: null })
+
+// --- mutations: same pipe, same run ---
+const inserted = await pipe(
+  Author,
+  insert({
+    id: "33333333-3333-3333-3333-333333333333",
+    name: "Italo"
+  }),
+  returning(t => [t.id, t.name, t.description]),
+  run(exec)
+)
+console.log("\n--- insert + returning ---")
+console.dir(inserted, { depth: null })
+const updated = await pipe(
+  Book,
+  update({ price: 7.5 }),
+  where(b => eq(b.name, "Earthsea")),
+  returning(b => [b.name, b.price]),
+  run(exec)
+)
+console.log("\n--- update + returning ---")
+console.dir(updated, { depth: null })
+await pipe(
+  Book,
+  del,
+  where(b => isNull(b.price)),
+  run(exec)
+)
+console.log("\n--- del (priceless books removed) ---")
+const remaining = await pipe(
+  Book,
+  query,
+  select(b => [b.name]),
+  orderBy(b => asc(b.name)),
+  run(exec)
+)
+console.dir(remaining, { depth: null })

@@ -1,5 +1,5 @@
 import { ManyToManyRelation, Relation } from "./relation.ts"
-import { info, tableName } from "./table.ts"
+import { info, tableFields, tableName } from "./table.ts"
 import type { Tableish } from "./utils.ts"
 import {
   dataOf,
@@ -9,15 +9,22 @@ import {
   type NodeData,
   type PredData
 } from "./ref.ts"
+import type { MutationContext } from "./mutation.ts"
 import type { QueryContext } from "./query.ts"
 export interface CompiledQuery {
   readonly dialect: string
   readonly sql: string
   readonly params: readonly unknown[]
 }
+export type StatementContext = QueryContext<
+  any,
+  any,
+  any,
+  any
+>
 export interface Compiler {
   readonly dialect: string
-  compile(ctx: QueryContext<any, any, any>): CompiledQuery
+  compile(ctx: StatementContext): CompiledQuery
 }
 export function compileWith<C extends Compiler>(
   compiler: C
@@ -355,6 +362,172 @@ function renderWhere(
       return `NOT (${sub(a0)})`
   }
 }
+function mutationSql(
+  ctx: MutationContext<any, any>,
+  p: AddParam
+): string {
+  if ((ctx.mode as string) !== "flat") {
+    throw new Error("mutations do not support hydrate")
+  }
+  if (
+    ctx.orderBy.length > 0 ||
+    ctx.limit !== undefined ||
+    ctx.offset !== undefined
+  ) {
+    throw new Error(
+      "mutations do not support orderBy/limit/offset"
+    )
+  }
+  const base = tableName(ctx.table)
+  const root = makeRoot(ctx.table, base)
+  const fields = tableFields(ctx.table)
+  const checkKeys = (keys: Iterable<string>) => {
+    for (const k of keys) {
+      if (!(k in fields)) {
+        throw new Error(
+          `Unknown column '${k}' for table '${base}'`
+        )
+      }
+    }
+  }
+  const clauses: string[] = []
+  if (ctx.kind === "insert") {
+    const rows = ctx.rows ?? []
+    if (ctx.where.length > 0) {
+      throw new Error("insert does not take where")
+    }
+    if (rows.length === 0) {
+      throw new Error("insert needs at least one row")
+    }
+    const keys: string[] = []
+    for (const row of rows) {
+      checkKeys(Object.keys(row))
+      for (const k of Object.keys(row)) {
+        if (!keys.includes(k)) keys.push(k)
+      }
+    }
+    if (keys.length === 0) {
+      clauses.push(`INSERT INTO ${qi(base)} DEFAULT VALUES`)
+    } else {
+      const cols = keys.map(qi).join(", ")
+      const vals = rows
+        .map(
+          row =>
+            `(${keys
+              .map(k => (k in row ? p(row[k]) : "DEFAULT"))
+              .join(", ")})`
+        )
+        .join(", ")
+      clauses.push(
+        `INSERT INTO ${qi(base)} (${cols}) VALUES ${vals}`
+      )
+    }
+  } else if (ctx.kind === "update") {
+    const set = ctx.set ?? {}
+    const keys = Object.keys(set)
+    if (keys.length === 0) {
+      throw new Error(
+        "update needs at least one column to set"
+      )
+    }
+    checkKeys(keys)
+    clauses.push(
+      `UPDATE ${qi(base)} SET ${keys
+        .map(k => `${qi(k)} = ${p(set[k])}`)
+        .join(", ")}`
+    )
+  } else {
+    clauses.push(`DELETE FROM ${qi(base)}`)
+  }
+  if (ctx.kind !== "insert" && ctx.where.length > 0) {
+    clauses.push(
+      `WHERE ${ctx.where
+        .map(w =>
+          renderWhere(root, dataOf(w) as PredData, p)
+        )
+        .join(" AND ")}`
+    )
+  }
+  if (ctx.selection.length > 0) {
+    const list = ctx.selection
+      .map((item: unknown) => {
+        const e = compileItem(root, item, "flat", p)
+        return e.alias
+          ? `${e.sql} AS ${qi(e.alias)}`
+          : e.sql
+      })
+      .join(", ")
+    clauses.push(`RETURNING ${list}`)
+  }
+  return clauses.join("\n")
+}
+function querySql(
+  ctx: QueryContext<any, any, any>,
+  p: AddParam
+): string {
+  const base = tableName(ctx.table)
+  const root = makeRoot(ctx.table, base)
+  const chains: Array<readonly string[]> = []
+  for (const item of ctx.selection) {
+    const d = dataOf(item)
+    if (d) collectChains(d, chains)
+  }
+  for (const w of ctx.where) {
+    const d = dataOf(w)
+    if (d) collectChains(d, chains)
+  }
+  for (const o of ctx.orderBy) {
+    const d = dataOf(o)
+    if (d) collectChains(d, chains)
+  }
+  for (const chain of chains) {
+    ensureChain(root, chain)
+  }
+  const exprs: SelectExpr[] =
+    ctx.selection.length > 0
+      ? ctx.selection.map((item: unknown) =>
+          compileItem(root, item, ctx.mode, p)
+        )
+      : [{ sql: `${qi(root.alias)}.*` }]
+  const selectList = exprs
+    .map(e =>
+      e.alias ? `${e.sql} AS ${qi(e.alias)}` : e.sql
+    )
+    .join(", ")
+  const clauses = [
+    `SELECT ${selectList}`,
+    `FROM ${qi(base)} ${qi(root.alias)}${renderJoins(root)}`
+  ]
+  if (ctx.where.length > 0) {
+    clauses.push(
+      `WHERE ${ctx.where
+        .map(w =>
+          renderWhere(root, dataOf(w) as PredData, p)
+        )
+        .join(" AND ")}`
+    )
+  }
+  if (ctx.orderBy.length > 0) {
+    clauses.push(
+      `ORDER BY ${ctx.orderBy
+        .map(o => {
+          const d = dataOf(o) as {
+            direction: "asc" | "desc"
+            ref: NodeData
+          }
+          const ref = d.ref as ColData
+          return `${compileColSql(root, ref)} ${d.direction.toUpperCase()}`
+        })
+        .join(", ")}`
+    )
+  }
+  if (ctx.limit !== undefined)
+    clauses.push(`LIMIT ${ctx.limit}`)
+  if (ctx.offset !== undefined) {
+    clauses.push(`OFFSET ${ctx.offset}`)
+  }
+  return clauses.join("\n")
+}
 export const postgres: Compiler = {
   dialect: "postgres",
   compile(ctx) {
@@ -363,78 +536,19 @@ export const postgres: Compiler = {
       params.push(value)
       return `$${params.length}`
     }
-    const base = tableName(ctx.table)
-    const root = makeRoot(ctx.table, base)
-    const chains: Array<readonly string[]> = []
-    for (const item of ctx.selection) {
-      const d = dataOf(item)
-      if (d) collectChains(d, chains)
-    }
-    for (const w of ctx.where) {
-      const d = dataOf(w)
-      if (d) collectChains(d, chains)
-    }
-    for (const o of ctx.orderBy) {
-      const d = dataOf(o)
-      if (d) collectChains(d, chains)
-    }
-    for (const chain of chains) {
-      ensureChain(root, chain)
-    }
-    const exprs: SelectExpr[] =
-      ctx.selection.length > 0
-        ? ctx.selection.map((item: unknown) =>
-            compileItem(root, item, ctx.mode, p)
-          )
-        : [{ sql: `${qi(root.alias)}.*` }]
-    const selectList = exprs
-      .map(e =>
-        e.alias ? `${e.sql} AS ${qi(e.alias)}` : e.sql
-      )
-      .join(", ")
-    const clauses = [
-      `SELECT ${selectList}`,
-      `FROM ${qi(base)} ${qi(root.alias)}${renderJoins(root)}`
-    ]
-    if (ctx.where.length > 0) {
-      clauses.push(
-        `WHERE ${ctx.where
-          .map(w =>
-            renderWhere(root, dataOf(w) as PredData, p)
-          )
-          .join(" AND ")}`
-      )
-    }
-    if (ctx.orderBy.length > 0) {
-      clauses.push(
-        `ORDER BY ${ctx.orderBy
-          .map(o => {
-            const d = dataOf(o) as {
-              direction: "asc" | "desc"
-              ref: NodeData
-            }
-            const ref = d.ref as ColData
-            return `${compileColSql(root, ref)} ${d.direction.toUpperCase()}`
-          })
-          .join(", ")}`
-      )
-    }
-    if (ctx.limit !== undefined)
-      clauses.push(`LIMIT ${ctx.limit}`)
-    if (ctx.offset !== undefined) {
-      clauses.push(`OFFSET ${ctx.offset}`)
-    }
+    const sql =
+      "kind" in ctx
+        ? mutationSql(ctx as MutationContext<any, any>, p)
+        : querySql(ctx, p)
     return {
       dialect: "postgres",
-      sql: clauses.join("\n"),
+      sql,
       params
     }
   }
 }
-export function toSQL<
-  T extends Tableish,
-  M extends "flat" | "hydrate",
-  Items extends readonly unknown[]
->(ctx: QueryContext<T, M, Items>): CompiledQuery {
+export function toSQL(
+  ctx: StatementContext
+): CompiledQuery {
   return postgres.compile(ctx)
 }

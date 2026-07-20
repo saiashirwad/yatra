@@ -6,8 +6,8 @@ import {
   toSQL,
   type Mode,
   type QueryContext,
-  type Result,
   type Row,
+  type StatementResult,
   type Tableish
 } from "yatra"
 // --- errors ---
@@ -63,11 +63,12 @@ export const layerPglite = (
 export function runEffect<
   T extends Tableish,
   M extends Mode,
-  Items extends readonly unknown[]
+  Items extends readonly unknown[],
+  X
 >(
-  ctx: QueryContext<T, M, Items>
+  ctx: QueryContext<T, M, Items, X>
 ): Effect.Effect<
-  Result<QueryContext<T, M, Items>>,
+  StatementResult<QueryContext<T, M, Items, X>>,
   QueryError,
   YatraExecutor
 > {
@@ -75,13 +76,20 @@ export function runEffect<
     const exec = yield* YatraExecutor
     const { sql, params } = toSQL(ctx)
     const rows = yield* exec.query(sql, params)
+    if ("kind" in ctx) {
+      return (
+        ctx.selection.length > 0 ? rows : undefined
+      ) as StatementResult<QueryContext<T, M, Items, X>>
+    }
     if (ctx.mode === "hydrate") {
       return hydrateRows(
-        ctx as QueryContext<T, "hydrate", Items>,
+        ctx as QueryContext<any, "hydrate", any>,
         rows
-      ) as Result<QueryContext<T, M, Items>>
+      ) as StatementResult<QueryContext<T, M, Items, X>>
     }
-    return rows as Result<QueryContext<T, M, Items>>
+    return rows as StatementResult<
+      QueryContext<T, M, Items, X>
+    >
   })
 }
 export function runOneEffect<

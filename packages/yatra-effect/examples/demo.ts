@@ -1,7 +1,6 @@
 import { Effect } from "effect"
 import {
   asc,
-  gt,
   hydrate,
   nullable,
   number,
@@ -13,8 +12,7 @@ import {
   select,
   string,
   Table,
-  uuid,
-  where
+  uuid
 } from "yatra"
 import {
   layerPglite,
@@ -96,7 +94,7 @@ const program = Effect.gen(function* () {
     Book,
     query,
     select(b => [b.id, b.name, b.price]),
-    where(b => gt(b.price, 10)),
+    // where(b => gt(b.price, 10)),
     orderBy(b => asc(b.price)),
     runOneEffect
   )
