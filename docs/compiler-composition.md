@@ -12,13 +12,13 @@ Named operators (`eq`, `lt`, `ilike`, …) and dialect SQL are not long-term cor
 
 ## Core vs packages
 
-| Lives in core | Lives outside core |
-| ------------- | ------------------ |
-| Schema, refs, `mk` / `dataOf`, accessors | `eq`, `lt`, `lte`, `and`, `like`, … |
-| `query`, `select`, `where`, `orderBy`, … | Postgres-only ops (`ilike`, `jsonb_agg` emit) |
-| Statement shape (`as`, `asc` / `desc`) | Dialect quote / param style (`$1` vs `?`) |
-| Plan from context (chains → join tree) | Full SQL (or other) emission for each op |
-| `Compiler` contract, merge/register handlers | Ready-made `postgres` / `sqlite` compilers |
+| Lives in core                                | Lives outside core                            |
+| -------------------------------------------- | --------------------------------------------- |
+| Schema, refs, `mk` / `dataOf`, accessors     | `eq`, `lt`, `lte`, `and`, `like`, …           |
+| `query`, `select`, `where`, `orderBy`, …     | Postgres-only ops (`ilike`, `jsonb_agg` emit) |
+| Statement shape (`as`, `asc` / `desc`)       | Dialect quote / param style (`$1` vs `?`)     |
+| Plan from context (chains → join tree)       | Full SQL (or other) emission for each op      |
+| `Compiler` contract, merge/register handlers | Ready-made `postgres` / `sqlite` compilers    |
 
 `jsonAgg`, `count`, `whereExists` are relation-shaped builders; their **render** rules still belong with a dialect or relational pack, not a closed core switch.
 
@@ -52,7 +52,13 @@ Assemble a dialect:
 ```ts
 const postgres = makeCompiler(
   pipe(
-    { dialect: "postgres", quote, paramStyle: "dollar", pred: {}, expr: {} },
+    {
+      dialect: "postgres",
+      quote,
+      paramStyle: "dollar",
+      pred: {},
+      expr: {}
+    },
     withOps({ pred: comparePred }),
     withOps({ pred: logicPred }),
     withOps({ pred: pgTextPred }) // ilike, …
@@ -64,12 +70,12 @@ Custom op: define builder + handler, then `withOps` into an existing parts objec
 
 ## Layering
 
-| Layer | Responsibility |
-| ----- | -------------- |
-| Core API | Schema, pipe steps, IR kinds, plan |
-| Op packs | Named builders + default handlers |
-| Dialect | Quote, params, dialect ops, `makeCompiler(...)` |
-| Runtime | Execute compiled SQL / eval plan |
+| Layer    | Responsibility                                  |
+| -------- | ----------------------------------------------- |
+| Core API | Schema, pipe steps, IR kinds, plan              |
+| Op packs | Named builders + default handlers               |
+| Dialect  | Quote, params, dialect ops, `makeCompiler(...)` |
+| Runtime  | Execute compiled SQL / eval plan                |
 
 Core switches on **kind**. Packages switch on **op**.
 
