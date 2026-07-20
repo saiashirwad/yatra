@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "demo": "pnpm --filter yatra-pglite demo",
-    "test": "pnpm --filter yatra-pglite test",
+    "demo:memory": "pnpm --filter yatra-memory demo",
+    "test": "pnpm --filter yatra-pglite test && pnpm --filter yatra-memory test",
     "typecheck": "pnpm -r typecheck",
     "lint": "oxlint",
     "format": "oxfmt",
