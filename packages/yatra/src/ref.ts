@@ -267,6 +267,17 @@ export type CheckItems<Items extends readonly unknown[]> = {
     CheckItem<NoInfer<Items[K]>>
   >
 }
+/**
+ * A pre-built array (`ColRef[]`) widens and would silently drop every
+ * field from the row type — require an inline tuple instead.
+ */
+export type RequireTuple<Items extends readonly unknown[]> =
+  number extends Items["length"]
+    ? Record<
+        "selection must be an inline tuple (t => [t.id, ...] or `as const`) — a pre-built array loses its row type",
+        never
+      >
+    : unknown
 // --- row shape computation ---
 type MergeVal<A, B> =
   NonNullable<A> extends readonly (infer X)[]

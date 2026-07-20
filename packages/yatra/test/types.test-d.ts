@@ -1,5 +1,6 @@
 import {
   as,
+  asc,
   autoIncrement,
   count,
   defaultValue,
@@ -11,15 +12,20 @@ import {
   insert,
   isNull,
   jsonAgg,
+  limit,
   lower,
+  ne,
   nullable,
   number,
+  offset,
   oneToMany,
   oneToOne,
+  orderBy,
   pipe,
   primaryKey,
   query,
   returning,
+  runOne,
   select,
   string,
   Table,
@@ -28,6 +34,8 @@ import {
   where,
   type Accessor,
   type ChainLink,
+  type ColRef,
+  type Executor,
   type MutationResult,
   type Result
 } from "../src/index.ts"
@@ -381,4 +389,84 @@ pipe(
   del,
   // @ts-expect-error where value must match the column type
   where(t => eq(t.name, 42))
+)
+
+// --- type-safety gates ---
+declare const exec: Executor
+declare const looseItems: readonly ColRef<
+  number,
+  "id",
+  readonly []
+>[]
+// no select: the row is the full table row (SELECT t.*)
+const all = pipe(Widget, query)
+type _all = Expect<
+  Equal<
+    Result<typeof all>,
+    Array<{
+      id: number
+      name: string
+      label: string
+      note: string | null
+    }>
+  >
+>
+// hydrate with no select is the same full row (no joins, no nesting)
+const allHydrated = pipe(Widget, query, hydrate)
+type _allHydrated = Expect<
+  Equal<Result<typeof allHydrated>, Result<typeof all>>
+>
+pipe(
+  Author,
+  query,
+  // @ts-expect-error eq(null) is never true in SQL — use isNull
+  where(t => eq(t.description, null))
+)
+pipe(
+  Author,
+  query,
+  // @ts-expect-error ne(null) is never true in SQL — use isNotNull
+  where(t => ne(t.description, null))
+)
+pipe(
+  Widget,
+  query,
+  // @ts-expect-error a pre-built array loses the row type
+  select(() => looseItems)
+)
+pipe(
+  Widget,
+  del,
+  // @ts-expect-error mutations do not support hydrate
+  hydrate
+)
+pipe(
+  Widget,
+  update({ name: "b" }),
+  // @ts-expect-error mutations do not support orderBy
+  orderBy(t => asc(t.id))
+)
+pipe(
+  Widget,
+  del,
+  // @ts-expect-error mutations do not support limit
+  limit(1)
+)
+pipe(
+  Widget,
+  del,
+  // @ts-expect-error mutations do not support offset
+  offset(1)
+)
+pipe(
+  Widget,
+  insert({ name: "a" }),
+  // @ts-expect-error insert does not take where
+  where(t => eq(t.name, "x"))
+)
+pipe(
+  Widget,
+  del,
+  // @ts-expect-error runOne is only for queries — use run(exec)
+  runOne(exec)
 )

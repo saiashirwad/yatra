@@ -5,6 +5,7 @@ import {
   hydrateRows,
   toSQL,
   type Mode,
+  type NoMutation,
   type QueryContext,
   type Row,
   type StatementResult,
@@ -95,13 +96,26 @@ export function runEffect<
 export function runOneEffect<
   T extends Tableish,
   M extends Mode,
-  Items extends readonly unknown[]
+  Items extends readonly unknown[],
+  X
 >(
-  ctx: QueryContext<T, M, Items>
+  ctx: QueryContext<T, M, Items, X> &
+    NoMutation<
+      X,
+      "runOneEffect is only for queries — use runEffect for mutations"
+    >
 ): Effect.Effect<
-  Row<QueryContext<T, M, Items>> | null,
+  Row<QueryContext<T, M, Items, X>> | null,
   QueryError,
   YatraExecutor
 > {
-  return Effect.map(runEffect(ctx), rows => rows[0] ?? null)
+  return Effect.map(
+    runEffect(ctx),
+    rows =>
+      (
+        rows as unknown as Row<
+          QueryContext<T, M, Items, X>
+        >[]
+      )[0] ?? null
+  )
 }

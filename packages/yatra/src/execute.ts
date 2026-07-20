@@ -1,7 +1,11 @@
 import { toSQL } from "./compile.ts"
 import { hydrateRows } from "./hydrate.ts"
 import type { AnyMutationExtra } from "./mutation.ts"
-import type { QueryContext, Row } from "./query.ts"
+import {
+  type NoMutation,
+  type QueryContext,
+  type Row
+} from "./query.ts"
 import type { MergeAll, Mode } from "./ref.ts"
 import type { Tableish } from "./utils.ts"
 export interface Executor {
@@ -11,12 +15,12 @@ export interface Executor {
   ): Promise<readonly Record<string, unknown>[]>
 }
 export type StatementResult<C> =
-  C extends QueryContext<any, infer M, infer Items, infer X>
+  C extends QueryContext<any, any, infer Items, infer X>
     ? X extends AnyMutationExtra
       ? Items extends readonly []
         ? void
         : MergeAll<"flat", Items>[]
-      : MergeAll<M, Items>[]
+      : Row<C>[]
     : never
 export function run<E extends Executor>(exec: E) {
   return (async (ctx: QueryContext<any, any, any, any>) => {
@@ -47,11 +51,18 @@ export function runOne<E extends Executor>(exec: E) {
   return async <
     T extends Tableish,
     M extends Mode,
-    Items extends readonly unknown[]
+    Items extends readonly unknown[],
+    X
   >(
-    ctx: QueryContext<T, M, Items>
-  ): Promise<Row<QueryContext<T, M, Items>> | null> => {
-    const rows = await run(exec)(ctx)
+    ctx: QueryContext<T, M, Items, X> &
+      NoMutation<
+        X,
+        "runOne is only for queries — use run(exec) for mutations"
+      >
+  ): Promise<Row<QueryContext<T, M, Items, X>> | null> => {
+    const rows = (await run(exec)(ctx)) as unknown as Row<
+      QueryContext<T, M, Items, X>
+    >[]
     return rows[0] ?? null
   }
 }

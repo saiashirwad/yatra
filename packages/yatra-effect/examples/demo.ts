@@ -1,6 +1,8 @@
 import { Effect } from "effect"
 import {
+  as,
   asc,
+  gt,
   hydrate,
   nullable,
   number,
@@ -12,7 +14,8 @@ import {
   select,
   string,
   Table,
-  uuid
+  uuid,
+  where
 } from "yatra"
 import {
   layerPglite,
@@ -27,6 +30,7 @@ class Book extends Table("book", {
   authorId: pipe(uuid),
   price: pipe(number, nullable)
 }) {}
+
 class Author extends Table("author", {
   id: pipe(uuid, primaryKey),
   name: pipe(string),
@@ -75,6 +79,7 @@ const program = Effect.gen(function* () {
   )
   console.log("--- flat ---")
   console.dir(flat, { depth: null })
+
   const hydrated = yield* pipe(
     Author,
     query,
@@ -82,7 +87,8 @@ const program = Effect.gen(function* () {
       t.id,
       t.name,
       t.books.name,
-      t.books.price
+      t.books.price,
+      as(t.books.authorId, "authoor")
     ]),
     orderBy(t => asc(t.name)),
     hydrate,
@@ -90,14 +96,16 @@ const program = Effect.gen(function* () {
   )
   console.log("\n--- hydrated ---")
   console.dir(hydrated, { depth: null })
+
   const firstPricey = yield* pipe(
     Book,
     query,
-    select(b => [b.id, b.name, b.price]),
-    // where(b => gt(b.price, 10)),
+    select(b => [b.id, b.name, as(b.price, "bookPric")]),
+    where(b => gt(b.price, 10)),
     orderBy(b => asc(b.price)),
     runOneEffect
   )
+
   console.log("\n--- runOneEffect ---")
   console.dir(firstPricey, { depth: null })
 })

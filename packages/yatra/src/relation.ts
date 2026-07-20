@@ -39,7 +39,7 @@ export class OneToOneRelation<
     source: () => S,
     destination: () => D,
     foreignKey: FK,
-    referencedKey: RK = "id" as RK
+    referencedKey: RK
   ) {
     super(source, destination)
     this.foreignKey = foreignKey
@@ -77,7 +77,7 @@ export class OneToManyRelation<
     source: () => S,
     destination: () => D,
     foreignKey: FK,
-    referencedKey: RK = "id" as RK
+    referencedKey: RK
   ) {
     super(source, destination)
     this.foreignKey = foreignKey
@@ -93,7 +93,7 @@ export function oneToMany<
   source: () => S,
   destination: () => D,
   foreignKey: FK,
-  referencedKey: RK = "id" as RK
+  referencedKey: RK
 ) {
   return new OneToManyRelation(
     source,
@@ -115,7 +115,7 @@ export class ManyToOneRelation<
     source: () => S,
     destination: () => D,
     foreignKey: FK,
-    referencedKey: RK = "id" as RK
+    referencedKey: RK
   ) {
     super(source, destination)
     this.foreignKey = foreignKey
@@ -131,7 +131,7 @@ export function manyToOne<
   source: () => S,
   destination: () => D,
   foreignKey: FK,
-  referencedKey: RK = "id" as RK
+  referencedKey: RK
 ) {
   return new ManyToOneRelation(
     source,

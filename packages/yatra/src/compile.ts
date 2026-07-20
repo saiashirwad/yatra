@@ -92,6 +92,11 @@ function joinColumns(
   const rk = String(rel.referencedKey)
   const [fkTable, fkCol] = fk.split(".")
   const [rkTable, rkCol] = rk.split(".")
+  if (fkCol === undefined || rkCol === undefined) {
+    throw new Error(
+      `Join keys must be qualified ('table.column'), got foreignKey='${fk}' referencedKey='${rk}'`
+    )
+  }
   return fkTable === destName
     ? [rkCol, fkCol]
     : rkTable === destName
@@ -301,7 +306,10 @@ function compileAgg(
     compileItem(subRoot, item, "hydrate", p)
   )
   const buildArgs = inner
-    .flatMap(it => [`'${it.alias ?? it.sql}'`, it.sql])
+    .flatMap(it => [
+      `'${(it.alias ?? it.sql).replaceAll("'", "''")}'`,
+      it.sql
+    ])
     .join(", ")
   return (
     `coalesce((SELECT jsonb_agg(DISTINCT jsonb_build_object(${buildArgs}))` +

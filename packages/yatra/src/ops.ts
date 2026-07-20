@@ -68,13 +68,13 @@ const pred = (
 ): PredRef => mk({ kind: "pred", op, args })
 export function eq<R extends ColRef<any, any, any>>(
   ref: R,
-  value: ColValue<R>
+  value: NonNullable<ColValue<R>>
 ): PredRef {
   return pred("eq", [ref, value])
 }
 export function ne<R extends ColRef<any, any, any>>(
   ref: R,
-  value: ColValue<R>
+  value: NonNullable<ColValue<R>>
 ): PredRef {
   return pred("ne", [ref, value])
 }

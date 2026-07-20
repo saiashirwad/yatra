@@ -8,7 +8,8 @@ import {
   accessor,
   type Accessor,
   type CheckItems,
-  type MergeAll
+  type MergeAll,
+  type RequireTuple
 } from "./ref.ts"
 import type { QueryContext } from "./query.ts"
 import type { FieldsRecord, InferColumn } from "./table.ts"
@@ -186,7 +187,9 @@ export function returning<
   T extends Tableish,
   const NewItems extends readonly unknown[]
 >(
-  fn: (t: Accessor<T>) => CheckItems<NewItems>
+  fn: (
+    t: Accessor<T>
+  ) => CheckItems<NewItems> & RequireTuple<NewItems>
 ): <
   Items extends readonly unknown[],
   X extends AnyMutationExtra

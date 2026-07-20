@@ -165,6 +165,7 @@ console.log("\n--- runOne (first pricey book) ---")
 console.dir(firstPricey, { depth: null })
 
 // --- mutations: same pipe, same run ---
+
 const inserted = await pipe(
   Author,
   insert({
@@ -174,6 +175,7 @@ const inserted = await pipe(
   returning(t => [t.id, t.name, t.description]),
   run(exec)
 )
+
 console.log("\n--- insert + returning ---")
 console.dir(inserted, { depth: null })
 const updated = await pipe(

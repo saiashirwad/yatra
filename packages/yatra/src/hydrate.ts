@@ -116,6 +116,12 @@ export function hydrateRows<
   ctx: QueryContext<T, "hydrate", Items>,
   rows: readonly Record<string, unknown>[]
 ): Result<QueryContext<T, "hydrate", Items>> {
+  if (ctx.selection.length === 0) {
+    // SELECT t.* with no joins: rows are already the full row shape
+    return rows as unknown as Result<
+      QueryContext<T, "hydrate", Items>
+    >
+  }
   const tree = buildTree(ctx.table, ctx.selection)
   return group(tree, rows) as Result<
     QueryContext<T, "hydrate", Items>
