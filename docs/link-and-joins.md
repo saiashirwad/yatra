@@ -59,6 +59,7 @@ Same _job_ appears under different names. None of these is a one-to-one copy of 
 - Prefer left match by default so partial shapes and hydrate null/empty arrays stay consistent.
 - Do not require the user to name SQL join order or aliasing for the common case.
 - Keep the step backend-agnostic: IR means “associate these sources”; SQL is one encoding.
+- Prefer paths and shapes (shapes.md) on the happy path. Multi-accessor callbacks (`select((a, c) => ...)`) are the escape hatch, not the default — positional arity grows with every `link`.
 
 ## Automatic joins
 

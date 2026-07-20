@@ -149,7 +149,7 @@ const q = pipe(
 )
 ```
 
-On Postgres this may become `WITH RECURSIVE`. On another backend it may become path expansion, a fixed-depth unrolling, or a client-side loop, depending on capabilities.
+On Postgres this may become `WITH RECURSIVE`. On another backend it may become path expansion, a fixed-depth unrolling, or a client-side loop, depending on capabilities. Conceptually, recursion is fixpoint over union: base and step combined under a self-reference (set ops live in shapes.md).
 
 ## Optional materialize hint
 
