@@ -151,6 +151,7 @@ const withBooks = pipe(
 console.log("\n--- jsonAgg + count ---")
 console.dir(withBooks, { depth: null })
 // --- one row, filtered by a reusable predicate ---
+
 const firstPricey = pipe(
   Book,
   query,
@@ -160,6 +161,7 @@ const firstPricey = pipe(
   limit(1),
   runOneMemory
 )(data)
+
 console.log("\n--- runOneMemory (first pricey book) ---")
 console.dir(firstPricey, { depth: null })
 // --- pinned fragments, popped straight into pipes ---

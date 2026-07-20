@@ -26,6 +26,7 @@ export type PredOp =
   | "and"
   | "or"
   | "not"
+  | "exists"
 export interface ChainLink {
   readonly name: string
   readonly rel: RelationType

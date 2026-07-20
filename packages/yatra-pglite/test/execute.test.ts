@@ -7,10 +7,14 @@ import {
   count,
   del,
   eq,
+  gt,
   hydrate,
   ilike,
   insert,
   jsonAgg,
+  lower,
+  mul,
+  not,
   nullable,
   number,
   oneToMany,
@@ -26,7 +30,8 @@ import {
   Table,
   update,
   uuid,
-  where
+  where,
+  whereExists
 } from "yatra"
 import { pgliteExecutor } from "../src/index.ts"
 type Equal<A, B> =
@@ -188,6 +193,55 @@ test("jsonAgg and count come back as real values", async () => {
     b => b.name === "Lathe of Heaven"
   )!
   assert.equal(lathe.price, null)
+})
+test("expressions: aliased select and where on an expr", async () => {
+  const rows = await pipe(
+    Author,
+    query,
+    select(t => [t.name, as(lower(t.name), "lowerName")]),
+    orderBy(t => asc(t.name)),
+    run(exec)
+  )
+  assert.deepEqual(rows, [
+    { name: "Octavia", lowerName: "octavia" },
+    { name: "Ursula", lowerName: "ursula" }
+  ])
+  const priceyDoubled = await pipe(
+    Book,
+    query,
+    select(b => [b.name]),
+    where(b => gt(mul(b.price, 2), 20)),
+    run(exec)
+  )
+  assert.deepEqual(priceyDoubled, [{ name: "Earthsea" }])
+})
+test("whereExists filters parents without join duplication", async () => {
+  const withBooks = await pipe(
+    Author,
+    query,
+    select(t => [t.name]),
+    where(t => whereExists(t.books)),
+    orderBy(t => asc(t.name)),
+    run(exec)
+  )
+  // Ursula has two books but appears once
+  assert.deepEqual(withBooks, [{ name: "Ursula" }])
+  const withPricey = await pipe(
+    Author,
+    query,
+    select(t => [t.name]),
+    where(t => whereExists(t.books, b => gt(b.price, 10))),
+    run(exec)
+  )
+  assert.deepEqual(withPricey, [{ name: "Ursula" }])
+  const bookless = await pipe(
+    Author,
+    query,
+    select(t => [t.name]),
+    where(t => not(whereExists(t.books))),
+    run(exec)
+  )
+  assert.deepEqual(bookless, [{ name: "Octavia" }])
 })
 test("runOne returns one row or null", async () => {
   const row = await pipe(

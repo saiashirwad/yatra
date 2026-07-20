@@ -15,6 +15,7 @@ import {
   type PredData,
   type QueryContext,
   type Relation,
+  type RelData,
   type Row,
   type StatementResult,
   type Tableish
@@ -81,7 +82,20 @@ function collectChains(
       collectChains(data.target, out)
       break
     case "expr":
+      for (const a of data.args) {
+        const d = argData(a)
+        if (d) collectChains(d, out)
+      }
+      break
     case "pred":
+      if (data.op === "exists") {
+        // the relation is matched in the subquery, not joined —
+        // only its parent chain joins at this level
+        out.push(
+          (data.args[0] as RelData).chain.slice(0, -1)
+        )
+        break
+      }
       for (const a of data.args) {
         const d = argData(a)
         if (d) collectChains(d, out)
@@ -245,14 +259,15 @@ function likeRegex(pattern: string, ci: boolean): RegExp {
 }
 function evalPred(
   tuple: Tuple,
-  p: PredData
+  p: PredData,
+  data: DataSet
 ): boolean | null {
   const sub = (a: unknown): boolean | null => {
-    const d = dataOf(a)
+    const d = argData(a)
     if (!d || d.kind !== "pred") {
       throw new Error("Expected a predicate")
     }
-    return evalPred(tuple, d)
+    return evalPred(tuple, d, data)
   }
   const [a0, a1] = p.args
   switch (p.op) {
@@ -299,6 +314,29 @@ function evalPred(
       return evalArg(tuple, a0) == null
     case "isNotNull":
       return evalArg(tuple, a0) != null
+    case "exists": {
+      const rel = p.args[0] as RelData
+      if (rel.relation instanceof ManyToManyRelation) {
+        throw new Error(
+          "whereExists over many-to-many relations is not supported yet"
+        )
+      }
+      const parentRow =
+        tuple[rel.chain.slice(0, -1).join(".")]
+      if (!parentRow) return false
+      let matches = findMatches(
+        rel.relation,
+        parentRow,
+        data
+      )
+      for (const sp of p.args.slice(1)) {
+        const d = argData(sp) as PredData
+        matches = matches.filter(
+          m => evalPred({ "": m }, d, data) === true
+        )
+      }
+      return matches.length > 0
+    }
     case "and": {
       let sawNull = false
       for (const a of p.args) {
@@ -450,7 +488,8 @@ function runQuery(
   if (ctx.where.length > 0) {
     tuples = tuples.filter(t =>
       ctx.where.every(
-        w => evalPred(t, dataOf(w) as PredData) === true
+        w =>
+          evalPred(t, dataOf(w) as PredData, data) === true
       )
     )
   }
@@ -552,8 +591,11 @@ function runMutation(
     affected = table.filter(row =>
       ctx.where.every(
         w =>
-          evalPred({ "": row }, dataOf(w) as PredData) ===
-          true
+          evalPred(
+            { "": row },
+            dataOf(w) as PredData,
+            data
+          ) === true
       )
     )
     for (const row of affected) Object.assign(row, set)
@@ -562,8 +604,11 @@ function runMutation(
       table.filter(row =>
         ctx.where.every(
           w =>
-            evalPred({ "": row }, dataOf(w) as PredData) ===
-            true
+            evalPred(
+              { "": row },
+              dataOf(w) as PredData,
+              data
+            ) === true
         )
       )
     )

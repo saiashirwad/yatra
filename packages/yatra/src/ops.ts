@@ -151,6 +151,33 @@ export function not<P extends PredRef<any>>(
 ): PredRef<RootOf<P>> {
   return pred("not", [p])
 }
+// --- subqueries ---
+/**
+ * EXISTS subquery: filter parents by their children without join
+ * duplication. `where(t => whereExists(t.books, b => gt(b.price, 10)))`
+ * returns each matching author once, however many books match.
+ */
+export function whereExists<
+  D extends Tableish,
+  K extends string,
+  Root
+>(
+  rel: RelRef<D, K, Root>,
+  fn?: (
+    t: Accessor<D, readonly [], Root>
+  ) => PredRef<Root> | readonly PredRef<Root>[]
+): PredRef<Root> {
+  const d = dataOf(rel) as RelData
+  const p = fn?.(
+    accessor(d.relation.destinationTable) as Accessor<
+      D,
+      readonly [],
+      Root
+    >
+  )
+  const preds = p ? (Array.isArray(p) ? p : [p]) : []
+  return pred("exists", [d, ...preds])
+}
 // --- ordering ---
 export function asc<R extends ColRef<any, any, any>>(
   ref: R

@@ -7,7 +7,8 @@ import {
   type ColData,
   type ExprData,
   type NodeData,
-  type PredData
+  type PredData,
+  type RelData
 } from "./ref.ts"
 import type { MutationContext } from "./mutation.ts"
 import type { QueryContext } from "./query.ts"
@@ -139,11 +140,10 @@ function renderJoins(node: TreeNode): string {
   }
   return sql
 }
-function resolveChain(
+function resolveNode(
   root: TreeNode,
-  chain: readonly string[],
-  key: string
-): string {
+  chain: readonly string[]
+): TreeNode {
   let node = root
   for (const seg of chain) {
     const child = node.children.get(seg)
@@ -152,6 +152,14 @@ function resolveChain(
     }
     node = child
   }
+  return node
+}
+function resolveChain(
+  root: TreeNode,
+  chain: readonly string[],
+  key: string
+): string {
+  const node = resolveNode(root, chain)
   return `${qi(node.alias)}.${qi(key)}`
 }
 interface SelectExpr {
@@ -159,6 +167,20 @@ interface SelectExpr {
   alias?: string
 }
 type AddParam = (value: unknown) => string
+// Ops store arguments inconsistently: predicate args are node objects
+// (RefData-branded), expression args are bare NodeData. Accept both.
+function argData(a: unknown): NodeData | undefined {
+  const d = dataOf(a)
+  if (d) return d
+  if (
+    typeof a === "object" &&
+    a !== null &&
+    typeof (a as NodeData).kind === "string"
+  ) {
+    return a as NodeData
+  }
+  return undefined
+}
 function collectChains(
   data: NodeData,
   out: Array<readonly string[]>
@@ -172,13 +194,21 @@ function collectChains(
       break
     case "expr":
       for (const a of data.args) {
-        const d = dataOf(a)
+        const d = argData(a)
         if (d) collectChains(d, out)
       }
       break
     case "pred":
+      if (data.op === "exists") {
+        // the relation is the subquery's FROM, not a join — only
+        // its parent chain joins at this level
+        out.push(
+          (data.args[0] as RelData).chain.slice(0, -1)
+        )
+        break
+      }
       for (const a of data.args) {
-        const d = dataOf(a)
+        const d = argData(a)
         if (d) collectChains(d, out)
       }
       break
@@ -201,7 +231,7 @@ function compileExprSql(
   p: AddParam
 ): string {
   const argSql = (a: unknown): string => {
-    const d = dataOf(a)
+    const d = argData(a)
     if (!d) return p(a)
     if (d.kind === "col") return compileColSql(root, d)
     if (d.kind === "expr") return compileExprSql(root, d, p)
@@ -259,6 +289,8 @@ function compileItemData(
       )
       return { sql: inner.sql, alias: data.alias }
     }
+    case "expr":
+      return { sql: compileExprSql(root, data, p) }
     case "agg":
       return {
         sql: compileAgg(root, data, p),
@@ -323,7 +355,7 @@ function renderWhere(
   p: AddParam
 ): string {
   const argSql = (a: unknown): string => {
-    const d = dataOf(a)
+    const d = argData(a)
     if (!d) return p(a)
     if (d.kind === "col") return compileColSql(root, d)
     if (d.kind === "expr") return compileExprSql(root, d, p)
@@ -362,6 +394,46 @@ function renderWhere(
       return `${argSql(a0)} IS NULL`
     case "isNotNull":
       return `${argSql(a0)} IS NOT NULL`
+    case "exists": {
+      const rel = pred.args[0] as RelData
+      const relation = rel.relation
+      if (relation instanceof ManyToManyRelation) {
+        throw new Error(
+          "whereExists over many-to-many relations is not supported yet"
+        )
+      }
+      const dest = relation.destinationTable
+      const destName = tableName(dest)
+      const parentNode = resolveNode(
+        root,
+        rel.chain.slice(0, -1)
+      )
+      const subAlias = `${parentNode.alias}_${rel.key}`
+      const [srcCol, dstCol] = joinColumns(
+        relation as any,
+        destName
+      )
+      const conds = [
+        `${qi(subAlias)}.${qi(dstCol)} = ${qi(parentNode.alias)}.${qi(srcCol)}`
+      ]
+      const subRoot = makeRoot(dest, subAlias)
+      const chains: Array<readonly string[]> = []
+      for (const sp of pred.args.slice(1)) {
+        const d = argData(sp)
+        if (d) collectChains(d, chains)
+      }
+      for (const chain of chains)
+        ensureChain(subRoot, chain)
+      for (const sp of pred.args.slice(1)) {
+        conds.push(
+          renderWhere(subRoot, argData(sp) as PredData, p)
+        )
+      }
+      return (
+        `EXISTS (SELECT 1 FROM ${qi(destName)} ${qi(subAlias)}` +
+        `${renderJoins(subRoot)} WHERE ${conds.join(" AND ")})`
+      )
+    }
     case "and":
       return `(${pred.args.map(sub).join(" AND ")})`
     case "or":

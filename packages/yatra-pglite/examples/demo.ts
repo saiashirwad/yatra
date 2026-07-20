@@ -151,7 +151,7 @@ const AuthorIdAndName = pipe(
   select(t => [t.id, t.name])
 )
 
-const w00t = await pipe(
+const _w00t = await pipe(
   AuthorIdAndName,
   where(a => lt(a.books.price, 100)),
   run(exec)

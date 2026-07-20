@@ -42,7 +42,8 @@ import {
   Table,
   update,
   uuid,
-  where
+  where,
+  whereExists
 } from "yatra"
 import {
   evalQuery,
@@ -281,6 +282,14 @@ test("expressions lower and mul, with null propagation", () => {
     { lowerName: "kindred", doubled: 19.98 },
     { lowerName: "lathe of heaven", doubled: null }
   ])
+  const priceyDoubled = pipe(
+    Book,
+    query,
+    select(b => [b.name]),
+    where(b => gt(mul(b.price, 2), 20)),
+    runMemory
+  )(seed())
+  assert.deepEqual(priceyDoubled, [{ name: "Earthsea" }])
 })
 test("empty selection returns full root rows", () => {
   const rows = pipe(
@@ -435,6 +444,48 @@ test("runOneMemory returns one row or null", () => {
     runOneMemory
   )(seed())
   assert.equal(nobody, null)
+})
+test("whereExists filters parents without join duplication", () => {
+  const withBooks = pipe(
+    Author,
+    query,
+    select(t => [t.name]),
+    where(t => whereExists(t.books)),
+    orderBy(t => asc(t.name)),
+    runMemory
+  )(seed())
+  // Ursula has two books but appears once
+  assert.deepEqual(withBooks, [
+    { name: "Octavia" },
+    { name: "Ursula" }
+  ])
+  const withPricey = pipe(
+    Author,
+    query,
+    select(t => [t.name]),
+    where(t => whereExists(t.books, b => gt(b.price, 10))),
+    runMemory
+  )(seed())
+  assert.deepEqual(withPricey, [{ name: "Ursula" }])
+  const bookless = pipe(
+    Author,
+    query,
+    select(t => [t.name]),
+    where(t => not(whereExists(t.books))),
+    runMemory
+  )(seed())
+  assert.deepEqual(bookless, [])
+  const noPriceless = pipe(
+    Author,
+    query,
+    select(t => [t.name]),
+    where(t =>
+      not(whereExists(t.books, b => isNull(b.price)))
+    ),
+    orderBy(t => asc(t.name)),
+    runMemory
+  )(seed())
+  assert.deepEqual(noPriceless, [{ name: "Octavia" }])
 })
 // --- mutations ---
 test("insert with returning appends to the array", () => {
