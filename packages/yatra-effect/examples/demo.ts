@@ -4,6 +4,7 @@ import {
   asc,
   gt,
   hydrate,
+  ilike,
   nullable,
   number,
   oneToMany,
@@ -15,7 +16,8 @@ import {
   string,
   Table,
   uuid,
-  where
+  where,
+  type QueryAccessor
 } from "yatra"
 import {
   layerPglite,
@@ -23,7 +25,7 @@ import {
   runOneEffect,
   YatraExecutor
 } from "../src/index.ts"
-// --- schema ---
+
 class Book extends Table("book", {
   id: pipe(uuid, primaryKey),
   name: pipe(string),
@@ -45,7 +47,7 @@ class Author extends Table("author", {
     )
   }
 }
-// --- program ---
+
 const program = Effect.gen(function* () {
   const exec = yield* YatraExecutor
   yield* exec.query(
@@ -80,22 +82,26 @@ const program = Effect.gen(function* () {
   console.log("--- flat ---")
   console.dir(flat, { depth: null })
 
-  const hydrated = yield* pipe(
+  const hydrated = pipe(
     Author,
     query,
     select(t => [
       t.id,
-      t.name,
       t.books.name,
       t.books.price,
       as(t.books.authorId, "authoor")
-    ]),
+    ])
+  )
+
+  const lol = yield* pipe(
+    hydrated,
     orderBy(t => asc(t.name)),
     hydrate,
     runEffect
   )
+
   console.log("\n--- hydrated ---")
-  console.dir(hydrated, { depth: null })
+  console.dir(lol, { depth: null })
 
   const firstPricey = yield* pipe(
     Book,
@@ -105,6 +111,22 @@ const program = Effect.gen(function* () {
     orderBy(b => asc(b.price)),
     runOneEffect
   )
+
+  const isUrsula = where(
+    (t: QueryAccessor<typeof Author>) =>
+      ilike(t.name, "%u%")
+  )
+
+  const haha = pipe(
+    Author,
+    query,
+    select(author => [author.id, author.books.name]),
+    isUrsula,
+    hydrate,
+    runOneEffect
+  )
+
+  console.log(haha)
 
   console.log("\n--- runOneEffect ---")
   console.dir(firstPricey, { depth: null })

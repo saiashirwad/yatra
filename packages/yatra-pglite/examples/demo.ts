@@ -13,6 +13,7 @@ import {
   isNull,
   jsonAgg,
   limit,
+  lt,
   nullable,
   number,
   oneToMany,
@@ -32,7 +33,8 @@ import {
   where,
   type Accessor,
   type ChainLink,
-  type ColRef
+  type ColRef,
+  type QueryAccessor
 } from "yatra"
 import { pgliteExecutor } from "../src/index.ts"
 
@@ -95,6 +97,18 @@ const matchesName =
   (pattern: string) =>
   (t: { readonly name: ColRef<string | null, any, any> }) =>
     ilike(t.name, pattern)
+// --- pinned fragments: whole pipe steps bound to one table ---
+// the QueryAccessor annotation pins the table — pop the step into a
+// different table's pipe and it's a compile error
+const bookSummary = select(
+  (b: QueryAccessor<typeof Book>) => [b.id, b.name]
+)
+const cheap = where((b: QueryAccessor<typeof Book>) =>
+  lt(b.price, 10)
+)
+const byName = orderBy((b: QueryAccessor<typeof Book>) =>
+  asc(b.name)
+)
 // --- flat rows ---
 const flat = pipe(
   Author,
@@ -163,6 +177,30 @@ const firstPricey = await pipe(
 )
 console.log("\n--- runOne (first pricey book) ---")
 console.dir(firstPricey, { depth: null })
+
+// --- pinned fragments, popped straight into pipes ---
+// pipe(Author, query, cheap) // ✗ compile error: cheap is pinned to Book
+const cheapBooks = await pipe(
+  Book,
+  query,
+  bookSummary,
+  cheap,
+  byName,
+  run(exec)
+)
+console.log("\n--- pinned fragments (cheap books) ---")
+console.dir(cheapBooks, { depth: null })
+// the same steps compose into a different query shape
+const firstCheap = await pipe(
+  Book,
+  query,
+  cheap,
+  byName,
+  limit(1),
+  runOne(exec)
+)
+console.log("\n--- pinned fragments (first cheap book) ---")
+console.dir(firstCheap, { depth: null })
 
 // --- mutations: same pipe, same run ---
 

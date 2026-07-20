@@ -39,6 +39,7 @@ import {
   type ColRef,
   type Executor,
   type MutationResult,
+  type QueryAccessor,
   type Result
 } from "../src/index.ts"
 type Equal<A, B> =
@@ -533,4 +534,32 @@ pipe(
   Author,
   query,
   where(() => eq(sameAuthor.name, "x"))
+)
+
+// --- reusable pinned fragments (QueryAccessor annotation) ---
+const authorCard = select(
+  (t: QueryAccessor<typeof Author>) => [t.id, t.name]
+)
+const withCard = pipe(Author, query, authorCard)
+type _withCard = Expect<
+  Equal<
+    Result<typeof withCard>,
+    Array<{ id: string; name: string }>
+  >
+>
+pipe(
+  Book,
+  query,
+  // @ts-expect-error a fragment pinned to Author rejects Book
+  authorCard
+)
+const isUrsula = where((t: QueryAccessor<typeof Author>) =>
+  ilike(t.name, "%u%")
+)
+pipe(Author, query, isUrsula)
+pipe(
+  Book,
+  query,
+  // @ts-expect-error a pinned predicate rejects the wrong table
+  isUrsula
 )
