@@ -595,8 +595,17 @@ function querySql(
             direction: "asc" | "desc"
             ref: NodeData
           }
-          const ref = d.ref as ColData
-          return `${compileColSql(root, ref)} ${d.direction.toUpperCase()}`
+          const refSql =
+            d.ref.kind === "col"
+              ? compileColSql(root, d.ref)
+              : d.ref.kind === "expr"
+                ? compileExprSql(root, d.ref, p)
+                : (() => {
+                    throw new Error(
+                      `Cannot order by a node of kind '${d.ref.kind}'`
+                    )
+                  })()
+          return `${refSql} ${d.direction.toUpperCase()}`
         })
         .join(", ")}`
     )

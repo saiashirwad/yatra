@@ -20,8 +20,16 @@ import {
   type RootOf
 } from "./ref.ts"
 import type { Tableish } from "./utils.ts"
-type ColValue<R> =
-  R extends ColRef<infer V, any, any> ? V : never
+type RefValue<R> =
+  R extends ColRef<infer V, any, any>
+    ? V
+    : R extends ExprRef<infer V, any>
+      ? V
+      : never
+/** Any ref that carries a value: a column or an expression. */
+type AnyValueRef =
+  | ColRef<any, any, any, any>
+  | ExprRef<any, any>
 // --- aliasing ---
 export function as<
   V,
@@ -70,64 +78,68 @@ const pred = <Root>(
   op: PredOp,
   args: readonly unknown[]
 ): PredRef<Root> => mk({ kind: "pred", op, args })
-export function eq<R extends ColRef<any, any, any>>(
+export function eq<R extends AnyValueRef>(
   ref: R,
-  value: NonNullable<ColValue<R>>
+  value: NonNullable<RefValue<R>>
 ): PredRef<RootOf<R>> {
   return pred("eq", [ref, value])
 }
-export function ne<R extends ColRef<any, any, any>>(
+export function ne<R extends AnyValueRef>(
   ref: R,
-  value: NonNullable<ColValue<R>>
+  value: NonNullable<RefValue<R>>
 ): PredRef<RootOf<R>> {
   return pred("ne", [ref, value])
 }
-export function gt<R extends ColRef<any, any, any>>(
+export function gt<R extends AnyValueRef>(
   ref: R,
-  value: NonNullable<ColValue<R>>
+  value: NonNullable<RefValue<R>>
 ): PredRef<RootOf<R>> {
   return pred("gt", [ref, value])
 }
-export function gte<R extends ColRef<any, any, any>>(
+export function gte<R extends AnyValueRef>(
   ref: R,
-  value: NonNullable<ColValue<R>>
+  value: NonNullable<RefValue<R>>
 ): PredRef<RootOf<R>> {
   return pred("gte", [ref, value])
 }
-export function lt<R extends ColRef<any, any, any>>(
+export function lt<R extends AnyValueRef>(
   ref: R,
-  value: NonNullable<ColValue<R>>
+  value: NonNullable<RefValue<R>>
 ): PredRef<RootOf<R>> {
   return pred("lt", [ref, value])
 }
-export function lte<R extends ColRef<any, any, any>>(
+export function lte<R extends AnyValueRef>(
   ref: R,
-  value: NonNullable<ColValue<R>>
+  value: NonNullable<RefValue<R>>
 ): PredRef<RootOf<R>> {
   return pred("lte", [ref, value])
 }
 export function like<
-  R extends ColRef<string | null, any, any>
+  R extends
+    | ColRef<string | null, any, any>
+    | ExprRef<string | null, any>
 >(ref: R, pattern: string): PredRef<RootOf<R>> {
   return pred("like", [ref, pattern])
 }
 export function ilike<
-  R extends ColRef<string | null, any, any>
+  R extends
+    | ColRef<string | null, any, any>
+    | ExprRef<string | null, any>
 >(ref: R, pattern: string): PredRef<RootOf<R>> {
   return pred("ilike", [ref, pattern])
 }
-export function inArray<R extends ColRef<any, any, any>>(
+export function inArray<R extends AnyValueRef>(
   ref: R,
-  values: readonly NonNullable<ColValue<R>>[]
+  values: readonly NonNullable<RefValue<R>>[]
 ): PredRef<RootOf<R>> {
   return pred("in", [ref, values])
 }
-export function isNull<R extends ColRef<any, any, any>>(
+export function isNull<R extends AnyValueRef>(
   ref: R
 ): PredRef<RootOf<R>> {
   return pred("isNull", [ref])
 }
-export function isNotNull<R extends ColRef<any, any, any>>(
+export function isNotNull<R extends AnyValueRef>(
   ref: R
 ): PredRef<RootOf<R>> {
   return pred("isNotNull", [ref])
@@ -179,7 +191,7 @@ export function whereExists<
   return pred("exists", [d, ...preds])
 }
 // --- ordering ---
-export function asc<R extends ColRef<any, any, any>>(
+export function asc<R extends AnyValueRef>(
   ref: R
 ): OrderRef<RootOf<R>> {
   return mk({
@@ -188,7 +200,7 @@ export function asc<R extends ColRef<any, any, any>>(
     ref: needData(ref)
   })
 }
-export function desc<R extends ColRef<any, any, any>>(
+export function desc<R extends AnyValueRef>(
   ref: R
 ): OrderRef<RootOf<R>> {
   return mk({
