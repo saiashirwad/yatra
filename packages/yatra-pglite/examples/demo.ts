@@ -178,6 +178,7 @@ const inserted = await pipe(
 
 console.log("\n--- insert + returning ---")
 console.dir(inserted, { depth: null })
+
 const updated = await pipe(
   Book,
   update({ price: 7.5 }),
@@ -185,11 +186,13 @@ const updated = await pipe(
   returning(b => [b.name, b.price]),
   run(exec)
 )
+
 console.log("\n--- update + returning ---")
 console.dir(updated, { depth: null })
+const deleteBook = pipe(Book, del)
+
 await pipe(
-  Book,
-  del,
+  deleteBook,
   where(b => isNull(b.price)),
   run(exec)
 )

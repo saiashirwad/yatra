@@ -6,7 +6,7 @@ import {
 } from "./columns/properties.ts"
 import {
   accessor,
-  type Accessor,
+  type QueryAccessor,
   type CheckItems,
   type MergeAll,
   type RequireTuple
@@ -188,8 +188,8 @@ export function returning<
   const NewItems extends readonly unknown[]
 >(
   fn: (
-    t: Accessor<T>
-  ) => CheckItems<NewItems> & RequireTuple<NewItems>
+    t: QueryAccessor<T>
+  ) => CheckItems<NewItems, T> & RequireTuple<NewItems>
 ): <
   Items extends readonly unknown[],
   X extends AnyMutationExtra

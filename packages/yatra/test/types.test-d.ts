@@ -1,4 +1,6 @@
 import {
+  accessor,
+  and,
   as,
   asc,
   autoIncrement,
@@ -469,4 +471,66 @@ pipe(
   del,
   // @ts-expect-error runOne is only for queries — use run(exec)
   runOne(exec)
+)
+
+// --- cross-query ref safety: refs are branded with their root table ---
+const foreignBook = accessor(Book)
+pipe(
+  Author,
+  query,
+  // @ts-expect-error a column from another table's accessor
+  select(t => [t.id, foreignBook.name])
+)
+pipe(
+  Author,
+  query,
+  // @ts-expect-error an aliased column from another table
+  select(t => [t.id, as(foreignBook.name, "bn")])
+)
+pipe(
+  Author,
+  query,
+  // @ts-expect-error an expression over another table's column
+  select(t => [t.id, as(lower(foreignBook.name), "bn")])
+)
+pipe(
+  Author,
+  query,
+  select(t => [
+    t.id,
+    // @ts-expect-error an aggregation over another table's relation
+    jsonAgg(foreignBook.tags, g => [g.id])
+  ])
+)
+pipe(
+  Author,
+  query,
+  // @ts-expect-error a predicate from another table
+  where(() => eq(foreignBook.name, "x"))
+)
+pipe(
+  Author,
+  query,
+  where(t =>
+    // @ts-expect-error mixed roots inside and()
+    and(ilike(t.name, "%x%"), eq(foreignBook.id, "1"))
+  )
+)
+pipe(
+  Author,
+  query,
+  // @ts-expect-error orderBy from another table
+  orderBy(() => asc(foreignBook.name))
+)
+// a module-level accessor of the SAME table is fine
+const sameAuthor = accessor(Author)
+pipe(
+  Author,
+  query,
+  select(t => [t.id, sameAuthor.name])
+)
+pipe(
+  Author,
+  query,
+  where(() => eq(sameAuthor.name, "x"))
 )

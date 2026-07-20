@@ -78,67 +78,88 @@ export type NodeData =
   | OrderData
   | RelData
 // --- type-level node brands ---
+// Every ref carries a phantom `Root`: the table whose accessor the ref
+// was born from. Query steps reject refs rooted at a different table.
+// `any` (the default) means unbranded — fragments and custom ops stay
+// table-agnostic.
 export interface ColRef<
   V = any,
   Key extends string = string,
-  Chain extends readonly ChainLink[] = readonly ChainLink[]
+  Chain extends readonly ChainLink[] = readonly ChainLink[],
+  Root = any
 > {
   readonly [RefData]: {
     readonly kind: "col"
     readonly value: V
     readonly key: Key
     readonly chain: Chain
+    readonly root: Root
   }
 }
-export interface ExprRef<V = any> {
+export interface ExprRef<V = any, Root = any> {
   readonly [RefData]: {
     readonly kind: "expr"
     readonly value: V
+    readonly root: Root
   }
 }
 export interface AliasedRef<
   V = any,
   Alias extends string = string,
-  Chain extends readonly ChainLink[] = readonly ChainLink[]
+  Chain extends readonly ChainLink[] = readonly ChainLink[],
+  Root = any
 > {
   readonly [RefData]: {
     readonly kind: "as"
     readonly value: V
     readonly alias: Alias
     readonly chain: Chain
+    readonly root: Root
   }
 }
 export interface AggRef<
   V = any,
-  Key extends string = string
+  Key extends string = string,
+  Root = any
 > {
   readonly [RefData]: {
     readonly kind: "agg"
     readonly value: V
     readonly key: Key
+    readonly root: Root
   }
 }
 export interface RelRef<
   D extends Tableish = Tableish,
-  Key extends string = string
+  Key extends string = string,
+  Root = any
 > {
   readonly [RefData]: {
     readonly kind: "rel"
     readonly dest: D
     readonly key: Key
+    readonly root: Root
   }
 }
-export interface PredRef {
+export interface PredRef<Root = any> {
   readonly [RefData]: {
     readonly kind: "pred"
+    readonly root: Root
   }
 }
-export interface OrderRef {
+export interface OrderRef<Root = any> {
   readonly [RefData]: {
     readonly kind: "order"
     readonly direction: "asc" | "desc"
+    readonly root: Root
   }
 }
+/** Extract the root-table brand from any ref (`any` = unbranded). */
+export type RootOf<R> = R extends {
+  readonly [RefData]: { readonly root: infer Rt }
+}
+  ? Rt
+  : never
 export function mk<N extends NodeData>(data: N): any {
   return { [RefData]: data }
 }
@@ -161,7 +182,8 @@ type RelsOf<T extends Tableish> = TableRelations<T>
 type RelAccess<
   R,
   K extends string,
-  Chain extends readonly ChainLink[]
+  Chain extends readonly ChainLink[],
+  Root
 > =
   R extends Relation<any, infer D>
     ? D extends Tableish
@@ -171,32 +193,45 @@ type RelAccess<
             readonly [
               ...Chain,
               { readonly name: K; readonly rel: RT }
-            ]
+            ],
+            Root
           > &
-            RelRef<D, K>
+            RelRef<D, K, Root>
         : never
       : never
     : never
 export type Accessor<
   T extends Tableish,
-  Chain extends readonly ChainLink[] = readonly []
+  Chain extends readonly ChainLink[] = readonly [],
+  Root = any
 > = {
   readonly [K in keyof FieldsOf<T> & string]: ColRef<
     InferColumn<FieldsOf<T>[K]>,
     K,
-    Chain
+    Chain,
+    Root
   >
 } & {
   readonly [K in keyof RelsOf<T> & string]: RelAccess<
     RelsOf<T>[K],
     K,
-    Chain
+    Chain,
+    Root
   >
 }
+/**
+ * The accessor a query/mutation callback receives: rooted at the
+ * query's own table, so refs from other tables can't slip in.
+ */
+export type QueryAccessor<T extends Tableish> = Accessor<
+  T,
+  readonly [],
+  T
+>
 export function accessor<T extends Tableish>(
   table: T,
   chain: readonly string[] = []
-): Accessor<T> {
+): QueryAccessor<T> {
   return new Proxy(
     {},
     {
@@ -215,7 +250,7 @@ export function accessor<T extends Tableish>(
         return undefined
       }
     }
-  ) as Accessor<T>
+  ) as QueryAccessor<T>
 }
 function relAccessor(
   relation: Relation<any, any>,
@@ -252,19 +287,26 @@ function relAccessor(
   })
 }
 // --- selection item validation ---
-export type CheckItem<Item> = Item extends
+type WrongRoot =
+  "This ref belongs to a different table — refs can't be shared across queries"
+export type CheckItem<Item, Root = any> = Item extends
   | ColRef<any, any, any>
   | AliasedRef<any, any, any>
   | AggRef<any, any>
-  ? Item
+  ? [RootOf<Item>] extends [Root]
+    ? Item
+    : WrongRoot
   : Item extends ExprRef<any>
     ? "Expressions need an alias: as(expr, 'name')"
     : "Selection items must be a column ref (t.id), an aliased expression as(expr, 'name'), or an aggregation jsonAgg(t.rel, ...)/count(t.rel) — a bare relation is not selectable"
 type Conform<T, Base> = T extends Base ? T : Base
-export type CheckItems<Items extends readonly unknown[]> = {
+export type CheckItems<
+  Items extends readonly unknown[],
+  Root = any
+> = {
   [K in keyof Items]: Conform<
     Items[K],
-    CheckItem<NoInfer<Items[K]>>
+    CheckItem<NoInfer<Items[K]>, Root>
   >
 }
 /**

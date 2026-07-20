@@ -1,11 +1,11 @@
 import {
   accessor,
-  type Accessor,
   type CheckItems,
   type MergeAll,
   type Mode,
   type OrderRef,
   type PredRef,
+  type QueryAccessor,
   type RequireTuple
 } from "./ref.ts"
 import type {
@@ -75,8 +75,8 @@ export function select<
   const NewItems extends readonly unknown[]
 >(
   fn: (
-    t: Accessor<T>
-  ) => CheckItems<NewItems> & RequireTuple<NewItems>
+    t: QueryAccessor<T>
+  ) => CheckItems<NewItems, T> & RequireTuple<NewItems>
 ): <M extends Mode, Items extends readonly unknown[], X>(
   ctx: QueryContext<T, M, Items, X>
 ) => QueryContext<
@@ -105,7 +105,9 @@ export function select<
   >
 }
 export function where<T extends Tableish>(
-  fn: (t: Accessor<T>) => PredRef | readonly PredRef[]
+  fn: (
+    t: QueryAccessor<T>
+  ) => PredRef<T> | readonly PredRef<T>[]
 ): <M extends Mode, Items extends readonly unknown[], X>(
   ctx: QueryContext<T, M, Items, X> &
     NoInsert<X, "insert does not take where">
@@ -129,7 +131,9 @@ export function where<T extends Tableish>(
   ) => QueryContext<T, M, Items, X>
 }
 export function orderBy<T extends Tableish>(
-  fn: (t: Accessor<T>) => OrderRef | readonly OrderRef[]
+  fn: (
+    t: QueryAccessor<T>
+  ) => OrderRef<T> | readonly OrderRef<T>[]
 ): <M extends Mode, Items extends readonly unknown[], X>(
   ctx: QueryContext<T, M, Items, X> &
     NoMutation<X, "mutations do not support orderBy">
