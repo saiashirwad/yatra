@@ -11,7 +11,11 @@ import type {
 } from "./utils.ts"
 export const RefData = Symbol.for("Yatra/Ref/Data")
 export type Mode = "flat" | "hydrate"
-export type PredOp =
+/**
+ * The ops core's own builders use. The IR itself is open: `PredData.op`
+ * is a plain string, so op packs can add their own (docs/compiler-composition.md).
+ */
+export type CorePredOp =
   | "eq"
   | "ne"
   | "gt"
@@ -37,10 +41,16 @@ export interface ColData {
   readonly chain: readonly string[]
   readonly key: string
 }
+/** A raw JS value. Every non-node op argument is wrapped in `lit` at
+ * build time, so interpreters never guess whether something is a node. */
+export interface LitData {
+  readonly kind: "lit"
+  readonly value: unknown
+}
 export interface ExprData {
   readonly kind: "expr"
   readonly op: string
-  readonly args: readonly unknown[]
+  readonly args: readonly NodeData[]
 }
 export interface AliasData {
   readonly kind: "as"
@@ -49,15 +59,15 @@ export interface AliasData {
 }
 export interface AggData {
   readonly kind: "agg"
-  readonly aggKind: "array" | "count"
+  readonly aggKind: string
   readonly relation: Relation<any, any>
   readonly key: string
-  readonly items: readonly unknown[]
+  readonly items: readonly NodeData[]
 }
 export interface PredData {
   readonly kind: "pred"
-  readonly op: PredOp
-  readonly args: readonly unknown[]
+  readonly op: string
+  readonly args: readonly NodeData[]
 }
 export interface OrderData {
   readonly kind: "order"
@@ -72,6 +82,7 @@ export interface RelData {
 }
 export type NodeData =
   | ColData
+  | LitData
   | ExprData
   | AliasData
   | AggData
@@ -176,6 +187,31 @@ export function needData(x: unknown): NodeData {
     throw new Error("Expected a yatra node")
   }
   return d
+}
+/** Wrap a raw JS value as a `lit` node — builders use this for every
+ * non-node argument so interpreters see only bare `NodeData`. */
+export const lit = (value: unknown): LitData => ({
+  kind: "lit",
+  value
+})
+/**
+ * Stable identity for a selection item. Selecting the same path twice
+ * is idempotent (see query.ts `select`), and compilers key result
+ * columns by it.
+ */
+export function selectionKey(
+  data: NodeData
+): string | undefined {
+  switch (data.kind) {
+    case "col":
+      return `col:${[...data.chain, data.key].join(".")}`
+    case "as":
+      return `as:${data.alias}`
+    case "agg":
+      return `agg:${data.key}`
+    default:
+      return undefined
+  }
 }
 // --- accessor ---
 type FieldsOf<T extends Tableish> = TableishFields<T>

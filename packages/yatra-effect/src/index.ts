@@ -75,7 +75,7 @@ export function runEffect<
 > {
   return Effect.gen(function* () {
     const exec = yield* YatraExecutor
-    const { sql, params } = toSQL(ctx)
+    const { sql, params, projection } = toSQL(ctx)
     const rows = yield* exec.query(sql, params)
     if ("kind" in ctx) {
       return (
@@ -85,7 +85,8 @@ export function runEffect<
     if (ctx.mode === "hydrate") {
       return hydrateRows(
         ctx as QueryContext<any, "hydrate", any>,
-        rows
+        rows,
+        projection
       ) as StatementResult<QueryContext<T, M, Items, X>>
     }
     return rows as StatementResult<

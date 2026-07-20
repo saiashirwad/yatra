@@ -17,6 +17,7 @@ import {
   isNotNull,
   isNull,
   jsonAgg,
+  jsonb,
   like,
   limit,
   lower,
@@ -62,7 +63,8 @@ class Book extends Table("book", {
   id: pipe(uuid, primaryKey),
   name: pipe(string),
   authorId: pipe(uuid),
-  price: pipe(number, nullable)
+  price: pipe(number, nullable),
+  payload: pipe(jsonb, nullable)
 }) {
   get author() {
     return manyToOne(
@@ -106,6 +108,9 @@ const OCTAVIA = "22222222-2222-2222-2222-222222222222"
 const EARTHSEA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 const LATHE = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
 const KINDRED = "cccccccc-cccc-cccc-cccc-cccccccccccc"
+// A legal JSON value that happens to look like a col node — it must
+// be treated as a value (lit), never as a column reference.
+const TRICKY = { kind: "col", chain: [], key: "x" }
 function seed(): DataSet {
   return {
     author: [
@@ -121,7 +126,8 @@ function seed(): DataSet {
         id: EARTHSEA,
         name: "Earthsea",
         authorId: URSULA,
-        price: 12.5
+        price: 12.5,
+        payload: TRICKY
       },
       {
         id: LATHE,
@@ -598,5 +604,72 @@ test("jsonAgg over many-to-many throws", () => {
         runMemory
       )(seed()),
     /many-to-many/
+  )
+})
+// --- FIXES.md regressions ---
+test("json values that look like nodes stay values, not columns", () => {
+  const rows = pipe(
+    Book,
+    query,
+    select(b => [b.name]),
+    where(b => eq(b.payload, TRICKY)),
+    runMemory
+  )(seed())
+  assert.deepEqual(rows, [{ name: "Earthsea" }])
+})
+test("selecting the same column twice yields one column", () => {
+  const rows = pipe(
+    Author,
+    query,
+    select(t => [t.id, t.name]),
+    select(t => [t.id]),
+    orderBy(t => asc(t.name)),
+    runMemory
+  )(seed())
+  assert.deepEqual(rows, [
+    { id: OCTAVIA, name: "Octavia" },
+    { id: URSULA, name: "Ursula" }
+  ])
+})
+test("limit/offset are inert at build time, validated at run time", () => {
+  const badLimit = limit(-1) // no throw here
+  assert.throws(
+    () =>
+      pipe(
+        Author,
+        query,
+        select(t => [t.id]),
+        badLimit,
+        runMemory
+      )(seed()),
+    /limit must be a non-negative integer/
+  )
+  const badOffset = offset(-1) // no throw here
+  assert.throws(
+    () =>
+      pipe(
+        Author,
+        query,
+        select(t => [t.id]),
+        badOffset,
+        runMemory
+      )(seed()),
+    /offset must be a non-negative integer/
+  )
+})
+test("alias collisions are diagnosed at plan time", () => {
+  assert.throws(
+    () =>
+      pipe(
+        Author,
+        query,
+        select(t => [
+          t.books.name,
+          as(lower(t.name), "books__name")
+        ]),
+        hydrate,
+        runMemory
+      )(seed()),
+    /duplicate result column 'books__name'/
   )
 })

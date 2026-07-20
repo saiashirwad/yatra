@@ -151,6 +151,14 @@ export class ManyToManyRelation<
   readonly joinTable: JT
   readonly sourceKey: SK
   readonly destinationKey: DK
+  /** column on the source table the join table points at */
+  readonly sourceField: string
+  /** column on the destination table the join table points at */
+  readonly destinationField: string
+  /** join-table column naming, resolved once here so every backend
+   * reads it from the relation instead of re-deriving it */
+  readonly joinSourceCol: string
+  readonly joinDestCol: string
   constructor(
     source: () => S,
     destination: () => D,
@@ -162,6 +170,14 @@ export class ManyToManyRelation<
     this.joinTable = joinTable
     this.sourceKey = sourceKey
     this.destinationKey = destinationKey
+    this.sourceField = String(sourceKey).split(".")[1]!
+    this.destinationField =
+      String(destinationKey).split(".")[1]!
+    this.joinSourceCol = String(sourceKey).replace(".", "_")
+    this.joinDestCol = String(destinationKey).replace(
+      ".",
+      "_"
+    )
   }
 }
 export function manyToMany<

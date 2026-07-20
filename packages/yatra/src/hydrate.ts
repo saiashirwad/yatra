@@ -1,7 +1,6 @@
-import { flatAlias } from "./compile.ts"
-import { dataOf } from "./ref.ts"
 import { info } from "./table.ts"
 import type { Tableish } from "./utils.ts"
+import type { ProjectionField } from "./plan.ts"
 import type { QueryContext, Result } from "./query.ts"
 interface FieldSpec {
   outKey: string
@@ -19,29 +18,18 @@ const emptyTree = (): SelTree => ({
   fields: [],
   children: []
 })
+// The nesting tree comes from the projection descriptor the emitter
+// produced — hydrate decodes what was emitted, it never re-derives
+// result column names.
 function buildTree(
   table: Tableish,
-  items: readonly unknown[]
+  projection: readonly ProjectionField[]
 ): SelTree {
   const root = emptyTree()
-  for (const item of items) {
-    const data = dataOf(item)
-    if (!data) continue
-    if (data.kind === "as") {
-      root.fields.push({
-        outKey: data.alias,
-        col: data.alias
-      })
-      continue
-    }
-    if (data.kind === "agg") {
-      root.fields.push({ outKey: data.key, col: data.key })
-      continue
-    }
-    if (data.kind !== "col") continue
+  for (const field of projection) {
     let tree = root
     let current = table
-    for (const seg of data.chain) {
+    for (const seg of field.chain) {
       let child = tree.children.find(c => c.name === seg)
       if (!child) {
         const relation = info(current).relations[seg]
@@ -58,11 +46,8 @@ function buildTree(
       tree = child.tree
     }
     tree.fields.push({
-      outKey: data.key,
-      col:
-        data.chain.length > 0
-          ? flatAlias([...data.chain, data.key].join("."))
-          : data.key
+      outKey: field.outKey,
+      col: field.col
     })
   }
   return root
@@ -114,15 +99,16 @@ export function hydrateRows<
   Items extends readonly unknown[]
 >(
   ctx: QueryContext<T, "hydrate", Items>,
-  rows: readonly Record<string, unknown>[]
+  rows: readonly Record<string, unknown>[],
+  projection: readonly ProjectionField[]
 ): Result<QueryContext<T, "hydrate", Items>> {
-  if (ctx.selection.length === 0) {
+  if (projection.length === 0) {
     // SELECT t.* with no joins: rows are already the full row shape
     return rows as unknown as Result<
       QueryContext<T, "hydrate", Items>
     >
   }
-  const tree = buildTree(ctx.table, ctx.selection)
+  const tree = buildTree(ctx.table, projection)
   return group(tree, rows) as Result<
     QueryContext<T, "hydrate", Items>
   >

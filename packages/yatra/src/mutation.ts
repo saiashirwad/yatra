@@ -12,6 +12,7 @@ import {
   type RequireTuple
 } from "./ref.ts"
 import type { QueryContext } from "./query.ts"
+import { appendSelection } from "./query.ts"
 import type { FieldsRecord, InferColumn } from "./table.ts"
 import type {
   Clean,
@@ -201,13 +202,12 @@ export function returning<
   readonly [...Items, ...NewItems],
   X
 > {
-  return (ctx => ({
+  return ((ctx: QueryContext<T, "flat", any, any>) => ({
     ...ctx,
-    selection: [
-      ...ctx.selection,
+    selection: appendSelection(ctx.selection, [
       ...(fn(accessor(ctx.table)) as unknown as NewItems)
-    ]
-  })) as <
+    ])
+  })) as unknown as <
     Items extends readonly unknown[],
     X extends AnyMutationExtra
   >(

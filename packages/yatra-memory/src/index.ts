@@ -1,20 +1,23 @@
 import {
-  dataOf,
-  flatAlias,
   hydrateRows,
-  info,
-  ManyToManyRelation,
+  plan,
+  planScope,
+  projectionOf,
+  resolveJoin,
   tableFields,
   tableName,
   type AggData,
   type ExprData,
+  type LitData,
   type Mode,
   type NodeData,
   type NoMutation,
-  type OrderData,
+  type Plan,
+  type PlanJoin,
+  type PlanNode,
   type PredData,
+  type ProjectionField,
   type QueryContext,
-  type Relation,
   type RelData,
   type Row,
   type StatementResult,
@@ -22,9 +25,9 @@ import {
 } from "yatra"
 /**
  * Tables as plain arrays, keyed by table name. Many-to-many join tables
- * live under their join-table name, with columns named like the SQL
- * compiler expects: `sourceKey.replace(".", "_")` (e.g. `"author.id"`
- * becomes `author_id`). A missing table reads as an empty array; insert
+ * live under their join-table name, with columns named by the relation
+ * metadata (`joinSourceCol` / `joinDestCol`, e.g. `"author.id"` becomes
+ * `author_id`). A missing table reads as an empty array; insert
  * creates it.
  */
 export type DataSet = Record<
@@ -34,136 +37,37 @@ export type DataSet = Record<
 type RowValue = Record<string, unknown>
 /** One joined tuple: chain path (`""` = root) → row, or null on a failed LEFT JOIN. */
 type Tuple = Record<string, RowValue | null>
-// --- join tree (same shape as compile.ts) ---
-interface TreeNode {
-  table: Tableish
-  name?: string
-  relation?: Relation<any, any>
-  children: Map<string, TreeNode>
-}
-const makeRoot = (table: Tableish): TreeNode => ({
-  table,
-  children: new Map()
-})
-function ensureChain(
-  root: TreeNode,
-  chain: readonly string[]
-) {
-  let node = root
-  for (const seg of chain) {
-    let child = node.children.get(seg)
-    if (!child) {
-      const relation = info(node.table).relations[seg]
-      if (!relation) {
-        throw new Error(
-          `'${seg}' is not a relation of table '${tableName(node.table)}'`
-        )
-      }
-      child = {
-        name: seg,
-        relation,
-        table: relation.destinationTable,
-        children: new Map()
-      }
-      node.children.set(seg, child)
-    }
-    node = child
-  }
-}
-function collectChains(
-  data: NodeData,
-  out: Array<readonly string[]>
-) {
-  switch (data.kind) {
-    case "col":
-      out.push(data.chain)
-      break
-    case "as":
-      collectChains(data.target, out)
-      break
-    case "expr":
-      for (const a of data.args) {
-        const d = argData(a)
-        if (d) collectChains(d, out)
-      }
-      break
-    case "pred":
-      if (data.op === "exists") {
-        // the relation is matched in the subquery, not joined —
-        // only its parent chain joins at this level
-        out.push(
-          (data.args[0] as RelData).chain.slice(0, -1)
-        )
-        break
-      }
-      for (const a of data.args) {
-        const d = argData(a)
-        if (d) collectChains(d, out)
-      }
-      break
-    case "order":
-      collectChains(data.ref, out)
-      break
-    default:
-      break
-  }
-}
-// --- join matching ---
-function joinColumns(
-  rel: { foreignKey: unknown; referencedKey?: unknown },
-  destName: string
-): [sourceCol: string, destCol: string] {
-  const fk = String(rel.foreignKey)
-  const rk = String(rel.referencedKey)
-  const [fkTable, fkCol] = fk.split(".")
-  const [rkTable, rkCol] = rk.split(".")
-  if (fkCol === undefined || rkCol === undefined) {
-    throw new Error(
-      `Join keys must be qualified ('table.column'), got foreignKey='${fk}' referencedKey='${rk}'`
-    )
-  }
-  return fkTable === destName
-    ? [rkCol, fkCol]
-    : rkTable === destName
-      ? [fkCol, rkCol]
-      : [fkCol, rkCol]
-}
+// --- join matching (keys resolved by the plan) ---
 function findMatches(
-  rel: Relation<any, any>,
+  join: PlanJoin,
   parentRow: RowValue,
-  data: DataSet
+  data: DataSet,
+  destTable: Tableish
 ): RowValue[] {
-  const destRows =
-    data[tableName(rel.destinationTable)] ?? []
-  if (rel instanceof ManyToManyRelation) {
-    const jtRows = data[rel.joinTable] ?? []
-    const srcField = rel.sourceKey.split(".")[1]!
-    const dstField = rel.destinationKey.split(".")[1]!
-    const srcJT = rel.sourceKey.replace(".", "_")
-    const dstJT = rel.destinationKey.replace(".", "_")
-    const v = parentRow[srcField]
+  const destRows = data[tableName(destTable)] ?? []
+  if (join.kind === "m2m") {
+    const jtRows = data[join.joinTable] ?? []
+    const v = parentRow[join.sourceField]
     if (v == null) return []
     return destRows.filter(d => {
-      const dv = d[dstField]
+      const dv = d[join.destinationField]
       return (
         dv != null &&
         jtRows.some(
-          jt => jt[srcJT] === v && jt[dstJT] === dv
+          jt =>
+            jt[join.joinSourceCol] === v &&
+            jt[join.joinDestCol] === dv
         )
       )
     })
   }
-  const [srcCol, dstCol] = joinColumns(
-    rel as any,
-    tableName(rel.destinationTable)
-  )
-  const v = parentRow[srcCol]
+  const v = parentRow[join.sourceCol]
   if (v == null) return []
-  return destRows.filter(d => d[dstCol] === v)
+  return destRows.filter(d => d[join.destCol] === v)
 }
 // LEFT JOIN expansion: every tuple gets every tree path, null-filled.
 function expandNode(
-  node: TreeNode,
+  node: PlanNode,
   path: string,
   tuples: Tuple[],
   data: DataSet
@@ -174,7 +78,12 @@ function expandNode(
     for (const t of tuples) {
       const parentRow = t[path]
       const matches = parentRow
-        ? findMatches(child.relation!, parentRow, data)
+        ? findMatches(
+            child.join!,
+            parentRow,
+            data,
+            child.table
+          )
         : []
       if (matches.length === 0) {
         next.push({ ...t, [childPath]: null })
@@ -195,6 +104,8 @@ function evalValue(tuple: Tuple, d: NodeData): unknown {
       const row = tuple[d.chain.join(".")]
       return row ? (row[d.key] ?? null) : null
     }
+    case "lit":
+      return d.value
     case "expr":
       return evalExpr(tuple, d)
     case "as":
@@ -205,48 +116,23 @@ function evalValue(tuple: Tuple, d: NodeData): unknown {
       )
   }
 }
-// Ops store arguments inconsistently: predicate args are node objects
-// (RefData-branded), expression args are bare NodeData. Accept both.
-const NODE_KINDS = new Set([
-  "col",
-  "expr",
-  "as",
-  "agg",
-  "pred",
-  "order",
-  "rel"
-])
-function argData(a: unknown): NodeData | undefined {
-  const d = dataOf(a)
-  if (d) return d
-  if (
-    typeof a === "object" &&
-    a !== null &&
-    NODE_KINDS.has((a as NodeData).kind)
-  ) {
-    return a as NodeData
-  }
-  return undefined
-}
-function evalArg(tuple: Tuple, a: unknown): unknown {
-  const d = argData(a)
-  return d ? evalValue(tuple, d) : a
-}
 function evalExpr(tuple: Tuple, e: ExprData): unknown {
   switch (e.op) {
     case "lower": {
-      const v = evalArg(tuple, e.args[0])
+      const v = evalValue(tuple, e.args[0])
       return v == null ? null : String(v).toLowerCase()
     }
     case "mul": {
-      const a = evalArg(tuple, e.args[0])
-      const b = evalArg(tuple, e.args[1])
+      const a = evalValue(tuple, e.args[0])
+      const b = evalValue(tuple, e.args[1])
       return a == null || b == null
         ? null
         : Number(a) * Number(b)
     }
     default:
-      throw new Error(`Unknown expression op '${e.op}'`)
+      throw new Error(
+        `no eval handler for expr op '${e.op}' (backend 'memory')`
+      )
   }
 }
 // --- predicates (SQL three-valued logic: null is not true) ---
@@ -262,9 +148,8 @@ function evalPred(
   p: PredData,
   data: DataSet
 ): boolean | null {
-  const sub = (a: unknown): boolean | null => {
-    const d = argData(a)
-    if (!d || d.kind !== "pred") {
+  const sub = (d: NodeData): boolean | null => {
+    if (d.kind !== "pred") {
       throw new Error("Expected a predicate")
     }
     return evalPred(tuple, d, data)
@@ -272,21 +157,21 @@ function evalPred(
   const [a0, a1] = p.args
   switch (p.op) {
     case "eq": {
-      const x = evalArg(tuple, a0)
-      const y = evalArg(tuple, a1)
+      const x = evalValue(tuple, a0)
+      const y = evalValue(tuple, a1)
       return x == null || y == null ? null : x === y
     }
     case "ne": {
-      const x = evalArg(tuple, a0)
-      const y = evalArg(tuple, a1)
+      const x = evalValue(tuple, a0)
+      const y = evalValue(tuple, a1)
       return x == null || y == null ? null : x !== y
     }
     case "gt":
     case "gte":
     case "lt":
     case "lte": {
-      const x = evalArg(tuple, a0) as any
-      const y = evalArg(tuple, a1) as any
+      const x = evalValue(tuple, a0) as any
+      const y = evalValue(tuple, a1) as any
       if (x == null || y == null) return null
       return p.op === "gt"
         ? x > y
@@ -298,25 +183,28 @@ function evalPred(
     }
     case "like":
     case "ilike": {
-      const x = evalArg(tuple, a0)
-      const y = evalArg(tuple, a1)
+      const x = evalValue(tuple, a0)
+      const y = evalValue(tuple, a1)
       if (x == null || y == null) return null
       return likeRegex(String(y), p.op === "ilike").test(
         String(x)
       )
     }
     case "in": {
-      const x = evalArg(tuple, a0)
+      const x = evalValue(tuple, a0)
       if (x == null) return null
-      return (a1 as readonly unknown[]).some(v => v === x)
+      const values = (a1 as LitData)
+        .value as readonly unknown[]
+      return values.some(v => v === x)
     }
     case "isNull":
-      return evalArg(tuple, a0) == null
+      return evalValue(tuple, a0) == null
     case "isNotNull":
-      return evalArg(tuple, a0) != null
+      return evalValue(tuple, a0) != null
     case "exists": {
       const rel = p.args[0] as RelData
-      if (rel.relation instanceof ManyToManyRelation) {
+      const join = resolveJoin(rel.relation)
+      if (join.kind === "m2m") {
         throw new Error(
           "whereExists over many-to-many relations is not supported yet"
         )
@@ -325,14 +213,16 @@ function evalPred(
         tuple[rel.chain.slice(0, -1).join(".")]
       if (!parentRow) return false
       let matches = findMatches(
-        rel.relation,
+        join,
         parentRow,
-        data
+        data,
+        rel.relation.destinationTable
       )
       for (const sp of p.args.slice(1)) {
-        const d = argData(sp) as PredData
         matches = matches.filter(
-          m => evalPred({ "": m }, d, data) === true
+          m =>
+            evalPred({ "": m }, sp as PredData, data) ===
+            true
         )
       }
       return matches.length > 0
@@ -359,6 +249,10 @@ function evalPred(
       const v = sub(a0)
       return v === null ? null : !v
     }
+    default:
+      throw new Error(
+        `no eval handler for pred op '${p.op}' (backend 'memory')`
+      )
   }
 }
 // --- aggregations (correlated to the tuple's root row) ---
@@ -367,25 +261,33 @@ function evalAgg(
   spec: AggData,
   data: DataSet
 ): unknown {
-  const relation = spec.relation
-  if (relation instanceof ManyToManyRelation) {
+  const join = resolveJoin(spec.relation)
+  if (join.kind === "m2m") {
     throw new Error(
       "jsonAgg/count over many-to-many relations is not supported yet"
     )
   }
   const matches = rootRow
-    ? findMatches(relation, rootRow, data)
+    ? findMatches(
+        join,
+        rootRow,
+        data,
+        spec.relation.destinationTable
+      )
     : []
   if (spec.aggKind === "count") {
     return matches.length
   }
-  const subRoot = makeRoot(relation.destinationTable)
-  const chains: Array<readonly string[]> = []
-  for (const item of spec.items) {
-    const d = dataOf(item)
-    if (d) collectChains(d, chains)
+  if (spec.aggKind !== "array") {
+    throw new Error(
+      `no eval handler for agg kind '${spec.aggKind}' (backend 'memory')`
+    )
   }
-  for (const chain of chains) ensureChain(subRoot, chain)
+  const subRoot = planScope(
+    spec.relation.destinationTable,
+    spec.items
+  )
+  const subProj = projectionOf(spec.items, "hydrate")
   const seen = new Set<string>()
   const out: RowValue[] = []
   for (const m of matches) {
@@ -395,7 +297,7 @@ function evalAgg(
       [{ "": m }],
       data
     )) {
-      const obj = projectRow(t, spec.items, "hydrate", data)
+      const obj = projectRow(t, spec.items, subProj, data)
       const key = JSON.stringify(obj)
       if (!seen.has(key)) {
         seen.add(key)
@@ -405,33 +307,23 @@ function evalAgg(
   }
   return out
 }
-// --- projection (alias rules mirrored from compile.ts) ---
-function projectItem(
+// --- projection (keys come from the plan's descriptor) ---
+function evalItem(
   tuple: Tuple,
   d: NodeData,
-  mode: Mode,
   data: DataSet
-): [key: string, value: unknown] {
+): unknown {
   switch (d.kind) {
-    case "col": {
-      const dotted = [...d.chain, d.key].join(".")
-      const key =
-        d.chain.length > 0
-          ? mode === "hydrate"
-            ? flatAlias(dotted)
-            : dotted
-          : d.key
-      return [key, evalValue(tuple, d)]
-    }
+    case "col":
+    case "lit":
+    case "expr":
+      return evalValue(tuple, d)
     case "as":
-      return [
-        d.alias,
-        d.target.kind === "agg"
-          ? evalAgg(tuple[""] ?? null, d.target, data)
-          : evalValue(tuple, d.target)
-      ]
+      return d.target.kind === "agg"
+        ? evalAgg(tuple[""] ?? null, d.target, data)
+        : evalValue(tuple, d.target)
     case "agg":
-      return [d.key, evalAgg(tuple[""] ?? null, d, data)]
+      return evalAgg(tuple[""] ?? null, d, data)
     default:
       throw new Error(
         `Item of kind '${d.kind}' is not selectable`
@@ -440,63 +332,61 @@ function projectItem(
 }
 function projectRow(
   tuple: Tuple,
-  items: readonly unknown[],
-  mode: Mode,
+  selection: readonly NodeData[],
+  projection: readonly ProjectionField[],
   data: DataSet
 ): RowValue {
   const row: RowValue = {}
-  for (const item of items) {
-    const d = dataOf(item)
-    if (!d) {
-      throw new Error(
-        `Invalid selection item: ${String(item)}`
-      )
-    }
-    const [key, value] = projectItem(tuple, d, mode, data)
-    row[key] = value
+  for (let i = 0; i < selection.length; i++) {
+    row[projection[i].col] = evalItem(
+      tuple,
+      selection[i],
+      data
+    )
   }
   return row
 }
+/** limit/offset are inert `lit` nodes — interpreters validate them. */
+function bound(
+  node: LitData | undefined,
+  what: string
+): number | undefined {
+  if (node === undefined) return undefined
+  const v = node.value
+  if (
+    typeof v !== "number" ||
+    !Number.isInteger(v) ||
+    v < 0
+  ) {
+    throw new Error(
+      `${what} must be a non-negative integer`
+    )
+  }
+  return v
+}
 // --- queries ---
 function runQuery(
+  planned: Plan,
   ctx: QueryContext<any, any, any, any>,
   data: DataSet
 ): unknown {
-  const root = makeRoot(ctx.table)
-  const chains: Array<readonly string[]> = []
-  for (const item of ctx.selection) {
-    const d = dataOf(item)
-    if (d) collectChains(d, chains)
-  }
-  for (const w of ctx.where) {
-    const d = dataOf(w)
-    if (d) collectChains(d, chains)
-  }
-  for (const o of ctx.orderBy) {
-    const d = dataOf(o)
-    if (d) collectChains(d, chains)
-  }
-  for (const chain of chains) ensureChain(root, chain)
   let tuples = expandNode(
-    root,
+    planned.root,
     "",
-    (data[tableName(ctx.table)] ?? []).map(r => ({
+    (data[tableName(planned.table)] ?? []).map(r => ({
       "": r
     })),
     data
   )
-  if (ctx.where.length > 0) {
+  if (planned.where.length > 0) {
     tuples = tuples.filter(t =>
-      ctx.where.every(
-        w =>
-          evalPred(t, dataOf(w) as PredData, data) === true
+      planned.where.every(
+        w => evalPred(t, w, data) === true
       )
     )
   }
-  if (ctx.orderBy.length > 0) {
-    const orders = ctx.orderBy.map(
-      o => dataOf(o) as OrderData
-    )
+  if (planned.orderBy.length > 0) {
+    const orders = planned.orderBy
     tuples = [...tuples].sort((a, b) => {
       for (const o of orders) {
         const va = evalValue(a, o.ref) as any
@@ -519,44 +409,54 @@ function runQuery(
       return 0
     })
   }
-  const start = ctx.offset ?? 0
+  const start = bound(planned.offset, "offset") ?? 0
+  const limitN = bound(planned.limit, "limit")
   const end =
-    ctx.limit !== undefined ? start + ctx.limit : undefined
+    limitN !== undefined ? start + limitN : undefined
   tuples = tuples.slice(start, end)
   const rows =
-    ctx.selection.length > 0
+    planned.selection.length > 0
       ? tuples.map(t =>
-          projectRow(t, ctx.selection, ctx.mode, data)
+          projectRow(
+            t,
+            planned.selection,
+            planned.projection,
+            data
+          )
         )
       : tuples.map(t => ({ ...t[""] }))
-  if (ctx.mode === "hydrate" && ctx.selection.length > 0) {
+  if (
+    planned.mode === "hydrate" &&
+    planned.selection.length > 0
+  ) {
     return hydrateRows(
       ctx as QueryContext<any, "hydrate", any>,
-      rows
+      rows,
+      planned.projection
     )
   }
   return rows
 }
 // --- mutations ---
 function runMutation(
-  ctx: QueryContext<any, any, any, any>,
+  planned: Plan,
   data: DataSet
 ): unknown {
-  if ((ctx.mode as string) !== "flat") {
+  if ((planned.mode as string) !== "flat") {
     throw new Error("mutations do not support hydrate")
   }
   if (
-    ctx.orderBy.length > 0 ||
-    ctx.limit !== undefined ||
-    ctx.offset !== undefined
+    planned.orderBy.length > 0 ||
+    planned.limit !== undefined ||
+    planned.offset !== undefined
   ) {
     throw new Error(
       "mutations do not support orderBy/limit/offset"
     )
   }
-  const base = tableName(ctx.table)
+  const base = tableName(planned.table)
   const table = (data[base] ??= [])
-  const fields = tableFields(ctx.table)
+  const fields = tableFields(planned.table)
   const checkKeys = (keys: Iterable<string>) => {
     for (const k of keys) {
       if (!(k in fields)) {
@@ -567,9 +467,9 @@ function runMutation(
     }
   }
   let affected: RowValue[]
-  if (ctx.kind === "insert") {
-    const rows = ctx.rows ?? []
-    if (ctx.where.length > 0) {
+  if (planned.kind === "insert") {
+    const rows = planned.rows ?? []
+    if (planned.where.length > 0) {
       throw new Error("insert does not take where")
     }
     if (rows.length === 0) {
@@ -579,8 +479,8 @@ function runMutation(
     // No DEFAULT/AUTOINCREMENT synthesis: rows land as given.
     affected = rows.map(r => ({ ...r }))
     table.push(...affected)
-  } else if (ctx.kind === "update") {
-    const set = ctx.set ?? {}
+  } else if (planned.kind === "update") {
+    const set = planned.set ?? {}
     const keys = Object.keys(set)
     if (keys.length === 0) {
       throw new Error(
@@ -589,26 +489,16 @@ function runMutation(
     }
     checkKeys(keys)
     affected = table.filter(row =>
-      ctx.where.every(
-        w =>
-          evalPred(
-            { "": row },
-            dataOf(w) as PredData,
-            data
-          ) === true
+      planned.where.every(
+        w => evalPred({ "": row }, w, data) === true
       )
     )
     for (const row of affected) Object.assign(row, set)
   } else {
     const matched = new Set(
       table.filter(row =>
-        ctx.where.every(
-          w =>
-            evalPred(
-              { "": row },
-              dataOf(w) as PredData,
-              data
-            ) === true
+        planned.where.every(
+          w => evalPred({ "": row }, w, data) === true
         )
       )
     )
@@ -619,11 +509,16 @@ function runMutation(
       ...table.filter(row => !matched.has(row))
     )
   }
-  if (ctx.selection.length === 0) {
+  if (planned.selection.length === 0) {
     return undefined
   }
   return affected.map(row =>
-    projectRow({ "": row }, ctx.selection, "flat", data)
+    projectRow(
+      { "": row },
+      planned.selection,
+      planned.projection,
+      data
+    )
   )
 }
 /**
@@ -639,10 +534,11 @@ export function evalQuery<
   ctx: QueryContext<T, M, Items, X>,
   data: DataSet
 ): StatementResult<QueryContext<T, M, Items, X>> {
+  const planned = plan(ctx)
   const out =
-    "kind" in ctx
-      ? runMutation(ctx, data)
-      : runQuery(ctx, data)
+    planned.kind !== undefined
+      ? runMutation(planned, data)
+      : runQuery(planned, ctx, data)
   return out as StatementResult<
     QueryContext<T, M, Items, X>
   >

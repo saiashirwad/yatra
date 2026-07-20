@@ -1,8 +1,13 @@
 import {
   accessor,
+  dataOf,
+  lit,
+  selectionKey,
   type CheckItems,
+  type LitData,
   type MergeAll,
   type Mode,
+  type NodeData,
   type OrderRef,
   type PredRef,
   type QueryAccessor,
@@ -29,8 +34,9 @@ export interface QueryContext<
   readonly selection: Items
   readonly where: readonly PredRef[]
   readonly orderBy: readonly OrderRef[]
-  readonly limit?: number
-  readonly offset?: number
+  /** stored as inert `lit` nodes; compilers validate and parametrize */
+  readonly limit?: LitData
+  readonly offset?: LitData
   /** phantom carrier for statement extras (InsertExtra & co.) */
   readonly x?: X
   // mutation payload (runtime side of X; absent on plain queries)
@@ -70,6 +76,32 @@ export function query<T extends Tableish>(
     orderBy: []
   }
 }
+/**
+ * Append selection items, dropping any whose path is already selected —
+ * two fragments contributing `t.id` produce one column, not two.
+ */
+export function appendSelection(
+  selection: readonly unknown[],
+  items: readonly unknown[]
+): unknown[] {
+  const seen = new Set(
+    selection.map(item => {
+      const d = dataOf(item)
+      return d ? selectionKey(d) : undefined
+    })
+  )
+  const out = [...selection]
+  for (const item of items) {
+    const d: NodeData | undefined = dataOf(item)
+    const key = d ? selectionKey(d) : undefined
+    if (key !== undefined) {
+      if (seen.has(key)) continue
+      seen.add(key)
+    }
+    out.push(item)
+  }
+  return out
+}
 export function select<
   T extends Tableish,
   const NewItems extends readonly unknown[]
@@ -85,13 +117,12 @@ export function select<
   readonly [...Items, ...NewItems],
   X
 > {
-  return (ctx => ({
+  return ((ctx: QueryContext<T, any, any, any>) => ({
     ...ctx,
-    selection: [
-      ...ctx.selection,
+    selection: appendSelection(ctx.selection, [
       ...(fn(accessor(ctx.table)) as unknown as NewItems)
-    ]
-  })) as <
+    ])
+  })) as unknown as <
     M extends Mode,
     Items extends readonly unknown[],
     X
@@ -167,9 +198,6 @@ export function hydrate<
   return { ...ctx, mode: "hydrate" }
 }
 export function limit<const N extends number>(n: N) {
-  if (!Number.isInteger(n) || n < 0) {
-    throw new Error("limit must be a non-negative integer")
-  }
   return <
     T extends Tableish,
     M extends Mode,
@@ -179,13 +207,10 @@ export function limit<const N extends number>(n: N) {
     ctx: QueryContext<T, M, Items, X> &
       NoMutation<X, "mutations do not support limit">
   ): QueryContext<T, M, Items, X> => {
-    return { ...ctx, limit: n }
+    return { ...ctx, limit: lit(n) }
   }
 }
 export function offset<const N extends number>(n: N) {
-  if (!Number.isInteger(n) || n < 0) {
-    throw new Error("offset must be a non-negative integer")
-  }
   return <
     T extends Tableish,
     M extends Mode,
@@ -195,7 +220,7 @@ export function offset<const N extends number>(n: N) {
     ctx: QueryContext<T, M, Items, X> &
       NoMutation<X, "mutations do not support offset">
   ): QueryContext<T, M, Items, X> => {
-    return { ...ctx, offset: n }
+    return { ...ctx, offset: lit(n) }
   }
 }
 /** Every column of the table as a result row (SELECT t.* shape). */

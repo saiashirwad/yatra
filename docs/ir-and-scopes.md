@@ -71,4 +71,4 @@ Node kinds drop from seven to about five: `col`, `lit`, `expr`, `as`, `order`, p
 
 ## Status
 
-Design note. Enables and is enabled by: compiler-composition.md (the registry's scope services assume these node shapes), link-and-joins.md (`link` is `LinkData`), query-values-and-scopes.md (query values are `SourceData`), shapes.md (the surface that desugars to this IR). Sequencing: `lit` + uniform args + open op tags first (cheap, fixes a live bug — see FIXES.md), statements-as-nodes next, explicit scopes last and largest.
+Design note. Enables and is enabled by: compiler-composition.md (the registry's scope services assume these node shapes), link-and-joins.md (`link` is `LinkData`), query-values-and-scopes.md (query values are `SourceData`), shapes.md (the surface that desugars to this IR). Sequencing: `lit` + uniform args + open op tags first (done — see FIXES.md), statements-as-nodes next, explicit scopes last and largest.

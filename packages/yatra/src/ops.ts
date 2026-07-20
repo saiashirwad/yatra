@@ -1,6 +1,7 @@
 import {
   accessor,
   dataOf,
+  lit,
   mk,
   needData,
   type Accessor,
@@ -10,10 +11,11 @@ import {
   type ChainLink,
   type CheckItems,
   type ColRef,
+  type CorePredOp,
   type ExprRef,
   type MergeAll,
+  type NodeData,
   type OrderRef,
-  type PredOp,
   type PredRef,
   type RelData,
   type RelRef,
@@ -60,7 +62,7 @@ export function lower<V extends string | null, Root>(
   return mk({
     kind: "expr",
     op: "lower",
-    args: [dataOf(ref)]
+    args: [needData(ref)]
   })
 }
 export function mul<V extends number | null, Root>(
@@ -70,79 +72,80 @@ export function mul<V extends number | null, Root>(
   return mk({
     kind: "expr",
     op: "mul",
-    args: [dataOf(ref), n]
+    args: [needData(ref), lit(n)]
   })
 }
 // --- predicates ---
+// Args are bare NodeData: refs are unwrapped, raw values become `lit`.
 const pred = <Root>(
-  op: PredOp,
-  args: readonly unknown[]
+  op: CorePredOp,
+  args: readonly NodeData[]
 ): PredRef<Root> => mk({ kind: "pred", op, args })
 export function eq<R extends AnyValueRef>(
   ref: R,
   value: NonNullable<RefValue<R>>
 ): PredRef<RootOf<R>> {
-  return pred("eq", [ref, value])
+  return pred("eq", [needData(ref), lit(value)])
 }
 export function ne<R extends AnyValueRef>(
   ref: R,
   value: NonNullable<RefValue<R>>
 ): PredRef<RootOf<R>> {
-  return pred("ne", [ref, value])
+  return pred("ne", [needData(ref), lit(value)])
 }
 export function gt<R extends AnyValueRef>(
   ref: R,
   value: NonNullable<RefValue<R>>
 ): PredRef<RootOf<R>> {
-  return pred("gt", [ref, value])
+  return pred("gt", [needData(ref), lit(value)])
 }
 export function gte<R extends AnyValueRef>(
   ref: R,
   value: NonNullable<RefValue<R>>
 ): PredRef<RootOf<R>> {
-  return pred("gte", [ref, value])
+  return pred("gte", [needData(ref), lit(value)])
 }
 export function lt<R extends AnyValueRef>(
   ref: R,
   value: NonNullable<RefValue<R>>
 ): PredRef<RootOf<R>> {
-  return pred("lt", [ref, value])
+  return pred("lt", [needData(ref), lit(value)])
 }
 export function lte<R extends AnyValueRef>(
   ref: R,
   value: NonNullable<RefValue<R>>
 ): PredRef<RootOf<R>> {
-  return pred("lte", [ref, value])
+  return pred("lte", [needData(ref), lit(value)])
 }
 export function like<
   R extends
     | ColRef<string | null, any, any>
     | ExprRef<string | null, any>
 >(ref: R, pattern: string): PredRef<RootOf<R>> {
-  return pred("like", [ref, pattern])
+  return pred("like", [needData(ref), lit(pattern)])
 }
 export function ilike<
   R extends
     | ColRef<string | null, any, any>
     | ExprRef<string | null, any>
 >(ref: R, pattern: string): PredRef<RootOf<R>> {
-  return pred("ilike", [ref, pattern])
+  return pred("ilike", [needData(ref), lit(pattern)])
 }
 export function inArray<R extends AnyValueRef>(
   ref: R,
   values: readonly NonNullable<RefValue<R>>[]
 ): PredRef<RootOf<R>> {
-  return pred("in", [ref, values])
+  return pred("in", [needData(ref), lit(values)])
 }
 export function isNull<R extends AnyValueRef>(
   ref: R
 ): PredRef<RootOf<R>> {
-  return pred("isNull", [ref])
+  return pred("isNull", [needData(ref)])
 }
 export function isNotNull<R extends AnyValueRef>(
   ref: R
 ): PredRef<RootOf<R>> {
-  return pred("isNotNull", [ref])
+  return pred("isNotNull", [needData(ref)])
 }
 type PredRoots<P extends readonly unknown[]> =
   P extends readonly [infer H, ...infer Rest]
@@ -151,17 +154,17 @@ type PredRoots<P extends readonly unknown[]> =
 export function and<P extends readonly PredRef<any>[]>(
   ...preds: P
 ): PredRef<PredRoots<P>> {
-  return pred("and", preds)
+  return pred("and", preds.map(needData))
 }
 export function or<P extends readonly PredRef<any>[]>(
   ...preds: P
 ): PredRef<PredRoots<P>> {
-  return pred("or", preds)
+  return pred("or", preds.map(needData))
 }
 export function not<P extends PredRef<any>>(
   p: P
 ): PredRef<RootOf<P>> {
-  return pred("not", [p])
+  return pred("not", [needData(p)])
 }
 // --- subqueries ---
 /**
@@ -188,7 +191,7 @@ export function whereExists<
     >
   )
   const preds = p ? (Array.isArray(p) ? p : [p]) : []
-  return pred("exists", [d, ...preds])
+  return pred("exists", [d, ...preds.map(needData)])
 }
 // --- ordering ---
 export function asc<R extends AnyValueRef>(
@@ -234,7 +237,7 @@ export function jsonAgg<
     aggKind: "array",
     relation: d.relation,
     key: d.key,
-    items
+    items: items.map(needData)
   }
   return mk(data)
 }

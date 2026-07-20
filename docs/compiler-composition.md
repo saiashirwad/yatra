@@ -24,7 +24,7 @@ Named operators (`eq`, `lt`, `ilike`, …) and dialect SQL are not long-term cor
 
 ## Today
 
-`ops.ts` builds nodes with op tags. `compile.ts` is a single Postgres emitter that hard-codes those tags (`eq` → `=`, `ilike` → `ILIKE`, `jsonb_agg`, `$n` params). `toSQL` always uses that path — `run` hard-wires it. `yatra-memory` reimplements the same walks and its own op switches for evaluation. The planner already switches on op in both backends: `collectChains` special-cases `exists` (chain slicing), copy-pasted — evidence the registry needs a plan facet, not just emit.
+`ops.ts` builds nodes with open string op tags; every op argument is bare `NodeData` with raw values wrapped in `lit`. `plan.ts` (core) owns the shared planning kernel: `collectChains` (including the `exists` chain slice), the join tree with resolved join keys, and the result projection. `compile.ts` is a single Postgres emitter that renders a `Plan` and still hard-codes the built-in tags (`eq` → `=`, `ilike` → `ILIKE`, `jsonb_agg`, `$n` params); `yatra-memory` interprets the same `Plan` with its own op switches. `run` takes an explicit compiler (`run(exec, compiler)`, postgres default). What is missing vs the target shape: the handler registry — ops are still closed switches in each backend, not packs.
 
 ## Target shape
 
@@ -112,4 +112,4 @@ Core switches on **kind**. Packages switch on **op**.
 
 ## Status
 
-Design note. Not implemented. Current core still exports ops and a monolithic Postgres `compile.ts`. Direction: open `PredOp`/`op` tags, extract plan + dispatch, move named ops and SQL emit into owned packages (with a convenience re-export if needed so apps keep a short import path). The boundary is deliberate and should be stated to users: **open on op, closed on kind** — custom ops get emission and evaluation, but row-shape contributions (`Contribution` / `MergeAll`) stay a closed set of brands; an op that needs a new row shape touches core types. Sequencing: extract the shared plan kernel first, normalize op arg storage (`lit`, see FIXES.md #1), then reimplement `postgres` as `makeCompiler` + packs and yatra-memory as `makeEvaluator` over the same packs, with the memory↔pglite parity suite as the regression net. Node shapes assume docs/ir-and-scopes.md.
+Design note. Partially implemented: the shared plan kernel (`plan.ts`), `lit` nodes with uniform args, open op tags, the projection descriptor, and the explicit-compiler `run` all landed (FIXES.md #1–#8). Still open on op, closed on kind — custom ops get emission and evaluation, but row-shape contributions (`Contribution` / `MergeAll`) stay a closed set of brands; an op that needs a new row shape touches core types. What remains: reimplement `postgres` as `makeCompiler` + packs and yatra-memory as `makeEvaluator` over the same packs, with the memory↔pglite parity suite as the regression net. Node shapes assume docs/ir-and-scopes.md.

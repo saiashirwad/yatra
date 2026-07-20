@@ -12,14 +12,18 @@ import {
   ilike,
   insert,
   jsonAgg,
+  jsonb,
+  limit,
   lower,
   mul,
   not,
   nullable,
   number,
+  offset,
   oneToMany,
   orderBy,
   pipe,
+  postgres,
   primaryKey,
   query,
   returning,
@@ -28,10 +32,12 @@ import {
   select,
   string,
   Table,
+  toSQL,
   update,
   uuid,
   where,
-  whereExists
+  whereExists,
+  type Compiler
 } from "yatra"
 import { pgliteExecutor } from "../src/index.ts"
 type Equal<A, B> =
@@ -45,7 +51,8 @@ class Book extends Table("book", {
   id: pipe(uuid, primaryKey),
   name: pipe(string),
   authorId: pipe(uuid),
-  price: pipe(number, nullable)
+  price: pipe(number, nullable),
+  payload: pipe(jsonb, nullable)
 }) {}
 class Author extends Table("author", {
   id: pipe(uuid, primaryKey),
@@ -65,6 +72,7 @@ const db = new PGlite()
 const exec = pgliteExecutor(db)
 const URSULA = "11111111-1111-1111-1111-111111111111"
 const OCTAVIA = "22222222-2222-2222-2222-222222222222"
+const ITALO = "33333333-3333-3333-3333-333333333333"
 before(async () => {
   await db.exec(`
     create table author (
@@ -76,7 +84,8 @@ before(async () => {
       id uuid primary key,
       name text not null,
       "authorId" uuid not null references author(id),
-      price double precision
+      price double precision,
+      payload jsonb
     );
   `)
   await db.query(
@@ -85,14 +94,21 @@ before(async () => {
       ($2, 'Octavia', null)`,
     [URSULA, OCTAVIA]
   )
+  // A legal JSON value that happens to look like a col node.
+  const tricky = JSON.stringify({
+    kind: "col",
+    chain: [],
+    key: "x"
+  })
   await db.query(
-    `insert into book (id, name, "authorId", price) values
-      ($1, 'Earthsea', $3, 12.5),
-      ($2, 'Lathe of Heaven', $3, null)`,
+    `insert into book (id, name, "authorId", price, payload) values
+      ($1, 'Earthsea', $3, 12.5, $4),
+      ($2, 'Lathe of Heaven', $3, null, null)`,
     [
       "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
       "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-      URSULA
+      URSULA,
+      tricky
     ]
   )
 })
@@ -349,4 +365,98 @@ test("del removes rows and returns nothing", async () => {
     run(exec)
   )
   assert.equal(remaining.length, 0)
+})
+// --- FIXES.md regressions ---
+test("json values that look like nodes stay parameters", async () => {
+  const tricky = { kind: "col", chain: [], key: "x" }
+  const ctx = pipe(
+    Book,
+    query,
+    select(b => [b.name]),
+    where(b => eq(b.payload, tricky))
+  )
+  const { sql, params } = toSQL(ctx)
+  assert.match(sql, /= \$1/)
+  assert.deepEqual(params, [tricky])
+  const rows = await pipe(ctx, run(exec))
+  assert.deepEqual(rows, [{ name: "Earthsea" }])
+})
+test("selecting the same column twice yields one column", async () => {
+  const rows = await pipe(
+    Author,
+    query,
+    select(t => [t.id, t.name]),
+    select(t => [t.id]),
+    orderBy(t => asc(t.name)),
+    run(exec)
+  )
+  assert.deepEqual(rows, [
+    { id: ITALO, name: "Italo" },
+    { id: OCTAVIA, name: "Octavia" },
+    { id: URSULA, name: "Ursula" }
+  ])
+})
+test("limit/offset are inert at build time, validated at run time", async () => {
+  const badLimit = limit(-1) // no throw here
+  await assert.rejects(
+    pipe(
+      Author,
+      query,
+      select(t => [t.id]),
+      badLimit,
+      run(exec)
+    ),
+    /limit must be a non-negative integer/
+  )
+  const badOffset = offset(-1) // no throw here
+  await assert.rejects(
+    pipe(
+      Author,
+      query,
+      select(t => [t.id]),
+      badOffset,
+      run(exec)
+    ),
+    /offset must be a non-negative integer/
+  )
+})
+test("run takes an explicit compiler", async () => {
+  let calls = 0
+  const spy: Compiler = {
+    dialect: "postgres",
+    compile(ctx) {
+      calls++
+      return postgres.compile(ctx)
+    }
+  }
+  const rows = await pipe(
+    Author,
+    query,
+    select(t => [t.name]),
+    orderBy(t => asc(t.name)),
+    run(exec, spy)
+  )
+  assert.equal(calls, 1)
+  assert.deepEqual(rows, [
+    { name: "Italo" },
+    { name: "Octavia" },
+    { name: "Ursula" }
+  ])
+})
+test("alias collisions are diagnosed at plan time", () => {
+  assert.throws(
+    () =>
+      toSQL(
+        pipe(
+          Author,
+          query,
+          select(t => [
+            t.books.name,
+            as(lower(t.name), "books__name")
+          ]),
+          hydrate
+        )
+      ),
+    /duplicate result column 'books__name'/
+  )
 })

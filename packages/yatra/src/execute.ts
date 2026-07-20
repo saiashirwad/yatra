@@ -1,4 +1,4 @@
-import { toSQL } from "./compile.ts"
+import { postgres, type Compiler } from "./compile.ts"
 import { hydrateRows } from "./hydrate.ts"
 import type { AnyMutationExtra } from "./mutation.ts"
 import {
@@ -22,9 +22,17 @@ export type StatementResult<C> =
         : MergeAll<"flat", Items>[]
       : Row<C>[]
     : never
-export function run<E extends Executor>(exec: E) {
+/**
+ * Terminal pipe step. The backend is explicit: pass a `Compiler`
+ * to target anything but postgres (`run(exec, myCompiler)`).
+ */
+export function run<E extends Executor>(
+  exec: E,
+  compiler: Compiler = postgres
+) {
   return (async (ctx: QueryContext<any, any, any, any>) => {
-    const { sql, params } = toSQL(ctx)
+    const { sql, params, projection } =
+      compiler.compile(ctx)
     const rows = await exec.query(sql, params)
     if ("kind" in ctx) {
       return ctx.selection.length > 0 ? rows : undefined
@@ -32,7 +40,8 @@ export function run<E extends Executor>(exec: E) {
     if (ctx.mode === "hydrate") {
       return hydrateRows(
         ctx as QueryContext<any, "hydrate", any>,
-        rows
+        rows,
+        projection
       )
     }
     return rows
@@ -47,7 +56,10 @@ export function run<E extends Executor>(exec: E) {
     StatementResult<QueryContext<T, M, Items, X>>
   >
 }
-export function runOne<E extends Executor>(exec: E) {
+export function runOne<E extends Executor>(
+  exec: E,
+  compiler: Compiler = postgres
+) {
   return async <
     T extends Tableish,
     M extends Mode,
@@ -60,7 +72,10 @@ export function runOne<E extends Executor>(exec: E) {
         "runOne is only for queries — use run(exec) for mutations"
       >
   ): Promise<Row<QueryContext<T, M, Items, X>> | null> => {
-    const rows = (await run(exec)(ctx)) as unknown as Row<
+    const rows = (await run(
+      exec,
+      compiler
+    )(ctx)) as unknown as Row<
       QueryContext<T, M, Items, X>
     >[]
     return rows[0] ?? null
