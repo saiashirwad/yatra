@@ -543,6 +543,18 @@ const queryCases: Record<
       )
     ),
     hydrate
+  ),
+  "predicates compare two refs": pipe(
+    Book,
+    query,
+    select(b => [b.name]),
+    where(b => lt(b.price, mul(b.price, 2))),
+    orderBy(b => asc(b.name))
+  ),
+  "a query value refines with more steps": pipe(
+    cheapBooks,
+    where(b => gt(b.price, 5)),
+    orderBy(b => desc(b.name))
   )
 }
 

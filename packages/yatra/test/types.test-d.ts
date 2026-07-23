@@ -693,6 +693,29 @@ pipe(
   update({ name: "Ursula" }),
   where(t => eq(t.id, authorRow.id))
 )
+// predicates compare two refs of compatible types
+pipe(
+  Book,
+  query,
+  where(b => eq(b.name, b.name))
+)
+pipe(
+  Author,
+  query,
+  where(t => eq(t.description, t.name))
+)
+pipe(
+  Author,
+  query,
+  // @ts-expect-error incompatible comparison sides
+  where(t => eq(t.name, t.description))
+)
+pipe(
+  Book,
+  query,
+  // @ts-expect-error an id never compares to a name
+  where(b => eq(b.id, b.name))
+)
 pipe(
   Book,
   insert({

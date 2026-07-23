@@ -86,42 +86,36 @@ const pred = <Root>(
   op: CorePredOp,
   args: readonly NodeData[]
 ): PredRef<Root> => mk({ kind: "pred", op, args })
-export function eq<R extends AnyValueRef>(
-  ref: R,
-  value: NonNullable<RefValue<R>>
-): PredRef<RootOf<R>> {
-  return pred("eq", [needData(ref), lit(value)])
-}
-export function ne<R extends AnyValueRef>(
-  ref: R,
-  value: NonNullable<RefValue<R>>
-): PredRef<RootOf<R>> {
-  return pred("ne", [needData(ref), lit(value)])
-}
-export function gt<R extends AnyValueRef>(
-  ref: R,
-  value: NonNullable<RefValue<R>>
-): PredRef<RootOf<R>> {
-  return pred("gt", [needData(ref), lit(value)])
-}
-export function gte<R extends AnyValueRef>(
-  ref: R,
-  value: NonNullable<RefValue<R>>
-): PredRef<RootOf<R>> {
-  return pred("gte", [needData(ref), lit(value)])
-}
-export function lt<R extends AnyValueRef>(
-  ref: R,
-  value: NonNullable<RefValue<R>>
-): PredRef<RootOf<R>> {
-  return pred("lt", [needData(ref), lit(value)])
-}
-export function lte<R extends AnyValueRef>(
-  ref: R,
-  value: NonNullable<RefValue<R>>
-): PredRef<RootOf<R>> {
-  return pred("lte", [needData(ref), lit(value)])
-}
+/**
+ * The right-hand side of a comparison: a raw value of the left side's
+ * type, or another ref whose value type fits (column-to-column
+ * comparisons, correlations). Root brands still apply — an Author id
+ * and a Book id never compare.
+ */
+type Rhs<L, R> = R extends AnyValueRef
+  ? RefValue<R> extends RefValue<L>
+    ? R
+    : "comparison sides have incompatible types"
+  : NonNullable<RefValue<L>>
+type CompareRoots<L, R> = R extends AnyValueRef
+  ? RootOf<L> | RootOf<R>
+  : RootOf<L>
+const cmp =
+  (op: CorePredOp) =>
+  <L extends AnyValueRef, R>(
+    ref: L,
+    value: R & Rhs<L, R>
+  ): PredRef<CompareRoots<L, R>> =>
+    pred(op, [
+      needData(ref),
+      dataOf(value) ?? lit(value)
+    ]) as PredRef<CompareRoots<L, R>>
+export const eq = cmp("eq")
+export const ne = cmp("ne")
+export const gt = cmp("gt")
+export const gte = cmp("gte")
+export const lt = cmp("lt")
+export const lte = cmp("lte")
 export function like<
   R extends
     | ColRef<string | null, any, any>
