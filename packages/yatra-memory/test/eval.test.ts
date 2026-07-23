@@ -4,6 +4,7 @@ import {
   and,
   as,
   asc,
+  asId,
   count,
   del,
   desc,
@@ -44,7 +45,8 @@ import {
   update,
   uuid,
   where,
-  exists
+  exists,
+  type IdOf
 } from "yatra"
 import {
   evalQuery,
@@ -166,7 +168,7 @@ test("flat query with join, where, orderBy — no SQL anywhere", () => {
     Equal<
       typeof rows,
       Array<{
-        id: string
+        id: IdOf<typeof Author>
         name: string
         "books.name": string | null
       }>
@@ -321,9 +323,12 @@ test("hydrate nests to-many and keeps empties", () => {
     Equal<
       typeof rows,
       Array<{
-        id: string
+        id: IdOf<typeof Author>
         name: string
-        books: Array<{ id: string; name: string }>
+        books: Array<{
+          id: IdOf<typeof Book>
+          name: string
+        }>
       }>
     >
   >
@@ -439,7 +444,10 @@ test("runOneMemory returns one row or null", () => {
     runOneMemory
   )(seed())
   type _row = Expect<
-    Equal<typeof row, { id: string; name: string } | null>
+    Equal<
+      typeof row,
+      { id: IdOf<typeof Author>; name: string } | null
+    >
   >
   assert.equal(row?.name, "Octavia")
   const nobody = pipe(
@@ -497,7 +505,10 @@ test("insert with returning appends to the array", () => {
   const rows = pipe(
     Author,
     insert({
-      id: "33333333-3333-3333-3333-333333333333",
+      id: asId(
+        Author,
+        "33333333-3333-3333-3333-333333333333"
+      ),
       name: "Italo"
     }),
     returning(t => [t.id, t.name, t.description]),
@@ -507,7 +518,7 @@ test("insert with returning appends to the array", () => {
     Equal<
       typeof rows,
       Array<{
-        id: string
+        id: IdOf<typeof Author>
         name: string
         description: string | null
       }>
@@ -529,15 +540,21 @@ test("insert many: missing keys read back as null", () => {
     Book,
     insert([
       {
-        id: "dddddddd-dddd-dddd-dddd-dddddddddddd",
+        id: asId(
+          Book,
+          "dddddddd-dddd-dddd-dddd-dddddddddddd"
+        ),
         name: "The Dispossessed",
-        authorId: URSULA,
+        authorId: asId(Author, URSULA),
         price: 11.0
       },
       {
-        id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+        id: asId(
+          Book,
+          "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
+        ),
         name: "The Left Hand of Darkness",
-        authorId: URSULA
+        authorId: asId(Author, URSULA)
       }
     ]),
     returning(t => [t.name, t.price]),

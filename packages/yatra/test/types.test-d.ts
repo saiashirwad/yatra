@@ -3,6 +3,7 @@ import {
   and,
   as,
   asc,
+  asId,
   autoIncrement,
   count,
   defaultValue,
@@ -43,6 +44,7 @@ import {
   type ChainLink,
   type ColRef,
   type Executor,
+  type IdOf,
   type StatementResult,
   type QueryAccessor,
   type Result
@@ -109,7 +111,7 @@ type _flat = Expect<
   Equal<
     Result<typeof flat>,
     Array<{
-      id: string
+      id: IdOf<typeof Author>
       description: string | null
       "books.name": string | null
       bookName: string | null
@@ -132,13 +134,13 @@ type _hydrated = Expect<
   Equal<
     Result<typeof hydrated>,
     Array<{
-      id: string
+      id: IdOf<typeof Author>
       name: string
       books: Array<{
-        id: string
+        id: IdOf<typeof Book>
         name: string
         tags: Array<{
-          id: string
+          id: IdOf<typeof Tag>
         }>
       }>
     }>
@@ -154,9 +156,9 @@ type _toOne = Expect<
   Equal<
     Result<typeof toOne>,
     Array<{
-      id: string
+      id: IdOf<typeof Book>
       author: {
-        id: string
+        id: IdOf<typeof Author>
         name: string
       } | null
     }>
@@ -180,13 +182,13 @@ type _withAggs = Expect<
   Equal<
     Result<typeof withAggs>,
     Array<{
-      id: string
+      id: IdOf<typeof Author>
       books: Array<{
-        id: string
+        id: IdOf<typeof Book>
         name: string
         price: number | null
         tags: Array<{
-          id: string
+          id: IdOf<typeof Tag>
           name: string
         }>
       }>
@@ -212,7 +214,7 @@ type _shaped = Expect<
   Equal<
     Result<typeof shaped>,
     Array<{
-      id: string
+      id: IdOf<typeof Author>
       lowerName: string
       bookCount: number
       books: Array<{
@@ -283,7 +285,7 @@ type _chained = Expect<
   Equal<
     Result<typeof chained>,
     Array<{
-      id: string
+      id: IdOf<typeof Author>
       name: string
       "books.name": string | null
     }>
@@ -304,9 +306,9 @@ type _composed = Expect<
   Equal<
     Result<typeof composed>,
     Array<{
-      id: string
+      id: IdOf<typeof Author>
       books: Array<{
-        id: string
+        id: IdOf<typeof Book>
         name: string
       }>
     }>
@@ -381,7 +383,9 @@ pipe(
 pipe(
   Book,
   query,
-  where(t => inArray(t.id, ["a1", "a2"]))
+  where(t =>
+    inArray(t.id, [asId(Book, "a1"), asId(Book, "a2")])
+  )
 )
 pipe(
   Book,
@@ -405,7 +409,10 @@ const ins = pipe(
 type _ins = Expect<
   Equal<
     StatementResult<typeof ins>,
-    Array<{ id: number; label: string }>
+    Array<{
+      id: IdOf<typeof Widget, number>
+      label: string
+    }>
   >
 >
 pipe(
@@ -433,13 +440,13 @@ pipe(
 const upd = pipe(
   Widget,
   update({ name: "b", note: null }),
-  where(t => eq(t.id, 1)),
+  where(t => eq(t.id, asId(Widget, 1))),
   returning(t => [t.id, t.name])
 )
 type _upd = Expect<
   Equal<
     StatementResult<typeof upd>,
-    Array<{ id: number; name: string }>
+    Array<{ id: IdOf<typeof Widget, number>; name: string }>
   >
 >
 pipe(
@@ -469,7 +476,7 @@ const delReturning = pipe(
 type _delReturning = Expect<
   Equal<
     StatementResult<typeof delReturning>,
-    Array<{ id: number }>
+    Array<{ id: IdOf<typeof Widget, number> }>
   >
 >
 pipe(
@@ -492,7 +499,7 @@ type _all = Expect<
   Equal<
     Result<typeof all>,
     Array<{
-      id: number
+      id: IdOf<typeof Widget, number>
       name: string
       label: string
       note: string | null
@@ -629,7 +636,7 @@ const withCard = pipe(Author, query, authorCard)
 type _withCard = Expect<
   Equal<
     Result<typeof withCard>,
-    Array<{ id: string; name: string }>
+    Array<{ id: IdOf<typeof Author>; name: string }>
   >
 >
 pipe(
@@ -647,4 +654,48 @@ pipe(
   query,
   // @ts-expect-error a pinned predicate rejects the wrong table
   isUrsula
+)
+
+// --- branded ids: write-back can't mix entities ---
+declare const authorRow: {
+  id: IdOf<typeof Author>
+  name: string
+}
+// a select result flows into where/insert cast-free
+pipe(
+  Author,
+  update({ name: "Ursula" }),
+  where(t => eq(t.id, authorRow.id))
+)
+pipe(
+  Book,
+  insert({
+    id: asId(Book, "b1"),
+    authorId: authorRow.id,
+    name: "Earthsea"
+  })
+)
+pipe(
+  Book,
+  del,
+  // @ts-expect-error IdOf<Author> is not IdOf<Book>
+  where(t => eq(t.id, authorRow.id))
+)
+pipe(
+  Book,
+  // @ts-expect-error raw strings are not branded — asId at the edge
+  insert({
+    id: "b1",
+    authorId: authorRow.id,
+    name: "Earthsea"
+  })
+)
+pipe(
+  Book,
+  // @ts-expect-error a Book id is not an Author id
+  insert({
+    id: asId(Book, "b1"),
+    authorId: asId(Book, "b2"),
+    name: "Earthsea"
+  })
 )

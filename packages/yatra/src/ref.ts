@@ -4,6 +4,7 @@ import type {
   TableRelations
 } from "./relation.ts"
 import { info, type InferColumn } from "./table.ts"
+import type { IsPrimaryKey } from "./columns/properties.ts"
 import type {
   Clean,
   Tableish,
@@ -11,6 +12,62 @@ import type {
 } from "./utils.ts"
 export const RefData = Symbol.for("Yatra/Ref/Data")
 export type Mode = "flat" | "hydrate"
+// --- branded ids (docs/branded-ids.md) ---
+export const IdBrand = Symbol.for("Yatra/Id")
+/**
+ * A primary/foreign key value that remembers its table. PK of
+ * `Author` and FK `Book.authorId` share `IdOf<typeof Author>`, so
+ * write-back can't mix entities by accident. Type-level only — the
+ * runtime value stays a plain string/number.
+ */
+export type IdOf<T, V = string> = V & {
+  readonly [IdBrand]: T
+}
+/** Convert a raw value at a trust boundary (HTTP params, seeds). */
+export function asId<T extends Tableish, const V>(
+  table: T,
+  raw: V
+): IdOf<T, V> {
+  return raw as IdOf<T, V>
+}
+type Brand<T, V> = null extends V
+  ? IdOf<T, NonNullable<V>> | null
+  : IdOf<T, V>
+type TableNameOf<T extends Tableish> =
+  T extends Tableish<infer N, any> ? N : never
+/** The table a field points at, when the table's own relations
+ * declare it as a foreign key. */
+type FkTarget<
+  T extends Tableish,
+  K extends string
+> = TableRelations<T>[keyof TableRelations<T>] extends infer R
+  ? R extends Relation<any, infer D>
+    ? R extends {
+        readonly foreignKey: `${TableNameOf<T>}.${K}`
+      }
+      ? D
+      : never
+    : never
+  : never
+/**
+ * The value type of a column in queries, results, and write inputs:
+ * PK/FK columns carry their id brand, everything else stays plain.
+ * Branding follows declared metadata — a table with no relation
+ * naming a field as a foreign key leaves it unbranded.
+ */
+export type ColumnValue<
+  T extends Tableish,
+  K extends keyof TableishFields<T> & string
+> =
+  IsPrimaryKey<TableishFields<T>[K]> extends true
+    ? Brand<T, InferColumn<TableishFields<T>[K]>>
+    : [FkTarget<T, K>] extends [never]
+      ? InferColumn<TableishFields<T>[K]>
+      : Brand<
+          FkTarget<T, K>,
+          InferColumn<TableishFields<T>[K]>
+        >
+
 /**
  * The ops core's own builders use. The IR itself is open: `PredData.op`
  * is a plain string, so op packs can add their own (docs/compiler-composition.md).
@@ -259,7 +316,7 @@ export type Accessor<
   Root = any
 > = {
   readonly [K in keyof FieldsOf<T> & string]: ColRef<
-    InferColumn<FieldsOf<T>[K]>,
+    ColumnValue<T, K>,
     K,
     Chain,
     Root

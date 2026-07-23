@@ -2,6 +2,7 @@ import { PGlite } from "@electric-sql/pglite"
 import {
   as,
   asc,
+  asId,
   count,
   del,
   desc,
@@ -219,7 +220,10 @@ console.dir(firstCheap, { depth: null })
 const inserted = await pipe(
   Author,
   insert({
-    id: "33333333-3333-3333-3333-333333333333",
+    id: asId(
+      Author,
+      "33333333-3333-3333-3333-333333333333"
+    ),
     name: "Italo"
   }),
   returning(t => [t.id, t.name, t.description]),

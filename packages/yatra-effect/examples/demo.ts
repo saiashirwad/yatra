@@ -3,6 +3,7 @@ import {
   and,
   as,
   asc,
+  asId,
   count,
   del,
   desc,
@@ -272,10 +273,10 @@ const program = Effect.gen(function* () {
     pipe(
       Book,
       insert({
-        id: ids.fiasco,
+        id: asId(Book, ids.fiasco),
         name: "Fiasco",
         price: 10.5,
-        authorId: ids.lem
+        authorId: asId(Author, ids.lem)
       }),
       returning(b => [b.id, b.name, b.price]),
       runEffect

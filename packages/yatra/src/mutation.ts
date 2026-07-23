@@ -11,6 +11,7 @@ import {
   needData,
   type CheckItems,
   type ColRef,
+  type ColumnValue,
   type ExprRef,
   type QueryAccessor,
   type RequireTuple
@@ -35,27 +36,34 @@ type HasDbValue<C> =
       : C extends Generated<any>
         ? true
         : false
-type OptionalInsert<Fields extends FieldsRecord> = {
+type OptionalInsert<
+  T extends Tableish,
+  Fields extends FieldsRecord = TableishFields<T>
+> = {
   [K in keyof Fields & string as IsNullable<
     Fields[K]
   > extends true
     ? K
     : HasDbValue<Fields[K]> extends true
       ? K
-      : never]?: InferColumn<Fields[K]>
+      : never]?: ColumnValue<T, K>
 }
-type RequiredInsert<Fields extends FieldsRecord> = {
+type RequiredInsert<
+  T extends Tableish,
+  Fields extends FieldsRecord = TableishFields<T>
+> = {
   [K in keyof Fields & string as IsNullable<
     Fields[K]
   > extends true
     ? never
     : HasDbValue<Fields[K]> extends true
       ? never
-      : K]: InferColumn<Fields[K]>
+      : K]: ColumnValue<T, K>
 }
 /** Row shape for insert: nullable and db-computed columns are optional. */
-export type InsertInput<Fields extends FieldsRecord> =
-  Clean<OptionalInsert<Fields> & RequiredInsert<Fields>>
+export type InsertInput<T extends Tableish> = Clean<
+  OptionalInsert<T> & RequiredInsert<T>
+>
 /**
  * Update-set values: a plain value, an expression over the row being
  * updated (via a module-level accessor: `mul(b.price, 2)`), or
@@ -69,11 +77,11 @@ export type SetValue<T extends Tableish, V> =
 /** Set shape for update: every column optional, values or expressions. */
 export type UpdateInput<
   T extends Tableish,
-  Fields extends FieldsRecord
+  Fields extends FieldsRecord = TableishFields<T>
 > = Clean<{
   [K in keyof Fields & string]?: SetValue<
     T,
-    InferColumn<Fields[K]>
+    ColumnValue<T, K>
   >
 }>
 // --- contexts ---
@@ -105,12 +113,10 @@ type UnknownCols<
   : never
 type ValidInsert<T extends Tableish, Row> =
   UnknownCols<T, Row> extends never
-    ? Row extends InsertInput<TableishFields<T>>
+    ? Row extends InsertInput<T>
       ? unknown
       : {
-          readonly "insert row does not fit this table": InsertInput<
-            TableishFields<T>
-          >
+          readonly "insert row does not fit this table": InsertInput<T>
         }
     : {
         readonly "insert row has unknown columns": UnknownCols<

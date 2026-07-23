@@ -1,6 +1,7 @@
 import {
   as,
   asc,
+  asId,
   count,
   del,
   desc,
@@ -179,7 +180,10 @@ console.dir(cheapBooks, { depth: null })
 const inserted = pipe(
   Author,
   insert({
-    id: "33333333-3333-3333-3333-333333333333",
+    id: asId(
+      Author,
+      "33333333-3333-3333-3333-333333333333"
+    ),
     name: "Italo"
   }),
   returning(t => [t.id, t.name, t.description]),

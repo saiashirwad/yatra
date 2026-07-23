@@ -4,6 +4,7 @@ import {
   needData,
   selectionKey,
   type CheckItems,
+  type ColumnValue,
   type MergeAll,
   type Mode,
   type NodeData,
@@ -238,9 +239,7 @@ export function materialize<
 }
 /** Every column of the table as a result row (SELECT t.* shape). */
 export type TableRow<T extends Tableish> = Clean<{
-  [K in keyof TableishFields<T> & string]: InferColumn<
-    TableishFields<T>[K]
-  >
+  [K in keyof TableishFields<T> & string]: ColumnValue<T, K>
 }>
 export type Row<Ctx> =
   Ctx extends QueryContext<

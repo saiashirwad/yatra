@@ -4,6 +4,7 @@ import { before, test } from "node:test"
 import {
   as,
   asc,
+  asId,
   count,
   del,
   eq,
@@ -37,7 +38,8 @@ import {
   uuid,
   where,
   exists,
-  type Compiler
+  type Compiler,
+  type IdOf
 } from "yatra"
 import { pgliteExecutor } from "../src/index.ts"
 type Equal<A, B> =
@@ -125,7 +127,7 @@ test("flat query runs and stays typed", async () => {
     Equal<
       typeof rows,
       Array<{
-        id: string
+        id: IdOf<typeof Author>
         name: string
         "books.name": string | null
       }>
@@ -151,10 +153,10 @@ test("hydrate nests rows end-to-end", async () => {
     Equal<
       typeof rows,
       Array<{
-        id: string
+        id: IdOf<typeof Author>
         name: string
         books: Array<{
-          id: string
+          id: IdOf<typeof Book>
           name: string
         }>
       }>
@@ -187,9 +189,9 @@ test("jsonAgg and count come back as real values", async () => {
     Equal<
       typeof rows,
       Array<{
-        id: string
+        id: IdOf<typeof Author>
         books: Array<{
-          id: string
+          id: IdOf<typeof Book>
           name: string
           price: number | null
         }>
@@ -268,7 +270,10 @@ test("runOne returns one row or null", async () => {
     runOne(exec)
   )
   type _row = Expect<
-    Equal<typeof row, { id: string; name: string } | null>
+    Equal<
+      typeof row,
+      { id: IdOf<typeof Author>; name: string } | null
+    >
   >
   assert.equal(row?.name, "Octavia")
   const nobody = await pipe(
@@ -286,7 +291,10 @@ test("insert with returning gives typed rows back", async () => {
   const rows = await pipe(
     Author,
     insert({
-      id: "33333333-3333-3333-3333-333333333333",
+      id: asId(
+        Author,
+        "33333333-3333-3333-3333-333333333333"
+      ),
       name: "Italo"
     }),
     returning(t => [t.id, t.name, t.description]),
@@ -296,7 +304,7 @@ test("insert with returning gives typed rows back", async () => {
     Equal<
       typeof rows,
       Array<{
-        id: string
+        id: IdOf<typeof Author>
         name: string
         description: string | null
       }>
@@ -311,13 +319,19 @@ test("insert many fills missing keys with DEFAULT", async () => {
     Book,
     insert([
       {
-        id: "dddddddd-dddd-dddd-dddd-dddddddddddd",
+        id: asId(
+          Book,
+          "dddddddd-dddd-dddd-dddd-dddddddddddd"
+        ),
         name: "The Dispossessed",
         authorId: URSULA,
         price: 11.0
       },
       {
-        id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+        id: asId(
+          Book,
+          "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
+        ),
         name: "The Left Hand of Darkness",
         authorId: URSULA
       }
@@ -342,7 +356,7 @@ test("update with where and returning", async () => {
   type _rows = Expect<
     Equal<
       typeof rows,
-      Array<{ id: string; price: number | null }>
+      Array<{ id: IdOf<typeof Book>; price: number | null }>
     >
   >
   assert.equal(rows.length, 1)
