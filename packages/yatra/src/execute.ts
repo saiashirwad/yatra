@@ -1,4 +1,4 @@
-import { postgres, type Compiler } from "./compile.ts"
+import type { Compiler } from "./compile.ts"
 import { hydrateRows } from "./hydrate.ts"
 import { type QueryContext, type Row } from "./query.ts"
 import type { MergeAll, Mode } from "./ref.ts"
@@ -20,11 +20,11 @@ export type StatementResult<C> =
     : never
 /**
  * Terminal pipe step. The backend is explicit: pass a `Compiler`
- * to target anything but postgres (`run(exec, myCompiler)`).
+ * (`run(exec, myCompiler)`) — core has no default.
  */
 export function run<E extends Executor>(
   exec: E,
-  compiler: Compiler = postgres
+  compiler: Compiler
 ) {
   return (async (ctx: QueryContext<any, any, any, any>) => {
     const { sql, params, projection } =
@@ -50,7 +50,7 @@ export function run<E extends Executor>(
 }
 export function runOne<E extends Executor>(
   exec: E,
-  compiler: Compiler = postgres
+  compiler: Compiler
 ) {
   return async <
     T extends Tableish,

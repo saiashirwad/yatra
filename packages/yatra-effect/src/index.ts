@@ -3,7 +3,6 @@ import { Context, Effect, Layer, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql/SqlClient"
 import {
   hydrateRows,
-  toSQL,
   type Mode,
   type QueryContext,
   type Row,
@@ -11,6 +10,7 @@ import {
   type StatementResult,
   type Tableish
 } from "yatra"
+import { toSQL } from "yatra-postgres"
 // --- errors ---
 export class QueryError extends Schema.TaggedErrorClass<QueryError>()(
   "yatra/QueryError",

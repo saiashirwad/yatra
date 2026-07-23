@@ -1,9 +1,17 @@
 import {
   mk,
+  needData,
   RefData,
+  type AggRef,
+  type AliasedRef,
+  type ChainLink,
+  type ColRef,
+  type ExprRef,
   type LitData,
   type Mode,
-  type NodeData
+  type NodeData,
+  type OrderRef,
+  type RootOf
 } from "./ref.ts"
 import type { Tableish } from "./utils.ts"
 
@@ -83,4 +91,50 @@ export interface StatementData {
   // insert rows / update sets: node-valued
   readonly rows?: readonly Record<string, NodeData>[]
   readonly set?: readonly Assignment[]
+}
+// --- aliasing ---
+export function as<
+  V,
+  A extends string,
+  Chain extends readonly ChainLink[],
+  Root
+>(
+  ref: ColRef<V, string, Chain, Root>,
+  alias: A
+): AliasedRef<V, A, Chain, Root>
+export function as<V, A extends string, Root>(
+  ref: ExprRef<V, Root>,
+  alias: A
+): AliasedRef<V, A, readonly [], Root>
+export function as<
+  V,
+  K extends string,
+  A extends string,
+  Root
+>(ref: AggRef<V, K, Root>, alias: A): AggRef<V, A, Root>
+export function as(ref: unknown, alias: string): unknown {
+  return mk({ kind: "as", target: needData(ref), alias })
+}
+/** Any ref that carries a value: a column or an expression. */
+type AnyValueRef =
+  | ColRef<any, any, any, any>
+  | ExprRef<any, any>
+// --- ordering ---
+export function asc<R extends AnyValueRef>(
+  ref: R
+): OrderRef<RootOf<R>> {
+  return mk({
+    kind: "order",
+    direction: "asc",
+    ref: needData(ref)
+  })
+}
+export function desc<R extends AnyValueRef>(
+  ref: R
+): OrderRef<RootOf<R>> {
+  return mk({
+    kind: "order",
+    direction: "desc",
+    ref: needData(ref)
+  })
 }

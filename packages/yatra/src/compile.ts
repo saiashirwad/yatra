@@ -22,7 +22,6 @@ import {
   type SqlCtx,
   type SqlScope
 } from "./registry.ts"
-import { defaultPacks } from "./packs.ts"
 
 export interface CompiledQuery {
   readonly dialect: string
@@ -56,9 +55,9 @@ export function compileWith<C extends Compiler>(
 
 export interface CompilerConfig {
   readonly dialect: string
-  readonly quote?: (ident: string) => string
-  readonly param?: (index: number) => string
-  readonly packs?: readonly OpPack[]
+  readonly quote: (ident: string) => string
+  readonly param: (index: number) => string
+  readonly packs: readonly OpPack[]
   /** packs allowed to replace ops from `packs` (dialect lowerings) */
   readonly overrides?: readonly OpPack[]
 }
@@ -99,7 +98,7 @@ function fkCols(
   const join = resolveJoin(rel)
   if (join.kind === "m2m") {
     throw new Error(
-      "jsonAgg/count/exists over many-to-many relations is not supported yet"
+      "aggregations and exists-style subqueries over many-to-many relations are not supported yet"
     )
   }
   return [join.sourceCol, join.destCol]
@@ -115,9 +114,9 @@ export function makeCompiler(
 ): Compiler {
   const {
     dialect,
-    quote = ident => `"${ident}"`,
-    param = i => `$${i}`,
-    packs = defaultPacks,
+    quote,
+    param,
+    packs,
     overrides = []
   } = config
   const registry = buildRegistry(packs, overrides)
@@ -463,15 +462,4 @@ export function makeCompiler(
       }
     }
   }
-}
-
-/** The ready-made Postgres compiler: default packs, `$n` params. */
-export const postgres: Compiler = makeCompiler({
-  dialect: "postgres"
-})
-
-export function toSQL(
-  ctx: StatementContext
-): CompiledQuery {
-  return postgres.compile(ctx)
 }

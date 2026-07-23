@@ -4,7 +4,8 @@ All items done (July 2026). Kept as a record of what changed and why.
 
 ## 1. JSON values can be rendered as column references — done
 
-`lit` node kind in `ref.ts`; builders wrap every raw value (`ops.ts`), so op
+`lit` node kind in `ref.ts`; builders wrap every raw value
+(`builders.ts` in yatra-ops), so op
 args are uniform bare `NodeData` and both `argData` sniffers are deleted.
 Regression test: "json values that look like nodes stay values/parameters"
 in both backend suites.
@@ -27,17 +28,19 @@ emitter derives them.
 
 ## 4. `run` hard-wires the Postgres compiler — done
 
-`run(exec, compiler = postgres)` (and `runOne` likewise).
+Core `run(exec, compiler)` takes an explicit compiler (and `runOne`
+likewise); yatra-postgres exports `run`/`runOne` wrappers that default
+to the ready-made `postgres` compiler.
 
 ## 5. `limit` / `offset` validate at build time and inline into SQL — done
 
 Stored as `lit` nodes; the steps no longer throw. Compilers validate
-(non-negative integer) and emit them as `$n` params.
+(non-negative integer) and emit them as bound params.
 
 ## 6. `PredOp` is a closed union containing `ilike` — done
 
 `PredData.op` and `AggData.aggKind` are open `string`s; the built-in union
-is exported as `CorePredOp` for core's own builders. Unknown ops fail with
+is exported as `CorePredOp` from yatra-ops' builders. Unknown ops fail with
 `no sql/eval handler for ... op '<op>'` naming the backend.
 
 ## 7. Duplicate selection columns — done

@@ -3,18 +3,11 @@ import {
   as,
   asc,
   asId,
-  count,
   del,
   desc,
-  eq,
-  gt,
   hydrate,
-  ilike,
   insert,
-  isNull,
-  jsonAgg,
   limit,
-  lt,
   nullable,
   number,
   oneToMany,
@@ -23,12 +16,9 @@ import {
   primaryKey,
   query,
   returning,
-  run,
-  runOne,
   select,
   string,
   Table,
-  toSQL,
   update,
   uuid,
   where,
@@ -37,6 +27,16 @@ import {
   type ColRef,
   type QueryAccessor
 } from "yatra"
+import {
+  count,
+  eq,
+  gt,
+  ilike,
+  isNull,
+  jsonAgg,
+  lt
+} from "yatra-ops"
+import { run, runOne, toSQL } from "yatra-postgres"
 import { pgliteExecutor } from "../src/index.ts"
 
 class Book extends Table("book", {

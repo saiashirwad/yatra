@@ -68,26 +68,6 @@ export type ColumnValue<
           InferColumn<TableishFields<T>[K]>
         >
 
-/**
- * The ops core's own builders use. The IR itself is open: `PredData.op`
- * is a plain string, so op packs can add their own (docs/compiler-composition.md).
- */
-export type CorePredOp =
-  | "eq"
-  | "ne"
-  | "gt"
-  | "gte"
-  | "lt"
-  | "lte"
-  | "like"
-  | "ilike"
-  | "in"
-  | "isNull"
-  | "isNotNull"
-  | "and"
-  | "or"
-  | "not"
-  | "exists"
 export interface ChainLink {
   readonly name: string
   readonly rel: RelationType
@@ -434,7 +414,7 @@ export type CheckItem<Item, Root = any> = Item extends
     : WrongRoot
   : Item extends ExprRef<any>
     ? "Expressions need an alias: as(expr, 'name')"
-    : "Selection items must be a column ref (t.id), an aliased expression as(expr, 'name'), or an aggregation jsonAgg(t.rel, ...)/count(t.rel) — a bare relation is not selectable"
+    : "Selection items must be a column ref (t.id), an aliased expression as(expr, 'name'), or a relation aggregation (many/one/count) — a bare relation is not selectable"
 type Conform<T, Base> = T extends Base ? T : Base
 export type CheckItems<
   Items extends readonly unknown[],

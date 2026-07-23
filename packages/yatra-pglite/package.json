@@ -16,7 +16,9 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",
-    "yatra-memory": "workspace:*"
+    "yatra-memory": "workspace:*",
+    "yatra-ops": "workspace:*",
+    "yatra-postgres": "workspace:*"
   },
   "peerDependencies": {
     "@electric-sql/pglite": ">=0.5"

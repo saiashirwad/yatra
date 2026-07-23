@@ -410,7 +410,7 @@ export function setopCanonicalOrder(
 // --- grouped statements (docs/shapes.md) ---
 /**
  * A grouped statement's selection, having, and order may only mention
- * group keys and aggregates — Postgres enforces this with a planner
+ * group keys and aggregates — SQL engines enforce this with a planner
  * error; validating here gives every backend the same honest failure.
  * `isAgg` names the aggregate-function ops from the backend's packs.
  * Returns whether the statement is grouped (explicit keys, or

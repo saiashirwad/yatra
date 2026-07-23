@@ -1,8 +1,10 @@
 import {
   accessor,
+  dataOf,
   lit,
   needData,
   selectionKey,
+  type AliasData,
   type CheckItems,
   type ColRef,
   type ColumnValue,
@@ -18,7 +20,6 @@ import {
   type ShapeRef,
   type ShapeRow
 } from "./ref.ts"
-import { shapeItems } from "./ops.ts"
 import type {
   Assignment,
   StatementData,
@@ -101,6 +102,44 @@ export function appendSelection(
     out.push(item)
   }
   return out
+}
+// --- object shapes (docs/shapes.md) ---
+/** The inherent result key of a node, if it has one. */
+function inherentKey(d: NodeData): string | undefined {
+  switch (d.kind) {
+    case "col":
+      return d.key
+    case "as":
+      return d.alias
+    case "agg":
+      return d.key
+    default:
+      return undefined
+  }
+}
+/**
+ * Desugar an object shape to selection nodes: the key is the alias.
+ * Entries whose node already produces that key pass through; the rest
+ * get an `as` wrapper.
+ */
+export function shapeItems(
+  shape: Record<string, unknown>
+): NodeData[] {
+  return Object.entries(shape).map(([k, v]) => {
+    const d = dataOf(v)
+    if (!d) {
+      throw new Error(
+        `Shape entry '${k}' is not a yatra node`
+      )
+    }
+    if (inherentKey(d) === k) return d
+    const aliased: AliasData = {
+      kind: "as",
+      target: d,
+      alias: k
+    }
+    return aliased
+  })
 }
 export function select<
   T extends Tableish,

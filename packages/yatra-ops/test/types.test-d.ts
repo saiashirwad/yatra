@@ -1,33 +1,37 @@
 import {
-  accessor,
   and,
+  avg,
+  count,
+  defaultPacks,
+  eq,
+  gt,
+  ilike,
+  inArray,
+  isNull,
+  jsonAgg,
+  lower,
+  many,
+  ne,
+  one
+} from "../src/index.ts"
+import {
+  accessor,
   as,
   asc,
   asId,
   autoIncrement,
-  avg,
-  count,
   defaultValue,
   del,
   desc,
-  eq,
   group,
-  gt,
   having,
   hydrate,
-  ilike,
-  inArray,
   insert,
-  isNull,
-  jsonAgg,
   limit,
-  lower,
-  many,
-  ne,
+  makeCompiler,
   nullable,
   number,
   offset,
-  one,
   oneToMany,
   oneToOne,
   orderBy,
@@ -51,7 +55,7 @@ import {
   type StatementResult,
   type QueryAccessor,
   type Result
-} from "../src/index.ts"
+} from "yatra"
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <
     T
@@ -491,6 +495,13 @@ pipe(
 
 // --- type-safety gates ---
 declare const exec: Executor
+// local stub: importing postgres from yatra-postgres would create a cycle
+const compiler = makeCompiler({
+  dialect: "test",
+  quote: ident => `"${ident}"`,
+  param: i => `$${i}`,
+  packs: defaultPacks
+})
 declare const looseItems: readonly ColRef<
   number,
   "id",
@@ -566,7 +577,7 @@ pipe(
   Widget,
   del,
   // @ts-expect-error runOne is only for queries — use run(exec)
-  runOne(exec)
+  runOne(exec, compiler)
 )
 
 // --- cross-query ref safety: refs are branded with their root table ---

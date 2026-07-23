@@ -2,18 +2,11 @@ import {
   as,
   asc,
   asId,
-  count,
   del,
   desc,
-  eq,
-  gt,
   hydrate,
-  ilike,
   insert,
-  isNull,
-  jsonAgg,
   limit,
-  lt,
   nullable,
   number,
   oneToMany,
@@ -33,6 +26,15 @@ import {
   type ColRef,
   type QueryAccessor
 } from "yatra"
+import {
+  count,
+  eq,
+  gt,
+  ilike,
+  isNull,
+  jsonAgg,
+  lt
+} from "yatra-ops"
 import {
   runMemory,
   runOneMemory,

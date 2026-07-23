@@ -1,11 +1,13 @@
-import type { LitData, NodeData, RelData } from "./ref.ts"
-import { projectionOf } from "./plan.ts"
 import {
   litBound,
+  projectionOf,
   type EvalCtx,
+  type LitData,
+  type NodeData,
   type OpPack,
+  type RelData,
   type SqlCtx
-} from "./registry.ts"
+} from "yatra"
 
 // The built-in vocabulary as op packs: every op is a pair of facets,
 // `sql` (emit text) and `eval` (in-memory value), sharing SQL-92

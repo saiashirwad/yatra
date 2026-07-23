@@ -1,8 +1,9 @@
 # Handoff — yatra, July 2026
 
 Read this first if you're picking up the project fresh. Last state:
-branch `ref-ir`, `yatra-memory` (in-memory interpreter) and
-`whereExists` added, the SQL expression bug in `compile.ts` fixed,
+branch `ref-ir`, the core split into three packages — `yatra`
+(core), `yatra-ops` (op builders + packs), `yatra-postgres`
+(dialect, ready-made compiler, `toSQL`, `run`/`runOne` defaults) —
 `pnpm check` / `pnpm test` / `pnpm demo` green from repo root.
 
 ## What yatra is now
@@ -26,16 +27,17 @@ no builder pattern. Everything is either:
   `Accessor<T, Chain>` mapped type (fields + relations merged), and
   the row-shape machinery (`MergeAll`/`Contribution`/`NestChain`/
   `JoinPath`).
-- `src/ops.ts` — pure functions: `as`, `lower`, `mul`,
-  `eq/ne/gt/gte/lt/lte/like/ilike/inArray/isNull/isNotNull`,
-  `and/or/not`, `asc/desc`, `jsonAgg`, `count`, `whereExists`
-  (EXISTS subquery; renders in both `compile.ts` and
-  `yatra-memory`, m2m unsupported). Predicates and `asc`/`desc`
-  accept expressions too (`gt(mul(b.price, 2), 20)`,
+- `packages/yatra-ops/src/builders.ts` — pure functions: `lower`,
+  `mul`, `eq/ne/gt/gte/lt/lte/like/ilike/inArray/isNull/isNotNull`,
+  `and/or/not`, `exists` (EXISTS subquery; the packs' `sql`/`eval`
+  facets render it on both backends, m2m unsupported), `jsonAgg`,
+  `count`, `sum/avg/min/max`, `many`/`one`. Predicates and `asc`/
+  `desc` accept expressions too (`gt(mul(b.price, 2), 20)`,
   `asc(lower(t.name))`) — `RefValue`/`AnyValueRef` widen the
   first argument from `ColRef` to `ColRef | ExprRef`.
   User-defined ops compose identically — this is the
-  extensibility story.
+  extensibility story. (`as`/`asc`/`desc` are statement shape and
+  stay in core `statement.ts`.)
 - `src/query.ts` — `QueryContext<T, M, Items, X>` + pipe steps:
   `query`, `select(fn)`, `where(fn)`, `orderBy(fn)`, `hydrate`,
   `limit`, `offset`. `Row`/`Result` = `MergeAll<M, Items>`, or
@@ -55,8 +57,8 @@ no builder pattern. Everything is either:
   excludes `InsertExtra` — via `StepGate` (an impossible
   `Record<"message", never>` brand intersected into the ctx param;
   the generics stay inside `QueryContext`, so pipe inference is
-  unaffected). `compile.ts` keeps the same rules as runtime
-  backstops.
+  unaffected). `plan.ts` keeps the same rules as runtime
+  backstops; `compile.ts` inherits them by calling `plan`.
 - `src/mutation.ts` — insert/update/delete. Mutation contexts are
   just `QueryContext` whose `X` is `InsertExtra`/`UpdateExtra`/
   `DeleteExtra` (runtime payload lives in optional `kind`/`rows`/
@@ -67,17 +69,34 @@ no builder pattern. Everything is either:
   via `ValidInsert`/`ValidUpdate` brands on the table argument.
   No-returning result type is `void`; affected-row count would
   need an `Executor` change (skipped on purpose).
-- `src/compile.ts` — postgres `Compiler`: walks nodes, builds a
-  join tree from ref chains, renders SQL + params. Dialect seam is
-  the `Compiler` interface. Dispatches on runtime `kind`:
+- `src/plan.ts` — one pure `plan(ctx)`: the join tree from ref
+  chains with resolved join keys, the chains, and the result
+  projection. Owns the mutation-gating runtime backstops: throws
+  on hydrate/orderBy/limit/offset, group/having/distinct, and
+  materialize on mutations, and on insert+where. `src/registry.ts` — the op facet contracts
+  (`sql`/`eval` per op, grouped by kind) and `buildRegistry`
+  (duplicates throw; intentional replacement via `overrides`).
+- `src/compile.ts` — the `makeCompiler` shell: renders SQL +
+  params over the plan, dispatching every op through the registry.
+  Quote and param functions arrive with the config — nothing
+  postgres-specific here. Dispatches on runtime `kind`:
   `querySql` (select) vs `mutationSql` (insert/update/delete +
-  `RETURNING` from `selection`; throws on hydrate/orderBy/limit/
-  offset and on insert+where).
+  `RETURNING` from `selection`; the mutation gating fired earlier
+  in `plan`). Dialect seam is the `Compiler` interface.
+- `packages/yatra-ops` — the built-in vocabulary: the builders
+  (above) plus `packs.ts` (`corePred`, `coreExpr`, `coreAgg`,
+  `coreAggFns`, `pgText`, `defaultPacks`) — each op a pair of
+  `sql`/`eval` facets sharing SQL-92 semantics.
+- `packages/yatra-postgres` — the dialect: `"ident"` quoting, `$n`
+  params, the ready-made `postgres` compiler, `toSQL`, and
+  `run`/`runOne` wrappers that default to `postgres`.
 - `src/hydrate.ts` — nests flat rows using the same selection
   nodes; an empty selection passes rows through untouched.
 - `src/execute.ts` — `Executor` interface (one async `query`
-  function), terminal pipe steps `run(exec)` and `runOne(exec)`.
-  Types flow through: `await pipe(..., hydrate, run(pool))` →
+  function), terminal pipe steps `run(exec, compiler)` and
+  `runOne(exec, compiler)` — the compiler is explicit in core; the
+  postgres default lives in the yatra-postgres wrappers.
+  Types flow through: `await pipe(..., hydrate, run(pool, postgres))` →
   fully inferred `Result`. `run` returns `StatementResult`:
   `MergeAll` rows for queries and mutations with `returning`,
   `void` for mutations without.
@@ -90,8 +109,9 @@ no builder pattern. Everything is either:
   reusable across datasets) and `evalQuery(ctx, data)` walk the
   `QueryContext` against plain arrays (`{ [tableName]: rows[] }`)
   and reproduce the SQL semantics (joins, three-valued null logic,
-  jsonAgg, hydration via the core `hydrateRows`) in JS. Mutations
-  work too and mutate the arrays in place.
+  jsonAgg, hydration via the core `hydrateRows`) in JS — op
+  semantics are the packs' `eval` facets (`defaultPacks` from
+  yatra-ops). Mutations work too and mutate the arrays in place.
 - `packages/yatra-effect` — Effect v4 runner: `YatraExecutor`
   service, `QueryError` tagged error, `layerSqlClient` (any
   `@effect/sql-*` driver; in v4 SQL lives at
@@ -101,7 +121,7 @@ no builder pattern. Everything is either:
   `effect@4.0.0-beta.99` + `@effect/sql-pglite@4.0.0-beta.99`
   (v4 is still a beta line; pin in lockstep). Demo:
   `pnpm --filter yatra-effect demo`.
-- Compile-time type tests: `packages/yatra/test/types.test-d.ts`
+- Compile-time type tests: `packages/yatra-ops/test/types.test-d.ts`
   (`Expect<Equal<...>>` + `@ts-expect-error` negative tests).
   NOTE: `@ts-expect-error` must sit directly above the line the
   error lands on — oxfmt splits `pipe(...)` calls across lines.
@@ -140,7 +160,7 @@ readonly ChainLink[]>(b: Accessor<typeof Book, Chain>) => ...`.
 
 ## Known limitations / honest caveats
 
-- `jsonAgg`/`count`/`whereExists` over many-to-many throws at
+- `jsonAgg`/`count`/`exists` over many-to-many throws at
   compile time (runtime), same as before.
 - No migrations/DDL yet, though column property symbols carry
   nearly everything needed (`PrimaryKey`, `References`, `Default`,
@@ -157,16 +177,19 @@ select, sub-shapes, group/having, set ops, vocabulary),
 1. **`lit` node + uniform op args + open op tags** (FIXES.md
    #1, #6) — cheap, kills a live JSON-value-rendered-as-column
    bug, unblocks op packs.
-2. **Parity suite: yatra-memory vs yatra-pglite** — one shared
-   suite over both executors asserting identical results. Must
-   land before any compiler surgery, no later than the registry
-   port; it is the regression net for everything below.
-3. **Plan into core + handler registry** — one pure
-   `plan(stmt)`; `postgres` becomes `makeCompiler` + packs with
-   plan/emit/eval facets; yatra-memory becomes `makeEvaluator`
-   over the same packs. Also: `run` takes an explicit backend
-   (FIXES.md #4), projection descriptors decouple hydrate from
-   SQL alias naming (#2).
+2. **Parity suite: yatra-memory vs yatra-pglite** — landed:
+   `packages/yatra-pglite/test/parity.test.ts`, one shared
+   `bothAgree`/`bothMutate` harness running identical contexts
+   through `pgliteExecutor` + `run` and yatra-memory's
+   `evalQuery`. Covers selects, mutations, and plan-time errors
+   asserted identically on both backends.
+3. **Plan into core + handler registry** — landed: one pure
+   `plan(stmt)` in core; `postgres` is `makeCompiler` + packs in
+   yatra-postgres; yatra-memory is `makeEvaluator` over the same
+   packs; `run` takes an explicit backend (FIXES.md #4);
+   projection descriptors decouple hydrate from SQL alias naming
+   (#2). Leftover: the `plan` facet — chain demand is still
+   core's `collectChains`; it becomes a facet with scopes (item 5).
 4. **Statements as nodes** — one `StatementData` discriminant;
    deletes the `X`/`StepGate` patchwork; enables mutations v2
    (expression values in `update` sets, `mul(t.price, 2)`) and

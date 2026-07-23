@@ -4,15 +4,12 @@ import {
   lit,
   mk,
   needData,
+  shapeItems,
   type Accessor,
   type AggData,
   type AggRef,
-  type AliasData,
-  type AliasedRef,
-  type ChainLink,
   type CheckItems,
   type ColRef,
-  type CorePredOp,
   type ExprRef,
   type MergeAll,
   type NodeData,
@@ -24,9 +21,29 @@ import {
   type RequireTuple,
   type RootOf,
   type Selectable,
-  type ShapeRow
-} from "./ref.ts"
-import type { Tableish } from "./utils.ts"
+  type ShapeRow,
+  type Tableish
+} from "yatra"
+/**
+ * The ops core's own builders use. The IR itself is open: `PredData.op`
+ * is a plain string, so op packs can add their own (docs/compiler-composition.md).
+ */
+export type CorePredOp =
+  | "eq"
+  | "ne"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "like"
+  | "ilike"
+  | "in"
+  | "isNull"
+  | "isNotNull"
+  | "and"
+  | "or"
+  | "not"
+  | "exists"
 type RefValue<R> =
   R extends ColRef<infer V, any, any>
     ? V
@@ -37,29 +54,6 @@ type RefValue<R> =
 type AnyValueRef =
   | ColRef<any, any, any, any>
   | ExprRef<any, any>
-// --- aliasing ---
-export function as<
-  V,
-  A extends string,
-  Chain extends readonly ChainLink[],
-  Root
->(
-  ref: ColRef<V, string, Chain, Root>,
-  alias: A
-): AliasedRef<V, A, Chain, Root>
-export function as<V, A extends string, Root>(
-  ref: ExprRef<V, Root>,
-  alias: A
-): AliasedRef<V, A, readonly [], Root>
-export function as<
-  V,
-  K extends string,
-  A extends string,
-  Root
->(ref: AggRef<V, K, Root>, alias: A): AggRef<V, A, Root>
-export function as(ref: unknown, alias: string): unknown {
-  return mk({ kind: "as", target: needData(ref), alias })
-}
 // --- expressions ---
 export function lower<V extends string | null, Root>(
   ref: ColRef<V, any, any, Root>
@@ -230,25 +224,6 @@ export function max<
   return aggFn("max", [needData(ref)])
 }
 
-// --- ordering ---
-export function asc<R extends AnyValueRef>(
-  ref: R
-): OrderRef<RootOf<R>> {
-  return mk({
-    kind: "order",
-    direction: "asc",
-    ref: needData(ref)
-  })
-}
-export function desc<R extends AnyValueRef>(
-  ref: R
-): OrderRef<RootOf<R>> {
-  return mk({
-    kind: "order",
-    direction: "desc",
-    ref: needData(ref)
-  })
-}
 // --- aggregations ---
 export function jsonAgg<
   D extends Tableish,
@@ -302,43 +277,6 @@ export function count(rel?: unknown): unknown {
   return mk(data)
 }
 // --- object shapes (docs/shapes.md) ---
-/** The inherent result key of a node, if it has one. */
-function inherentKey(d: NodeData): string | undefined {
-  switch (d.kind) {
-    case "col":
-      return d.key
-    case "as":
-      return d.alias
-    case "agg":
-      return d.key
-    default:
-      return undefined
-  }
-}
-/**
- * Desugar an object shape to selection nodes: the key is the alias.
- * Entries whose node already produces that key pass through; the rest
- * get an `as` wrapper.
- */
-export function shapeItems(
-  shape: Record<string, unknown>
-): NodeData[] {
-  return Object.entries(shape).map(([k, v]) => {
-    const d = dataOf(v)
-    if (!d) {
-      throw new Error(
-        `Shape entry '${k}' is not a yatra node`
-      )
-    }
-    if (inherentKey(d) === k) return d
-    const aliased: AliasData = {
-      kind: "as",
-      target: d,
-      alias: k
-    }
-    return aliased
-  })
-}
 /** A shape callback's result: an object (key = alias) or the low-level
  * tuple form. */
 type ShapeOut = Record<string, unknown> | readonly unknown[]

@@ -1,7 +1,6 @@
 import {
   buildRegistry,
   Default,
-  defaultPacks,
   DefaultValue,
   hydrateRows,
   litBound,
@@ -32,6 +31,7 @@ import {
   type StatementResult,
   type Tableish
 } from "yatra"
+import { defaultPacks } from "yatra-ops"
 /**
  * Tables as plain arrays, keyed by table name. Many-to-many join tables
  * live under their join-table name, with columns named by the relation
@@ -220,7 +220,7 @@ function makeCtx(
       const join = resolveJoin(relation)
       if (join.kind === "m2m") {
         throw new Error(
-          "jsonAgg/count/exists over many-to-many relations is not supported yet"
+          "aggregations and exists-style subqueries over many-to-many relations are not supported yet"
         )
       }
       const parentRow = tuple[parentChain.join(".")]

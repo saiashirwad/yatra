@@ -28,6 +28,9 @@ importers:
       yatra:
         specifier: workspace:*
         version: link:../yatra
+      yatra-postgres:
+        specifier: workspace:*
+        version: link:../yatra-postgres
     devDependencies:
       '@effect/sql-pglite':
         specifier: 4.0.0-beta.99
@@ -35,8 +38,20 @@ importers:
       effect:
         specifier: 4.0.0-beta.99
         version: 4.0.0-beta.99
+      yatra-ops:
+        specifier: workspace:*
+        version: link:../yatra-ops
 
   packages/yatra-memory:
+    dependencies:
+      yatra:
+        specifier: workspace:*
+        version: link:../yatra
+      yatra-ops:
+        specifier: workspace:*
+        version: link:../yatra-ops
+
+  packages/yatra-ops:
     dependencies:
       yatra:
         specifier: workspace:*
@@ -54,6 +69,21 @@ importers:
       yatra-memory:
         specifier: workspace:*
         version: link:../yatra-memory
+      yatra-ops:
+        specifier: workspace:*
+        version: link:../yatra-ops
+      yatra-postgres:
+        specifier: workspace:*
+        version: link:../yatra-postgres
+
+  packages/yatra-postgres:
+    dependencies:
+      yatra:
+        specifier: workspace:*
+        version: link:../yatra
+      yatra-ops:
+        specifier: workspace:*
+        version: link:../yatra-ops
 
 packages:
 

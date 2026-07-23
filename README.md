@@ -12,13 +12,23 @@ pnpm check       # format + lint + typecheck (includes compile-time type tests)
 
 ## Layout
 
-pnpm workspace, two packages:
+pnpm workspace:
 
 - `packages/yatra` — the core: tables, columns, relations, the ref
-  IR, query ops, the postgres compiler, hydration, and the typed
-  `run`/`runOne` executors. Zero dependencies.
+  IR, the pipe steps, the plan, the op registry and `makeCompiler`
+  shell, hydration, and the typed `run`/`runOne` executors (the
+  compiler is explicit). Zero dependencies.
+- `packages/yatra-ops` — the built-in vocabulary: op builders
+  (`eq`, `ilike`, `jsonAgg`, …) and the op packs (`corePred`,
+  `coreExpr`, `coreAgg`, `coreAggFns`, `pgText`, `defaultPacks`).
+- `packages/yatra-postgres` — the dialect: `"ident"` quoting, `$n`
+  params, the ready-made `postgres` compiler, `toSQL`, and
+  `run`/`runOne` wrappers that default to `postgres`.
 - `packages/yatra-pglite` — `pgliteExecutor(db)` adapter plus the
   demo and the real-DB test suite.
+- `packages/yatra-memory` — in-memory interpreter over the same
+  packs; parity-tested against pglite.
+- `packages/yatra-effect` — Effect v4 runner.
 
 ## Taste
 

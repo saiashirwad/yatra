@@ -1,6 +1,6 @@
 # Compiler composition
 
-Named operators (`eq`, `lt`, `ilike`, …) and dialect SQL are not long-term core. Core keeps the IR, statement steps, and a way to assemble a compiler from handlers. Dialects and op packs you own supply the vocabulary and the emit rules.
+Named operators (`eq`, `lt`, `ilike`, …) and dialect SQL are not core. Core keeps the IR, statement steps, and a way to assemble a compiler from handlers. Dialects and op packs you own supply the vocabulary and the emit rules.
 
 ## Idea
 
@@ -24,7 +24,7 @@ Named operators (`eq`, `lt`, `ilike`, …) and dialect SQL are not long-term cor
 
 ## Today
 
-`ops.ts` builds nodes with open string op tags; every op argument is bare `NodeData` with raw values wrapped in `lit`. `plan.ts` (core) owns the shared planning kernel: `collectChains` (including the `exists` chain slice), the join tree with resolved join keys, and the result projection. `compile.ts` is a single Postgres emitter that renders a `Plan` and still hard-codes the built-in tags (`eq` → `=`, `ilike` → `ILIKE`, `jsonb_agg`, `$n` params); `yatra-memory` interprets the same `Plan` with its own op switches. `run` takes an explicit compiler (`run(exec, compiler)`, postgres default). What is missing vs the target shape: the handler registry — ops are still closed switches in each backend, not packs.
+Three packages. Core (`packages/yatra`) keeps the IR (`ref.ts` — nodes with open string op tags, every op argument bare `NodeData` with raw values wrapped in `lit`), the shared planning kernel (`plan.ts`: `collectChains` including the `exists` chain slice, the join tree with resolved join keys, the result projection), the facet registry (`registry.ts`), and the `makeCompiler` shell (`compile.ts`), which renders a `Plan` and dispatches every op through the registry — quote and param functions arrive with the config, nothing Postgres-specific remains. `yatra-ops` ships the built-in vocabulary: `builders.ts` (the op builders) and `packs.ts` (`corePred`, `coreExpr`, `coreAgg`, `coreAggFns`, `pgText`, `defaultPacks`). `yatra-postgres` is the dialect: `"ident"` quoting, `$n` params, the ready-made `postgres` compiler, `toSQL`, and `run` / `runOne` wrappers that default to `postgres`. Core's `run` / `runOne` take an explicit compiler — there is no core default. `yatra-memory` interprets the same `Plan` through the same packs' `eval` facets.
 
 ## Target shape
 
@@ -50,7 +50,7 @@ export const comparePred = {
 }
 ```
 
-Why facets: the planner already switches on op today — `exists` changes which chains join at the current level (special-cased in `collectChains`, duplicated in yatra-memory). Scope-creating ops override `plan`; the default walks args. The `eval` facet is what makes one op pack work in both the SQL compiler and yatra-memory, so custom ops behave identically on both backends. (Named decision: the IR's evaluation semantics is SQL-92's — three-valued null logic, nulls sort last. Dialect deviations live in eval packs, not new interpreters.)
+Why facets: the planner already switches on op today — `exists` changes which chains join at the current level (special-cased in `collectChains`). Scope-creating ops override `plan`; the default walks args. The `eval` facet is what makes one op pack work in both the SQL compiler and yatra-memory, so custom ops behave identically on both backends. (Named decision: the IR's evaluation semantics is SQL-92's — three-valued null logic, nulls sort last. Dialect deviations live in eval packs, not new interpreters.)
 
 Emit handlers get a scope-aware context, not a root parameter (a handler that captures the outer root breaks the moment it renders inside a subquery):
 
@@ -83,8 +83,8 @@ Assemble a dialect:
 ```ts
 const postgres = makeCompiler({
   dialect: "postgres",
-  quote,
-  paramStyle: "dollar",
+  quote: ident => `"${ident}"`,
+  param: i => `$${i}`,
   packs: [corePred, coreExpr, coreAgg, pgText] // ilike, jsonb_agg emit
 })
 
@@ -97,7 +97,7 @@ const memory = makeEvaluator({
 Custom op: define builder + facets, then add the pack. Error story:
 
 - Missing handler fails at compile/eval naming all three coordinates: `no sql handler for pred op 'ilike' (dialect 'postgres')`.
-- `withOps` throws on a duplicate key; intentional replacement goes through an explicit override (silent last-wins makes pack ordering a footgun).
+- `buildRegistry` throws on a duplicate op; intentional replacement goes through its `overrides` parameter (silent last-wins makes pack ordering a footgun).
 - A dialect that cannot express an op either ships a **lowering** (`ilike` → `lower(a) LIKE lower(b)` on SQLite) or throws a capability error with a suggested rewrite — never a silent gap.
 - The select-alias convention (`flatAlias`) is core and non-overridable — hydrate depends on it. Dialects own quote + param style only.
 
@@ -114,16 +114,18 @@ Core switches on **kind**. Packages switch on **op**.
 
 ## Status
 
-Implemented. `registry.ts` holds the facet contracts (`sql` / `eval`
-per op, grouped by kind) and `buildRegistry` (duplicates throw;
-intentional replacement goes through `overrides`). `packs.ts` ships
+Implemented. Core's `registry.ts` holds the facet contracts (`sql` /
+`eval` per op, grouped by kind) and `buildRegistry` (duplicates throw;
+intentional replacement goes through `overrides`). `yatra-ops` ships
 the built-in vocabulary as packs — `corePred`, `coreExpr`, `coreAgg`,
 `coreAggFns`, `pgText` — each op a pair of facets sharing SQL-92
-semantics. `postgres` is `makeCompiler({ dialect: "postgres" })` and
-yatra-memory is `makeEvaluator()` over the same `defaultPacks`; the
-memory↔pglite parity suite is the regression net. Missing handlers
-fail naming op, kind, and backend. The `plan` facet from this doc is
-not a third facet yet — chain demand is still core's `collectChains`
-(the `exists` slice lives there); it becomes a facet when scopes
-land. Still closed on kind: row-shape contributions stay a closed set
-of brands. Node shapes assume docs/ir-and-scopes.md.
+semantics. `yatra-postgres` assembles the ready-made `postgres`
+(`makeCompiler` with `"ident"` quoting, `$n` params, `defaultPacks`)
+— plus `toSQL` and the `run` / `runOne` defaults;
+yatra-memory is `makeEvaluator()` over the same `defaultPacks` and
+the memory↔pglite parity suite is the regression net. Missing
+handlers fail naming op, kind, and backend. The `plan` facet from
+this doc is not a third facet yet — chain demand is still core's
+`collectChains` (the `exists` slice lives there); it becomes a facet
+when scopes land. Still closed on kind: row-shape contributions stay
+a closed set of brands. Node shapes assume docs/ir-and-scopes.md.
