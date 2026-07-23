@@ -22,7 +22,7 @@ const q = pipe(
   select(t => ({
     id: t.id,
     name: t.name,
-    bookCount: count(t.books),          // key is the alias — no as()
+    bookCount: count(t.books), // key is the alias — no as()
     books: many(t.books, b => ({
       title: b.title,
       price: b.price
@@ -39,9 +39,15 @@ What this deletes from the codebase: `as()` from the common path (kept for `orde
 Fragments compose by spread, and key collision is a type error instead of a silent duplicate column:
 
 ```ts
-const bookCard = (b: AnyAccessor<typeof Book>) => ({ id: b.id, title: b.title })
+const bookCard = (b: AnyAccessor<typeof Book>) => ({
+  id: b.id,
+  title: b.title
+})
 
-select(t => ({ name: t.name, books: many(t.books, b => ({ ...bookCard(b) })) }))
+select(t => ({
+  name: t.name,
+  books: many(t.books, b => ({ ...bookCard(b) }))
+}))
 ```
 
 ## Filtered / ordered / limited sub-shapes
@@ -49,11 +55,15 @@ select(t => ({ name: t.name, books: many(t.books, b => ({ ...bookCard(b) })) }))
 The biggest expressiveness gap today: no way to filter or limit a nested collection (`link(rel, cond)` filters the join, not the array — with left-join semantics it nulls non-matches rather than shrinking the array). One options bag on the same node:
 
 ```ts
-books: many(t.books, b => ({ title: b.title, price: b.price }), {
-  where: b => gt(b.price, 10),
-  orderBy: b => desc(b.price),
-  limit: 5
-})
+books: many(
+  t.books,
+  b => ({ title: b.title, price: b.price }),
+  {
+    where: b => gt(b.price, 10),
+    orderBy: b => desc(b.price),
+    limit: 5
+  }
+)
 ```
 
 Desugars to optional `where` / `order` / `limit` fields on the agg-over-statement node (ir-and-scopes.md). Postgres renders a filtered/lateral `jsonb_agg` subquery; memory filters before collecting. Filter specs are plain values too: `const cheap = { where: b => lt(b.price, 10) }` spreads into any shape.
@@ -67,7 +77,11 @@ pipe(
   Book,
   query,
   group(t => [t.authorId]),
-  select(t => ({ authorId: t.authorId, n: count(), avgPrice: avg(t.price) })),
+  select(t => ({
+    authorId: t.authorId,
+    n: count(),
+    avgPrice: avg(t.price)
+  })),
   having(t => gt(count(), 3))
 )
 ```
@@ -103,8 +117,8 @@ One node — `{ kind: "setop", op, left, right }` — wrapping two query values.
 
 ## Vocabulary
 
-| Keep | Rename | De-emphasize | Add |
-| ---- | ------ | ------------ | --- |
+| Keep                                                                                                                           | Rename                   | De-emphasize                                                                                   | Add                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------ | ------------------------ | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `query`, `select`, `where`, `orderBy`, `limit`, `offset`, `link`, `recursive`, `materialize`, `run` / `runOne`, `asc` / `desc` | `whereExists` → `exists` | `as` (shapes subsume it), `hydrate` (shapes imply it), `jsonAgg` (low-level node under `many`) | `many` / `one`, `group`, `having`, `distinct`, `union` / `intersect` / `except`; `sum` / `avg` / `min` / `max` / bare `count()` (op pack) |
 
 ## Status

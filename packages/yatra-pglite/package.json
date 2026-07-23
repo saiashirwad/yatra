@@ -8,14 +8,15 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test test/execute.test.ts",
+    "test": "node --test 'test/*.test.ts'",
     "demo": "node examples/demo.ts"
   },
   "dependencies": {
     "yatra": "workspace:*"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.4"
+    "@electric-sql/pglite": "^0.5.4",
+    "yatra-memory": "workspace:*"
   },
   "peerDependencies": {
     "@electric-sql/pglite": ">=0.5"

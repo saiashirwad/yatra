@@ -12,13 +12,13 @@ Named operators (`eq`, `lt`, `ilike`, …) and dialect SQL are not long-term cor
 
 ## Core vs packages
 
-| Lives in core                                | Lives outside core                            |
-| -------------------------------------------- | --------------------------------------------- |
-| Schema, refs, `mk` / `dataOf`, accessors     | `eq`, `lt`, `lte`, `and`, `like`, …           |
-| `query`, `select`, `where`, `orderBy`, …     | Postgres-only ops (`ilike`, `jsonb_agg` emit) |
-| Statement shape (`as`, `asc` / `desc`)       | Dialect quote / param style (`$1` vs `?`)     |
+| Lives in core                                          | Lives outside core                            |
+| ------------------------------------------------------ | --------------------------------------------- |
+| Schema, refs, `mk` / `dataOf`, accessors               | `eq`, `lt`, `lte`, `and`, `like`, …           |
+| `query`, `select`, `where`, `orderBy`, …               | Postgres-only ops (`ilike`, `jsonb_agg` emit) |
+| Statement shape (`as`, `asc` / `desc`)                 | Dialect quote / param style (`$1` vs `?`)     |
 | Plan from context (chains → join tree), scope services | Full SQL (or other) emission for each op      |
-| `Compiler` contract, merge/register handlers | Ready-made `postgres` / `sqlite` compilers    |
+| `Compiler` contract, merge/register handlers           | Ready-made `postgres` / `sqlite` compilers    |
 
 `jsonAgg`, `count`, `whereExists` are relation-shaped builders; their **render** rules still belong with a dialect or relational pack, not a closed core switch.
 
@@ -56,11 +56,11 @@ Emit handlers get a scope-aware context, not a root parameter (a handler that ca
 
 ```ts
 interface SqlOpContext {
-  value(a): string          // col → qualified name, expr → dispatch, lit → param
+  value(a): string // col → qualified name, expr → dispatch, lit → param
   pred(a): string
-  param(v): string          // force a placeholder ($1)
+  param(v): string // force a placeholder ($1)
   quote(ident): string
-  scope(source): SubqueryScope  // child plan + correlation, for exists / aggs
+  scope(source): SubqueryScope // child plan + correlation, for exists / aggs
 }
 ```
 
@@ -88,7 +88,9 @@ const postgres = makeCompiler({
   packs: [corePred, coreExpr, coreAgg, pgText] // ilike, jsonb_agg emit
 })
 
-const memory = makeEvaluator({ packs: [corePred, coreExpr, coreAgg, pgText] })
+const memory = makeEvaluator({
+  packs: [corePred, coreExpr, coreAgg, pgText]
+})
 // same packs; reads the plan + eval facets
 ```
 

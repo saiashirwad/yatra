@@ -23,20 +23,32 @@ The deepest planned change: make scope explicit in the IR, make statements nodes
 ```ts
 type ScopeId = string | symbol // generated per binding site
 
-interface ColData  { kind: "col";  scope: ScopeId; chain: readonly string[]; key: string }
-interface LitData  { kind: "lit";  value: unknown }
-interface ExprData { kind: "expr"; op: string; args: readonly NodeData[] } // preds are boolean exprs
+interface ColData {
+  kind: "col"
+  scope: ScopeId
+  chain: readonly string[]
+  key: string
+}
+interface LitData {
+  kind: "lit"
+  value: unknown
+}
+interface ExprData {
+  kind: "expr"
+  op: string
+  args: readonly NodeData[]
+} // preds are boolean exprs
 // as / order stay thin kinds
 
 type SourceData =
   | { kind: "table"; table: Tableish }
   | { kind: "query"; stmt: StatementData } // a query value as source
-  | { kind: "self" }                       // recursive step
+  | { kind: "self" } // recursive step
 
 interface LinkData {
   source: SourceData
   scope: ScopeId
-  on?: NodeData                 // may reference outer scopes
+  on?: NodeData // may reference outer scopes
   match: "left" | "required"
 }
 
@@ -45,10 +57,10 @@ interface StatementData {
   source: SourceData
   links: readonly LinkData[]
   selection: readonly NodeData[]
-  where: readonly NodeData[]    // conjunction of boolean exprs
+  where: readonly NodeData[] // conjunction of boolean exprs
   order: readonly NodeData[]
-  limit?: NodeData              // lit
-  offset?: NodeData             // lit
+  limit?: NodeData // lit
+  offset?: NodeData // lit
   hints?: readonly { kind: "materialize" }[]
   // insert rows / update sets: node-valued ({ col, value: NodeData })
 }
