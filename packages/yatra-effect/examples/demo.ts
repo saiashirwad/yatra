@@ -191,7 +191,6 @@ const program = Effect.gen(function* () {
     runEffect
   )
 
-
   yield* show(
     "aggregations: jsonAgg and count",
     pipe(
