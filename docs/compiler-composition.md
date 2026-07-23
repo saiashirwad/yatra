@@ -114,4 +114,16 @@ Core switches on **kind**. Packages switch on **op**.
 
 ## Status
 
-Design note. Partially implemented: the shared plan kernel (`plan.ts`), `lit` nodes with uniform args, open op tags, the projection descriptor, and the explicit-compiler `run` all landed (FIXES.md #1–#8). Still open on op, closed on kind — custom ops get emission and evaluation, but row-shape contributions (`Contribution` / `MergeAll`) stay a closed set of brands; an op that needs a new row shape touches core types. What remains: reimplement `postgres` as `makeCompiler` + packs and yatra-memory as `makeEvaluator` over the same packs, with the memory↔pglite parity suite as the regression net. Node shapes assume docs/ir-and-scopes.md.
+Implemented. `registry.ts` holds the facet contracts (`sql` / `eval`
+per op, grouped by kind) and `buildRegistry` (duplicates throw;
+intentional replacement goes through `overrides`). `packs.ts` ships
+the built-in vocabulary as packs — `corePred`, `coreExpr`, `coreAgg`,
+`coreAggFns`, `pgText` — each op a pair of facets sharing SQL-92
+semantics. `postgres` is `makeCompiler({ dialect: "postgres" })` and
+yatra-memory is `makeEvaluator()` over the same `defaultPacks`; the
+memory↔pglite parity suite is the regression net. Missing handlers
+fail naming op, kind, and backend. The `plan` facet from this doc is
+not a third facet yet — chain demand is still core's `collectChains`
+(the `exists` slice lives there); it becomes a facet when scopes
+land. Still closed on kind: row-shape contributions stay a closed set
+of brands. Node shapes assume docs/ir-and-scopes.md.

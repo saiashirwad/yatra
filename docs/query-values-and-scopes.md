@@ -190,4 +190,13 @@ Portable concepts live in the IR (projection, filter, named intermediate as a va
 
 ## Status
 
-This is a design note, not implemented API. Current Yatra has single-scope `query` / `select` / `where` and a Postgres compiler. Scopes, `exists` over query values, link-to-query, recursion, and materialize hints are future work built on the same pipe + IR direction.
+Partially implemented. Queries are values: `const q = pipe(...)`
+composes, and refinement works today (`pipe(cheap, where(...))`).
+Set ops landed as query-value combinators (`union` / `intersect` /
+`except`, both sides frozen on the statement), and `materialize()`
+exists as an inert hint. Not done: correlation (`exists(cheap, c =>
+eq(c.authorId, t.id))` needs explicit scopes — two refs with empty
+chains are indistinguishable today), link-to-query, and recursion.
+Those land with docs/ir-and-scopes.md's `ScopeId`; comparison
+builders already accept a ref on the right-hand side, so the
+predicate half of correlation is ready.

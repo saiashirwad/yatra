@@ -83,4 +83,15 @@ Node kinds drop from seven to about five: `col`, `lit`, `expr`, `as`, `order`, p
 
 ## Status
 
-Design note. Enables and is enabled by: compiler-composition.md (the registry's scope services assume these node shapes), link-and-joins.md (`link` is `LinkData`), query-values-and-scopes.md (query values are `SourceData`), shapes.md (the surface that desugars to this IR). Sequencing: `lit` + uniform args + open op tags first (done — see FIXES.md), statements-as-nodes next, explicit scopes last and largest.
+Partially implemented. Done: `lit` + uniform args + open op tags
+(FIXES.md), and statements as nodes — `QueryContext` is a
+`StatementData` with a real `kind` discriminant; the `X` phantom and
+`StepGate` are deleted, step gating is a plain constraint on `K`,
+mutation payloads are node-valued (expression update sets,
+`dbDefault`), and `materialize` exists as a hint. Not done: explicit
+scopes (`ScopeId`, first-class `SourceData` variants, correlation
+upward). Predicates are still a separate `pred` kind rather than
+boolean exprs, and aggs/`exists` are still relation-shaped rather
+than statement-shaped — both wait on scopes, the last and largest
+piece. Grow `types.test-d.ts` with multi-scope cases before that
+refactor, not after.

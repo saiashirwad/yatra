@@ -230,4 +230,9 @@ compiler              →  LEFT/INNER JOIN, subquery, etc.
 
 ## Status
 
-Design note, not implemented API. Current Yatra only does automatic left joins from relation chains. `link`, match policy, link-to-query, and `exists` over query values are future work on the same pipe + IR model.
+Partially implemented. Automatic left joins from relation chains and
+`exists` over a relation (`where(t => exists(t.books, b => ...))`)
+are the current behavior, parity-tested on both backends. Not done:
+the explicit `link` step, match policy, and link-to-query — they
+need explicit scopes (docs/ir-and-scopes.md) so the linked source's
+refs and the outer refs are distinguishable.

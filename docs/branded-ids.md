@@ -105,4 +105,13 @@ In-app flows that pass select results into `where` / `insert` stay cast-free.
 
 ## Status
 
-Design note, not implemented. Today `Root` on refs protects query construction only; `MergeAll` / `InferColumn` still use bare data types for values.
+Implemented. `IdOf<T, V>` brands PK columns with their own table and
+FK columns with the table their relation points at (a relation
+declaring `"table.field"` as its `foreignKey` is the metadata source;
+a table whose relations say nothing stays unbranded). Brands flow
+through `ColumnValue` into accessors, `TableRow`, `InsertInput`,
+`UpdateInput`, and comparison right-hand sides; nullable columns brand
+the non-null part. `asId(Table, raw)` converts at trust boundaries.
+The one simplification: FK branding is read from the owning table's
+own relations, so a one-to-many declared only on the parent does not
+brand the child's FK unless the child declares its side.

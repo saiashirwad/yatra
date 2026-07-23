@@ -123,4 +123,15 @@ One node — `{ kind: "setop", op, left, right }` — wrapping two query values.
 
 ## Status
 
-Design note. Everything here is surface desugaring onto ir-and-scopes.md; land it after the IR work, not before. Object select and filtered sub-shapes are the two highest-leverage items in the whole roadmap — the difference between "nice pipe builder" and the stated goal.
+Mostly implemented. Object select (key = alias, tuples kept as the
+low-level form), `many` / `one` with `where` / `orderBy` / `limit`
+sub-shape filters, `group` / `having` / `distinct`, the aggregate op
+pack (bare `count()`, `sum` / `avg` / `min` / `max`), set ops
+(`union` / `intersect` / `except`), falsy-tolerant `where` /
+`orderBy`, `whereExists` → `exists`, and the fragment aliases
+(`AnyAccessor`, `SelFrag`, `PredFrag`) all landed, parity-tested on
+both backends. Two deliberate deviations: unordered sub-shape
+collections and set-op results come back in a canonical order
+(jsonb ordering / result-column order) so every backend agrees; and
+`hydrate` stays for the tuple form rather than leaving the API.
+Steps-accept-`Table`-directly is not done; `query` stays explicit.
