@@ -7,7 +7,9 @@ import {
   count,
   defaultValue,
   del,
+  desc,
   eq,
+  gt,
   hydrate,
   ilike,
   inArray,
@@ -16,10 +18,12 @@ import {
   jsonAgg,
   limit,
   lower,
+  many,
   ne,
   nullable,
   number,
   offset,
+  one,
   oneToMany,
   oneToOne,
   orderBy,
@@ -35,6 +39,7 @@ import {
   uuid,
   where,
   type Accessor,
+  type AnyAccessor,
   type ChainLink,
   type ColRef,
   type Executor,
@@ -189,6 +194,84 @@ type _withAggs = Expect<
     }>
   >
 >
+// --- object shapes ---
+const shaped = pipe(
+  Author,
+  query,
+  select(t => ({
+    id: t.id,
+    lowerName: lower(t.name),
+    bookCount: count(t.books),
+    books: many(t.books, b => ({
+      title: b.name,
+      price: b.price
+    }))
+  }))
+)
+type _shaped = Expect<
+  Equal<
+    Result<typeof shaped>,
+    Array<{
+      id: string
+      lowerName: string
+      bookCount: number
+      books: Array<{
+        title: string
+        price: number | null
+      }>
+    }>
+  >
+>
+const oneShaped = pipe(
+  Book,
+  query,
+  select(b => ({
+    title: b.name,
+    author: one(b.author, a => ({ name: a.name }))
+  }))
+)
+type _oneShaped = Expect<
+  Equal<
+    Result<typeof oneShaped>,
+    Array<{
+      title: string
+      author: { name: string } | null
+    }>
+  >
+>
+// shapes compose by spread; sub-shape filters stay values
+const cardShape = (b: AnyAccessor<typeof Book>) => ({
+  title: b.name
+})
+const spread = pipe(
+  Author,
+  query,
+  select(t => ({
+    name: t.name,
+    books: many(
+      t.books,
+      b => ({ ...cardShape(b), price: b.price }),
+      {
+        where: b => gt(b.price, 10),
+        orderBy: b => desc(b.price),
+        limit: 5
+      }
+    )
+  }))
+)
+type _spread = Expect<
+  Equal<
+    Result<typeof spread>,
+    Array<{
+      name: string
+      books: Array<{
+        title: string | null
+        price: number | null
+      }>
+    }>
+  >
+>
+
 // select appends: each call concats onto the accumulated selection
 const chained = pipe(
   Author,

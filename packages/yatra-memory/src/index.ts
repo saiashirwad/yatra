@@ -4,6 +4,7 @@ import {
   defaultPacks,
   DefaultValue,
   hydrateRows,
+  litBound,
   plan,
   planScope,
   projectionOf,
@@ -15,6 +16,7 @@ import {
   type Mode,
   type NodeData,
   type OpPack,
+  type OrderData,
   type Plan,
   type PlanJoin,
   type PlanNode,
@@ -118,28 +120,6 @@ function expandNode(
     tuples = expandNode(child, childPath, next, data)
   }
   return tuples
-}
-
-/** limit/offset are inert `lit` nodes — interpreters validate them. */
-function bound(
-  node: NodeData | undefined,
-  what: string
-): number | undefined {
-  if (node === undefined) return undefined
-  if (node.kind !== "lit") {
-    throw new Error(`${what} must be a literal`)
-  }
-  const v = node.value
-  if (
-    typeof v !== "number" ||
-    !Number.isInteger(v) ||
-    v < 0
-  ) {
-    throw new Error(
-      `${what} must be a non-negative integer`
-    )
-  }
-  return v
 }
 
 /**
@@ -246,36 +226,73 @@ function makeCtx(
         matches,
         pred: (row, node) =>
           makeCtx(registry, { "": row }, data).pred(node),
-        collect(items) {
+        collect(spec) {
+          let ms = matches()
+          for (const w of spec.where ?? []) {
+            ms = ms.filter(
+              m =>
+                makeCtx(registry, { "": m }, data).pred(
+                  w
+                ) === true
+            )
+          }
           const subRoot = planScope(
             relation.destinationTable,
-            items
+            [
+              ...spec.items,
+              ...(spec.where ?? []),
+              ...(spec.order ?? [])
+            ]
           )
-          const subProj = projectionOf(items, "hydrate")
-          const seen = new Set<string>()
-          const out: RowValue[] = []
-          for (const m of matches()) {
-            for (const t of expandNode(
-              subRoot,
-              "",
-              [{ "": m }],
-              data
-            )) {
-              const obj = projectRow(
+          const subProj = projectionOf(
+            spec.items,
+            "hydrate"
+          )
+          const tuples = ms.flatMap(m =>
+            expandNode(subRoot, "", [{ "": m }], data)
+          )
+          const orders = spec.order ?? []
+          const limitN = litBound(spec.limit, "limit")
+          if (orders.length > 0) {
+            // explicit order: sort pre-projection, no dedupe
+            const sorted = [...tuples].sort(
+              compareTuples(registry, data, orders)
+            )
+            const sliced =
+              limitN !== undefined
+                ? sorted.slice(0, limitN)
+                : sorted
+            return sliced.map(t =>
+              projectRow(
                 registry,
                 t,
-                items,
+                spec.items,
                 subProj,
                 data
               )
-              const key = JSON.stringify(obj)
-              if (!seen.has(key)) {
-                seen.add(key)
-                out.push(obj)
-              }
-            }
+            )
           }
-          return out
+          // no explicit order: DISTINCT, ordered by the object itself
+          // (jsonb ordering) — deterministic, matches the SQL facet
+          const seen = new Set<string>()
+          const objs: RowValue[] = []
+          for (const t of tuples) {
+            const obj = projectRow(
+              registry,
+              t,
+              spec.items,
+              subProj,
+              data
+            )
+            const key = JSON.stringify(obj)
+            if (seen.has(key)) continue
+            seen.add(key)
+            objs.push(obj)
+          }
+          objs.sort(compareJson)
+          return limitN !== undefined
+            ? objs.slice(0, limitN)
+            : objs
         }
       }
     }
@@ -297,6 +314,93 @@ function projectRow(
     row[projection[i].col] = c.value(selection[i])
   }
   return row
+}
+
+/**
+ * jsonb's total order (postgres): null < string < number < boolean <
+ * array < object. Sub-shape collections without an explicit orderBy
+ * sort by this, so both backends return the same deterministic order.
+ */
+function compareJson(a: unknown, b: unknown): number {
+  const rank = (v: unknown): number =>
+    v === null
+      ? 0
+      : typeof v === "string"
+        ? 1
+        : typeof v === "number"
+          ? 2
+          : typeof v === "boolean"
+            ? 3
+            : Array.isArray(v)
+              ? 4
+              : 5
+  const ra = rank(a)
+  const rb = rank(b)
+  if (ra !== rb) return ra - rb
+  if (a === null || b === null) return 0
+  if (typeof a === "string" && typeof b === "string") {
+    return a < b ? -1 : a > b ? 1 : 0
+  }
+  if (typeof a === "number" && typeof b === "number") {
+    return a - b
+  }
+  if (typeof a === "boolean" && typeof b === "boolean") {
+    return a === b ? 0 : a ? 1 : -1
+  }
+  if (Array.isArray(a) && Array.isArray(b)) {
+    for (let i = 0; i < Math.min(a.length, b.length); i++) {
+      const c = compareJson(a[i], b[i])
+      if (c !== 0) return c
+    }
+    return a.length - b.length
+  }
+  const ao = a as Record<string, unknown>
+  const bo = b as Record<string, unknown>
+  const ak = Object.keys(ao).sort()
+  const bk = Object.keys(bo).sort()
+  for (let i = 0; i < Math.min(ak.length, bk.length); i++) {
+    const ka = ak[i]
+    const kb = bk[i]
+    // jsonb object keys: length first, then text
+    const kc =
+      ka.length - kb.length ||
+      (ka < kb ? -1 : ka > kb ? 1 : 0)
+    if (kc !== 0) return kc
+    const vc = compareJson(ao[ka], bo[kb])
+    if (vc !== 0) return vc
+  }
+  return ak.length - bk.length
+}
+
+/** nulls sort last for ASC (postgres default), first for DESC. */ function compareTuples(
+  registry: Registry,
+  data: DataSet,
+  orders: readonly OrderData[]
+) {
+  return (a: Tuple, b: Tuple): number => {
+    const ca = makeCtx(registry, a, data)
+    const cb = makeCtx(registry, b, data)
+    for (const o of orders) {
+      const va = ca.value(o.ref) as any
+      const vb = cb.value(o.ref) as any
+      const cmp =
+        va == null && vb == null
+          ? 0
+          : va == null
+            ? 1
+            : vb == null
+              ? -1
+              : va < vb
+                ? -1
+                : va > vb
+                  ? 1
+                  : 0
+      if (cmp !== 0) {
+        return o.direction === "desc" ? -cmp : cmp
+      }
+    }
+    return 0
+  }
 }
 
 // --- queries ---
@@ -323,33 +427,12 @@ function runQuery(
     })
   }
   if (planned.order.length > 0) {
-    const orders = planned.order
-    tuples = [...tuples].sort((a, b) => {
-      const ca = makeCtx(registry, a, data)
-      const cb = makeCtx(registry, b, data)
-      for (const o of orders) {
-        const va = ca.value(o.ref) as any
-        const vb = cb.value(o.ref) as any
-        let cmp =
-          va == null && vb == null
-            ? 0
-            : va == null
-              ? 1 // nulls sort last (postgres default for ASC)
-              : vb == null
-                ? -1
-                : va < vb
-                  ? -1
-                  : va > vb
-                    ? 1
-                    : 0
-        if (o.direction === "desc") cmp = -cmp
-        if (cmp !== 0) return cmp
-      }
-      return 0
-    })
+    tuples = [...tuples].sort(
+      compareTuples(registry, data, planned.order)
+    )
   }
-  const start = bound(planned.offset, "offset") ?? 0
-  const limitN = bound(planned.limit, "limit")
+  const start = litBound(planned.offset, "offset") ?? 0
+  const limitN = litBound(planned.limit, "limit")
   const end =
     limitN !== undefined ? start + limitN : undefined
   tuples = tuples.slice(start, end)

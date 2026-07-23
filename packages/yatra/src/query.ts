@@ -10,8 +10,12 @@ import {
   type OrderRef,
   type PredRef,
   type QueryAccessor,
-  type RequireTuple
+  type RequireTuple,
+  type Selectable,
+  type ShapeRef,
+  type ShapeRow
 } from "./ref.ts"
+import { shapeItems } from "./ops.ts"
 import type {
   Assignment,
   StatementKind
@@ -98,39 +102,51 @@ export function select<
   K extends StatementKind
 >(
   ctx: QueryContext<T, M, Items, K>
+) => QueryContext<T, M, readonly [...Items, ...NewItems], K>
+/** Object-shape select: the key is the alias; `many`/`one` nest
+ * sub-shapes (docs/shapes.md). Shape ⇒ nested result — no hydrate
+ * step needed. */
+export function select<
+  T extends Tableish,
+  const S extends Record<string, Selectable<T>>
+>(
+  fn: (t: QueryAccessor<T>) => S
+): <
+  M extends Mode,
+  Items extends readonly unknown[],
+  K extends StatementKind
+>(
+  ctx: QueryContext<T, M, Items, K>
 ) => QueryContext<
   T,
   M,
-  readonly [...Items, ...NewItems],
+  readonly [...Items, ShapeRef<ShapeRow<S>>],
   K
-> {
-  return ((ctx: QueryContext<T, any, any, any>) => ({
-    ...ctx,
-    selection: appendSelection(
-      ctx.selection,
-      (
-        fn(
-          accessor(ctx.source.table)
-        ) as unknown as NewItems
-      ).map(needData)
-    )
-  })) as unknown as <
-    M extends Mode,
-    Items extends readonly unknown[],
-    K extends StatementKind
-  >(
-    ctx: QueryContext<T, M, Items, K>
-  ) => QueryContext<
-    T,
-    M,
-    readonly [...Items, ...NewItems],
-    K
-  >
+>
+export function select<T extends Tableish>(
+  fn: (t: QueryAccessor<T>) => unknown
+): (ctx: QueryContext<T, any, any, any>) => unknown {
+  return (ctx: QueryContext<T, any, any, any>) => {
+    const out = fn(accessor(ctx.source.table)) as
+      | readonly unknown[]
+      | Record<string, unknown>
+    // Array.isArray doesn't narrow readonly arrays out of a union
+    const items = Array.isArray(out)
+      ? (out as unknown[]).map(needData)
+      : shapeItems(out as Record<string, unknown>)
+    return {
+      ...ctx,
+      selection: appendSelection(ctx.selection, items)
+    }
+  }
 }
+/** Conditional composition stays inside the pipe: falsy array entries
+ * are dropped (`where(t => [min && gte(t.price, min)])`). */
+type Falsy = false | null | undefined
 export function where<T extends Tableish>(
   fn: (
     t: QueryAccessor<T>
-  ) => PredRef<T> | readonly PredRef<T>[]
+  ) => PredRef<T> | readonly (PredRef<T> | Falsy)[]
 ): <
   M extends Mode,
   Items extends readonly unknown[],
@@ -144,7 +160,9 @@ export function where<T extends Tableish>(
       ...ctx,
       where: [
         ...ctx.where,
-        ...(Array.isArray(p) ? p : [p]).map(needData)
+        ...(Array.isArray(p) ? p : [p])
+          .filter(Boolean)
+          .map(needData)
       ]
     }
   }) as <
@@ -158,7 +176,7 @@ export function where<T extends Tableish>(
 export function orderBy<T extends Tableish>(
   fn: (
     t: QueryAccessor<T>
-  ) => OrderRef<T> | readonly OrderRef<T>[]
+  ) => OrderRef<T> | readonly (OrderRef<T> | Falsy)[]
 ): <M extends Mode, Items extends readonly unknown[]>(
   ctx: QueryContext<T, M, Items, "select">
 ) => QueryContext<T, M, Items, "select"> {
@@ -168,7 +186,9 @@ export function orderBy<T extends Tableish>(
       ...ctx,
       order: [
         ...ctx.order,
-        ...(Array.isArray(o) ? o : [o]).map(needData)
+        ...(Array.isArray(o) ? o : [o])
+          .filter(Boolean)
+          .map(needData)
       ]
     }
   }) as <M extends Mode, Items extends readonly unknown[]>(

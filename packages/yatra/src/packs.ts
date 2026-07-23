@@ -1,6 +1,11 @@
 import type { LitData, NodeData, RelData } from "./ref.ts"
 import { projectionOf } from "./plan.ts"
-import type { EvalCtx, OpPack, SqlCtx } from "./registry.ts"
+import {
+  litBound,
+  type EvalCtx,
+  type OpPack,
+  type SqlCtx
+} from "./registry.ts"
 
 // The built-in vocabulary as op packs: every op is a pair of facets,
 // `sql` (emit text) and `eval` (in-memory value), sharing SQL-92
@@ -195,14 +200,21 @@ export const coreAgg: OpPack = {
         c.scope(spec.relation, []).matches().length
     },
     array: {
-      // the core builder is jsonAgg; the SQL spelling (jsonb_agg) is
-      // this facet's business, not the IR's
+      // the core builder is many(); the SQL spelling (jsonb_agg) is
+      // this facet's business, not the IR's. Without an explicit
+      // orderBy the collection is DISTINCT and ordered by the object
+      // itself (jsonb ordering) — deterministic, so every backend
+      // agrees on the result.
       sql: (spec, c) => {
         const s = c.scope(
           spec.relation,
           spec.key,
           [],
-          spec.items
+          [
+            ...spec.items,
+            ...(spec.where ?? []),
+            ...(spec.order ?? [])
+          ]
         )
         const proj = projectionOf(spec.items, "hydrate")
         const pairs = spec.items
@@ -211,13 +223,81 @@ export const coreAgg: OpPack = {
             s.value(item)
           ])
           .join(", ")
+        const obj = `jsonb_build_object(${pairs})`
+        const conds = [
+          s.correlation,
+          ...(spec.where ?? []).map(w => s.pred(w))
+        ].join(" AND ")
+        const orders = (spec.order ?? []).map(
+          o =>
+            `${s.value(o.ref)} ${o.direction.toUpperCase()}`
+        )
+        const limitN = litBound(spec.limit, "limit")
+        if (limitN !== undefined) {
+          // order + limit need their own level between build_object
+          // and the aggregate
+          const inner =
+            orders.length > 0
+              ? `SELECT ${obj} AS obj FROM ${s.from} WHERE ${conds} ORDER BY ${orders.join(", ")} LIMIT ${c.param(limitN)}`
+              : `SELECT DISTINCT ${obj} AS obj FROM ${s.from} WHERE ${conds} ORDER BY obj LIMIT ${c.param(limitN)}`
+          return `coalesce((SELECT jsonb_agg(obj) FROM (${inner}) ${s.name}_l), '[]'::jsonb)`
+        }
+        if (orders.length > 0) {
+          // DISTINCT can't combine with ORDER BY in an aggregate
+          return (
+            `coalesce((SELECT jsonb_agg(${obj} ORDER BY ${orders.join(", ")})` +
+            ` FROM ${s.from} WHERE ${conds}), '[]'::jsonb)`
+          )
+        }
         return (
-          `coalesce((SELECT jsonb_agg(DISTINCT jsonb_build_object(${pairs}))` +
-          ` FROM ${s.from} WHERE ${s.correlation}), '[]'::jsonb)`
+          `coalesce((SELECT jsonb_agg(DISTINCT ${obj} ORDER BY ${obj})` +
+          ` FROM ${s.from} WHERE ${conds}), '[]'::jsonb)`
         )
       },
       eval: (spec, c) =>
-        c.scope(spec.relation, []).collect(spec.items)
+        c.scope(spec.relation, []).collect(spec)
+    },
+    one: {
+      sql: (spec, c) => {
+        const s = c.scope(
+          spec.relation,
+          spec.key,
+          [],
+          [
+            ...spec.items,
+            ...(spec.where ?? []),
+            ...(spec.order ?? [])
+          ]
+        )
+        const proj = projectionOf(spec.items, "hydrate")
+        const pairs = spec.items
+          .flatMap((item, i) => [
+            `'${proj[i].col.replaceAll("'", "''")}'`,
+            s.value(item)
+          ])
+          .join(", ")
+        const obj = `jsonb_build_object(${pairs})`
+        const conds = [
+          s.correlation,
+          ...(spec.where ?? []).map(w => s.pred(w))
+        ].join(" AND ")
+        const orders = (spec.order ?? []).map(
+          o =>
+            `${s.value(o.ref)} ${o.direction.toUpperCase()}`
+        )
+        // no explicit order: deterministic pick (jsonb ordering)
+        const orderBy =
+          orders.length > 0 ? orders.join(", ") : obj
+        return (
+          `(SELECT ${obj} FROM ${s.from} WHERE ${conds}` +
+          ` ORDER BY ${orderBy} LIMIT 1)`
+        )
+      },
+      eval: (spec, c) =>
+        c.scope(spec.relation, []).collect({
+          ...spec,
+          limit: { kind: "lit", value: 1 }
+        })[0] ?? null
     }
   }
 }

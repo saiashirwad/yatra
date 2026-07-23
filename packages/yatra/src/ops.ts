@@ -7,6 +7,7 @@ import {
   type Accessor,
   type AggData,
   type AggRef,
+  type AliasData,
   type AliasedRef,
   type ChainLink,
   type CheckItems,
@@ -15,11 +16,15 @@ import {
   type ExprRef,
   type MergeAll,
   type NodeData,
+  type OrderData,
   type OrderRef,
   type PredRef,
   type RelData,
   type RelRef,
-  type RootOf
+  type RequireTuple,
+  type RootOf,
+  type Selectable,
+  type ShapeRow
 } from "./ref.ts"
 import type { Tableish } from "./utils.ts"
 type RefValue<R> =
@@ -255,4 +260,155 @@ export function count<
     items: []
   }
   return mk(data)
+}
+// --- object shapes (docs/shapes.md) ---
+/** The inherent result key of a node, if it has one. */
+function inherentKey(d: NodeData): string | undefined {
+  switch (d.kind) {
+    case "col":
+      return d.key
+    case "as":
+      return d.alias
+    case "agg":
+      return d.key
+    default:
+      return undefined
+  }
+}
+/**
+ * Desugar an object shape to selection nodes: the key is the alias.
+ * Entries whose node already produces that key pass through; the rest
+ * get an `as` wrapper.
+ */
+export function shapeItems(
+  shape: Record<string, unknown>
+): NodeData[] {
+  return Object.entries(shape).map(([k, v]) => {
+    const d = dataOf(v)
+    if (!d) {
+      throw new Error(
+        `Shape entry '${k}' is not a yatra node`
+      )
+    }
+    if (inherentKey(d) === k) return d
+    const aliased: AliasData = {
+      kind: "as",
+      target: d,
+      alias: k
+    }
+    return aliased
+  })
+}
+/** A shape callback's result: an object (key = alias) or the low-level
+ * tuple form. */
+type ShapeOut = Record<string, unknown> | readonly unknown[]
+/** Filter/order/limit a sub-shape: "each author with their 5 cheapest
+ * books" stays inside the shape language. */
+export interface SubShapeOpts<D extends Tableish, Root> {
+  readonly where?: (
+    t: Accessor<D, readonly [], Root>
+  ) => PredRef<Root> | readonly PredRef<Root>[]
+  readonly orderBy?: (
+    t: Accessor<D, readonly [], Root>
+  ) => OrderRef<Root> | readonly OrderRef<Root>[]
+  readonly limit?: number
+}
+function aggSub(
+  aggKind: "array" | "one",
+  rel: unknown,
+  fn: (t: any) => ShapeOut,
+  opts?: SubShapeOpts<any, any>
+): unknown {
+  const d = dataOf(rel) as RelData
+  const sub = accessor(d.relation.destinationTable)
+  const out = fn(sub)
+  const items = Array.isArray(out)
+    ? (out as readonly unknown[]).map(needData)
+    : shapeItems(out as Record<string, unknown>)
+  const w = opts?.where?.(sub)
+  const o = opts?.orderBy?.(sub)
+  const data: AggData = {
+    kind: "agg",
+    aggKind,
+    relation: d.relation,
+    key: d.key,
+    items,
+    ...(w
+      ? {
+          where: (Array.isArray(w) ? w : [w]).map(needData)
+        }
+      : {}),
+    ...(o
+      ? {
+          order: (Array.isArray(o) ? o : [o]).map(
+            x => needData(x) as OrderData
+          )
+        }
+      : {}),
+    ...(opts?.limit !== undefined
+      ? { limit: lit(opts.limit) }
+      : {})
+  }
+  return mk(data)
+}
+/** A nested collection in an object shape: `books: many(t.books, b =>
+ * ({ title: b.title }))`. Subsumes jsonAgg. */
+export function many<
+  D extends Tableish,
+  K extends string,
+  Root,
+  const Items extends readonly unknown[]
+>(
+  rel: RelRef<D, K, Root>,
+  fn: (
+    t: Accessor<D, readonly [], Root>
+  ) => CheckItems<Items, Root> & RequireTuple<Items>,
+  opts?: SubShapeOpts<D, Root>
+): AggRef<MergeAll<"hydrate", Items>[], K, Root>
+export function many<
+  D extends Tableish,
+  K extends string,
+  Root,
+  const S extends Record<string, Selectable<Root>>
+>(
+  rel: RelRef<D, K, Root>,
+  fn: (t: Accessor<D, readonly [], Root>) => S,
+  opts?: SubShapeOpts<D, Root>
+): AggRef<ShapeRow<S>[], K, Root>
+export function many(
+  rel: unknown,
+  fn: (t: any) => ShapeOut,
+  opts?: SubShapeOpts<any, any>
+): unknown {
+  return aggSub("array", rel, fn, opts)
+}
+/** A nested to-one in an object shape: null when the relation misses. */
+export function one<
+  D extends Tableish,
+  K extends string,
+  Root,
+  const Items extends readonly unknown[]
+>(
+  rel: RelRef<D, K, Root>,
+  fn: (
+    t: Accessor<D, readonly [], Root>
+  ) => CheckItems<Items, Root> & RequireTuple<Items>,
+  opts?: SubShapeOpts<D, Root>
+): AggRef<MergeAll<"hydrate", Items> | null, K, Root>
+export function one<
+  D extends Tableish,
+  K extends string,
+  Root,
+  const S extends Record<string, Selectable<Root>>
+>(
+  rel: RelRef<D, K, Root>,
+  fn: (t: Accessor<D, readonly [], Root>) => S,
+  opts?: SubShapeOpts<D, Root>
+): AggRef<ShapeRow<S> | null, K, Root>
+export function one(
+  rel: unknown,
+  fn: (t: any) => ShapeOut,
+  opts?: SubShapeOpts<any, any>
+): unknown {
+  return aggSub("one", rel, fn, opts)
 }

@@ -11,6 +11,8 @@ import type { Relation } from "./relation.ts"
  * through it instead of capturing aliases — a handler that captured
  * the outer scope would break inside a subquery. */
 export interface SqlScope {
+  /** the sub-scope's table alias (for naming wrapper subqueries) */
+  readonly name: string
   /** FROM clause of the sub-select, joins included */
   readonly from: string
   /** predicate tying the sub-scope to the enclosing scope */
@@ -47,11 +49,9 @@ export interface EvalScope {
     row: Record<string, unknown>,
     node: NodeData
   ): boolean | null
-  /** expand joins over the matches and project `items`, deduplicated
-   * — the interpreter's jsonb_agg */
-  collect(
-    items: readonly NodeData[]
-  ): Record<string, unknown>[]
+  /** expand joins over the matches and project the spec's items,
+   * honoring its where/order/limit — the interpreter's jsonb_agg */
+  collect(spec: AggData): Record<string, unknown>[]
 }
 
 /** Eval services an in-memory op handler computes through. */
@@ -109,6 +109,32 @@ export interface Registry {
 }
 
 const KINDS = ["pred", "expr", "agg"] as const
+
+/**
+ * Validate a `lit` node that must hold a non-negative integer
+ * (limit/offset, in statements and sub-shapes). Backends call this
+ * instead of trusting the builder.
+ */
+export function litBound(
+  node: NodeData | undefined,
+  what: string
+): number | undefined {
+  if (node === undefined) return undefined
+  if (node.kind !== "lit") {
+    throw new Error(`${what} must be a literal`)
+  }
+  const v = node.value
+  if (
+    typeof v !== "number" ||
+    !Number.isInteger(v) ||
+    v < 0
+  ) {
+    throw new Error(
+      `${what} must be a non-negative integer`
+    )
+  }
+  return v
+}
 
 /**
  * Merge packs into one registry. A duplicate op throws — silent

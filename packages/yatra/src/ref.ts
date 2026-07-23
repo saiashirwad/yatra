@@ -63,6 +63,11 @@ export interface AggData {
   readonly relation: Relation<any, any>
   readonly key: string
   readonly items: readonly NodeData[]
+  /** sub-shape filters (docs/shapes.md): each author with their
+   * 5 cheapest books — applied inside the agg's own scope */
+  readonly where?: readonly NodeData[]
+  readonly order?: readonly OrderData[]
+  readonly limit?: LitData
 }
 export interface PredData {
   readonly kind: "pred"
@@ -166,6 +171,17 @@ export interface OrderRef<Root = any> {
     readonly root: Root
   }
 }
+/**
+ * Phantom only (never exists at runtime): the row contribution of an
+ * object-shape select. The runtime selection holds the desugared
+ * nodes; this carries the record shape into `MergeAll`.
+ */
+export interface ShapeRef<R = any> {
+  readonly [RefData]: {
+    readonly kind: "shape"
+    readonly row: R
+  }
+}
 /** Extract the root-table brand from any ref (`any` = unbranded). */
 export type RootOf<R> = R extends {
   readonly [RefData]: { readonly root: infer Rt }
@@ -265,6 +281,32 @@ export type QueryAccessor<T extends Tableish> = Accessor<
   readonly [],
   T
 >
+/**
+ * An accessor with any chain and any root — the parameter type for
+ * reusable fragments (`(b: AnyAccessor<typeof Book>) => ...`).
+ * Chain-generic: works at the root and behind any relation. The
+ * trade-off: values come back widened (`| null`), since the type
+ * can't know whether the fragment ran at the root or behind a join.
+ */
+export type AnyAccessor<T extends Tableish> = Accessor<
+  T,
+  any,
+  any
+>
+/** A chain-generic selection fragment — the signature every reusable
+ * fragment needs, so users don't have to remember it. Tuple fragments
+ * must return inline tuples (`as const`) to keep their row type. */
+export type SelFrag<T extends Tableish> = <
+  Chain extends readonly ChainLink[]
+>(
+  t: Accessor<T, Chain>
+) => readonly unknown[] | Record<string, unknown>
+/** A chain-generic predicate fragment. */
+export type PredFrag<T extends Tableish> = <
+  Chain extends readonly ChainLink[]
+>(
+  t: Accessor<T, Chain>
+) => PredRef<any> | readonly PredRef<any>[]
 export function accessor<T extends Tableish>(
   table: T,
   chain: readonly string[] = []
@@ -406,21 +448,27 @@ type NestChain<
     }
   : { [K in Key]: V }
 export type Contribution<M extends Mode, Item> =
-  Item extends AggRef<infer V, infer K>
-    ? { [Key in K]: V }
-    : Item extends AliasedRef<infer V, infer A, infer Chain>
-      ? {
-          [Key in A]: Chain extends readonly []
-            ? V
-            : V | null
-        }
-      : Item extends ColRef<infer V, infer K, infer Chain>
-        ? Chain extends readonly []
-          ? { [Key in K]: V }
-          : M extends "flat"
-            ? { [Key in JoinPath<Chain, K>]: V | null }
-            : NestChain<V, K, Chain>
-        : {}
+  Item extends ShapeRef<infer R>
+    ? R
+    : Item extends AggRef<infer V, infer K>
+      ? { [Key in K]: V }
+      : Item extends AliasedRef<
+            infer V,
+            infer A,
+            infer Chain
+          >
+        ? {
+            [Key in A]: Chain extends readonly []
+              ? V
+              : V | null
+          }
+        : Item extends ColRef<infer V, infer K, infer Chain>
+          ? Chain extends readonly []
+            ? { [Key in K]: V }
+            : M extends "flat"
+              ? { [Key in JoinPath<Chain, K>]: V | null }
+              : NestChain<V, K, Chain>
+          : {}
 export type MergeAll<
   M extends Mode,
   Items extends readonly unknown[],
@@ -428,3 +476,28 @@ export type MergeAll<
 > = Items extends readonly [infer H, ...infer Rest]
   ? MergeAll<M, Rest, Merge<Acc, Contribution<M, H>>>
   : Clean<Acc>
+// --- object shapes (docs/shapes.md) ---
+/** What an object-shape entry accepts: any value-carrying ref rooted
+ * at the query's table. The object key is the alias. */
+export type Selectable<Root = any> =
+  | ColRef<any, any, any, Root>
+  | ExprRef<any, Root>
+  | AliasedRef<any, any, any, Root>
+  | AggRef<any, any, Root>
+type ShapeValue<R> =
+  R extends ColRef<infer V, any, infer Chain, any>
+    ? Chain extends readonly []
+      ? V
+      : V | null
+    : R extends AliasedRef<infer V, any, any, any>
+      ? V
+      : R extends AggRef<infer V, any, any>
+        ? V
+        : R extends ExprRef<infer V, any>
+          ? V
+          : never
+/** The result row of an object shape: one field per entry, keyed by
+ * the object key. */
+export type ShapeRow<S> = Clean<{
+  -readonly [K in keyof S]: ShapeValue<S[K]>
+}>

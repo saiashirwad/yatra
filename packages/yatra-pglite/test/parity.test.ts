@@ -26,6 +26,7 @@ import {
   lower,
   lt,
   lte,
+  many,
   manyToOne,
   mul,
   ne,
@@ -33,6 +34,7 @@ import {
   nullable,
   number,
   offset,
+  one,
   oneToMany,
   or,
   orderBy,
@@ -371,6 +373,62 @@ const queryCases: Record<
     query,
     select(b => [b.name]),
     where(b => eq(b.payload, TRICKY))
+  ),
+  "falsy entries drop out of where and orderBy": pipe(
+    Book,
+    query,
+    select(b => [b.name]),
+    where(b => [false, undefined, gt(b.price, 10)]),
+    orderBy(b => [null, asc(b.name)])
+  ),
+  "object select: plain, aliased expr, count": pipe(
+    Author,
+    query,
+    select(t => ({
+      id: t.id,
+      name: t.name,
+      lowerName: lower(t.name),
+      bookCount: count(t.books)
+    })),
+    orderBy(t => asc(t.name))
+  ),
+  "object select: many with a sub-shape": pipe(
+    Author,
+    query,
+    select(t => ({
+      name: t.name,
+      books: many(t.books, b => ({
+        title: b.name,
+        price: b.price
+      }))
+    })),
+    orderBy(t => asc(t.name))
+  ),
+  "object select: many with where/orderBy/limit": pipe(
+    Author,
+    query,
+    select(t => ({
+      name: t.name,
+      books: many(
+        t.books,
+        b => ({ title: b.name, price: b.price }),
+        {
+          where: b => isNotNull(b.price),
+          orderBy: b => asc(b.price),
+          limit: 1
+        }
+      )
+    })),
+    orderBy(t => asc(t.name))
+  ),
+  "object select: one over a to-one relation": pipe(
+    Book,
+    query,
+    select(b => ({
+      title: b.name,
+      author: one(b.author, a => ({ name: a.name }))
+    })),
+    orderBy(b => asc(b.name))
   )
 }
 

@@ -14,6 +14,7 @@ import type { QueryContext } from "./query.ts"
 import { DefaultValue } from "./statement.ts"
 import {
   buildRegistry,
+  litBound,
   type OpPack,
   type SqlCtx,
   type SqlScope
@@ -101,24 +102,6 @@ function fkCols(
   return [join.sourceCol, join.destCol]
 }
 
-/** limit/offset are inert `lit` nodes — compilers validate them. */
-function bound(node: NodeData, what: string): number {
-  if (node.kind !== "lit") {
-    throw new Error(`${what} must be a literal`)
-  }
-  const v = node.value
-  if (
-    typeof v !== "number" ||
-    !Number.isInteger(v) ||
-    v < 0
-  ) {
-    throw new Error(
-      `${what} must be a non-negative integer`
-    )
-  }
-  return v
-}
-
 /**
  * Assemble a SQL compiler from op packs. The shell owns statement
  * structure (SELECT/FROM/joins/WHERE/ORDER/mutations); every op —
@@ -202,6 +185,7 @@ export function makeCompiler(
         aliasSubTree(subRoot, subAlias, subAliases)
         const sub = makeCtx(subAliases, subRoot, p)
         return {
+          name: subAlias,
           from: `${qi(tableName(dest))} ${qi(subAlias)}${renderJoins(subAliases, subRoot)}`,
           correlation: `${qi(subAlias)}.${qi(dstCol)} = ${qi(aliases.get(parentNode)!)}.${qi(srcCol)}`,
           value: sub.value,
@@ -390,12 +374,12 @@ export function makeCompiler(
     }
     if (planned.limit !== undefined) {
       clauses.push(
-        `LIMIT ${p(bound(planned.limit, "limit"))}`
+        `LIMIT ${p(litBound(planned.limit, "limit")!)}`
       )
     }
     if (planned.offset !== undefined) {
       clauses.push(
-        `OFFSET ${p(bound(planned.offset, "offset"))}`
+        `OFFSET ${p(litBound(planned.offset, "offset")!)}`
       )
     }
     return clauses.join("\n")
