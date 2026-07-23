@@ -2,10 +2,12 @@ import { PGlite } from "@electric-sql/pglite"
 import assert from "node:assert/strict"
 import { before, test } from "node:test"
 import {
+  accessor,
   and,
   as,
   asc,
   count,
+  dbDefault,
   del,
   desc,
   eq,
@@ -45,7 +47,7 @@ import {
   update,
   uuid,
   where,
-  whereExists,
+  exists,
   type QueryContext
 } from "yatra"
 import { evalQuery, type DataSet } from "yatra-memory"
@@ -344,26 +346,24 @@ const queryCases: Record<
     ]),
     orderBy(t => asc(t.name))
   ),
-  "whereExists bare": pipe(
+  "exists bare": pipe(
     Author,
     query,
     select(t => [t.name]),
-    where(t => whereExists(t.books)),
+    where(t => exists(t.books)),
     orderBy(t => asc(t.name))
   ),
-  "whereExists with predicate": pipe(
+  "exists with predicate": pipe(
     Author,
     query,
     select(t => [t.name]),
-    where(t => whereExists(t.books, b => gt(b.price, 10)))
+    where(t => exists(t.books, b => gt(b.price, 10)))
   ),
-  "not whereExists": pipe(
+  "not exists": pipe(
     Author,
     query,
     select(t => [t.name]),
-    where(t =>
-      not(whereExists(t.books, b => isNull(b.price)))
-    ),
+    where(t => not(exists(t.books, b => isNull(b.price)))),
     orderBy(t => asc(t.name))
   ),
   "json value shaped like a node stays a value": pipe(
@@ -437,5 +437,27 @@ test("parity: delete returns nothing", () =>
       Book,
       del,
       where(b => isNull(b.price))
+    )
+  ))
+
+// mutations v2: set values are nodes — expressions over the row being
+// updated, or the database default
+const b = accessor(Book)
+test("parity: update with an expression set", () =>
+  bothMutate(
+    pipe(
+      Book,
+      update({ price: mul(b.price, 2) }),
+      where(t => isNotNull(t.price)),
+      returning(t => [t.name, t.price])
+    )
+  ))
+test("parity: update to the column default", () =>
+  bothMutate(
+    pipe(
+      Book,
+      update({ price: dbDefault }),
+      where(t => eq(t.name, "Earthsea")),
+      returning(t => [t.name, t.price])
     )
   ))

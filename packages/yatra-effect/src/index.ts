@@ -5,9 +5,9 @@ import {
   hydrateRows,
   toSQL,
   type Mode,
-  type NoMutation,
   type QueryContext,
   type Row,
+  type StatementKind,
   type StatementResult,
   type Tableish
 } from "yatra"
@@ -65,11 +65,11 @@ export function runEffect<
   T extends Tableish,
   M extends Mode,
   Items extends readonly unknown[],
-  X
+  K extends StatementKind
 >(
-  ctx: QueryContext<T, M, Items, X>
+  ctx: QueryContext<T, M, Items, K>
 ): Effect.Effect<
-  StatementResult<QueryContext<T, M, Items, X>>,
+  StatementResult<QueryContext<T, M, Items, K>>,
   QueryError,
   YatraExecutor
 > {
@@ -77,36 +77,31 @@ export function runEffect<
     const exec = yield* YatraExecutor
     const { sql, params, projection } = toSQL(ctx)
     const rows = yield* exec.query(sql, params)
-    if ("kind" in ctx) {
+    if (ctx.kind !== "select") {
       return (
         ctx.selection.length > 0 ? rows : undefined
-      ) as StatementResult<QueryContext<T, M, Items, X>>
+      ) as StatementResult<QueryContext<T, M, Items, K>>
     }
     if (ctx.mode === "hydrate") {
       return hydrateRows(
-        ctx as QueryContext<any, "hydrate", any>,
+        ctx.source.table,
         rows,
         projection
-      ) as StatementResult<QueryContext<T, M, Items, X>>
+      ) as StatementResult<QueryContext<T, M, Items, K>>
     }
     return rows as StatementResult<
-      QueryContext<T, M, Items, X>
+      QueryContext<T, M, Items, K>
     >
   })
 }
 export function runOneEffect<
   T extends Tableish,
   M extends Mode,
-  Items extends readonly unknown[],
-  X
+  Items extends readonly unknown[]
 >(
-  ctx: QueryContext<T, M, Items, X> &
-    NoMutation<
-      X,
-      "runOneEffect is only for queries — use runEffect for mutations"
-    >
+  ctx: QueryContext<T, M, Items, "select">
 ): Effect.Effect<
-  Row<QueryContext<T, M, Items, X>> | null,
+  Row<QueryContext<T, M, Items, "select">> | null,
   QueryError,
   YatraExecutor
 > {
@@ -115,7 +110,7 @@ export function runOneEffect<
     rows =>
       (
         rows as unknown as Row<
-          QueryContext<T, M, Items, X>
+          QueryContext<T, M, Items, "select">
         >[]
       )[0] ?? null
   )

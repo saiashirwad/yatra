@@ -1,6 +1,6 @@
 import { tableFields, tableName } from "./table.ts"
 import type { Tableish } from "./utils.ts"
-import type { LitData, NodeData } from "./ref.ts"
+import type { NodeData } from "./ref.ts"
 import {
   plan,
   planScope,
@@ -11,6 +11,7 @@ import {
 } from "./plan.ts"
 import type { Relation } from "./relation.ts"
 import type { QueryContext } from "./query.ts"
+import { DefaultValue } from "./statement.ts"
 import {
   buildRegistry,
   type OpPack,
@@ -94,14 +95,17 @@ function fkCols(
   const join = resolveJoin(rel)
   if (join.kind === "m2m") {
     throw new Error(
-      "jsonAgg/count/whereExists over many-to-many relations is not supported yet"
+      "jsonAgg/count/exists over many-to-many relations is not supported yet"
     )
   }
   return [join.sourceCol, join.destCol]
 }
 
 /** limit/offset are inert `lit` nodes — compilers validate them. */
-function bound(node: LitData, what: string): number {
+function bound(node: NodeData, what: string): number {
+  if (node.kind !== "lit") {
+    throw new Error(`${what} must be a literal`)
+  }
   const v = node.value
   if (
     typeof v !== "number" ||
@@ -257,23 +261,11 @@ export function makeCompiler(
   }
 
   function mutationSql(planned: Plan, p: AddParam): string {
-    if ((planned.mode as string) !== "flat") {
-      throw new Error("mutations do not support hydrate")
-    }
-    if (
-      planned.orderBy.length > 0 ||
-      planned.limit !== undefined ||
-      planned.offset !== undefined
-    ) {
-      throw new Error(
-        "mutations do not support orderBy/limit/offset"
-      )
-    }
-    const base = tableName(planned.table)
+    const base = tableName(planned.source.table)
     const aliases: Aliases = new Map()
     aliasSubTree(planned.root, base, aliases)
     const c = makeCtx(aliases, planned.root, p)
-    const fields = tableFields(planned.table)
+    const fields = tableFields(planned.source.table)
     const checkKeys = (keys: Iterable<string>) => {
       for (const k of keys) {
         if (!(k in fields)) {
@@ -283,12 +275,25 @@ export function makeCompiler(
         }
       }
     }
+    /** insert values are lits (or dbDefault) — expressions can't
+     * reference a row that doesn't exist yet */
+    const insertValue = (node: NodeData): string => {
+      if (node.kind !== "lit") {
+        throw new Error(
+          "insert values must be plain values"
+        )
+      }
+      return node.value === DefaultValue
+        ? "DEFAULT"
+        : p(node.value)
+    }
+    const setValue = (node: NodeData): string =>
+      node.kind === "lit" && node.value === DefaultValue
+        ? "DEFAULT"
+        : c.value(node)
     const clauses: string[] = []
     if (planned.kind === "insert") {
       const rows = planned.rows ?? []
-      if (planned.where.length > 0) {
-        throw new Error("insert does not take where")
-      }
       if (rows.length === 0) {
         throw new Error("insert needs at least one row")
       }
@@ -310,7 +315,7 @@ export function makeCompiler(
             row =>
               `(${keys
                 .map(k =>
-                  k in row ? p(row[k]) : "DEFAULT"
+                  k in row ? insertValue(row[k]) : "DEFAULT"
                 )
                 .join(", ")})`
           )
@@ -320,17 +325,16 @@ export function makeCompiler(
         )
       }
     } else if (planned.kind === "update") {
-      const set = planned.set ?? {}
-      const keys = Object.keys(set)
-      if (keys.length === 0) {
+      const set = planned.set ?? []
+      if (set.length === 0) {
         throw new Error(
           "update needs at least one column to set"
         )
       }
-      checkKeys(keys)
+      checkKeys(set.map(a => a.col))
       clauses.push(
-        `UPDATE ${qi(base)} SET ${keys
-          .map(k => `${qi(k)} = ${p(set[k])}`)
+        `UPDATE ${qi(base)} SET ${set
+          .map(a => `${qi(a.col)} = ${setValue(a.value)}`)
           .join(", ")}`
       )
     } else {
@@ -353,7 +357,7 @@ export function makeCompiler(
   }
 
   function querySql(planned: Plan, p: AddParam): string {
-    const base = tableName(planned.table)
+    const base = tableName(planned.source.table)
     const aliases: Aliases = new Map()
     aliasSubTree(planned.root, base, aliases)
     const c = makeCtx(aliases, planned.root, p)
@@ -374,9 +378,9 @@ export function makeCompiler(
         `WHERE ${planned.where.map(w => c.pred(w)).join(" AND ")}`
       )
     }
-    if (planned.orderBy.length > 0) {
+    if (planned.order.length > 0) {
       clauses.push(
-        `ORDER BY ${planned.orderBy
+        `ORDER BY ${planned.order
           .map(
             o =>
               `${c.value(o.ref)} ${o.direction.toUpperCase()}`
@@ -407,7 +411,7 @@ export function makeCompiler(
       }
       const planned = plan(ctx)
       const sql =
-        planned.kind !== undefined
+        planned.kind !== "select"
           ? mutationSql(planned, p)
           : querySql(planned, p)
       return {

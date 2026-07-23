@@ -6,13 +6,20 @@ import {
 } from "./columns/properties.ts"
 import {
   accessor,
-  type QueryAccessor,
+  dataOf,
+  lit,
+  needData,
   type CheckItems,
-  type MergeAll,
+  type ColRef,
+  type ExprRef,
+  type QueryAccessor,
   type RequireTuple
 } from "./ref.ts"
-import type { QueryContext } from "./query.ts"
-import { appendSelection } from "./query.ts"
+import type { Assignment, DbDefault } from "./statement.ts"
+import {
+  appendSelection,
+  type QueryContext
+} from "./query.ts"
 import type { FieldsRecord, InferColumn } from "./table.ts"
 import type {
   Clean,
@@ -49,36 +56,39 @@ type RequiredInsert<Fields extends FieldsRecord> = {
 /** Row shape for insert: nullable and db-computed columns are optional. */
 export type InsertInput<Fields extends FieldsRecord> =
   Clean<OptionalInsert<Fields> & RequiredInsert<Fields>>
-/** Set shape for update: every column optional, settable to null. */
-export type UpdateInput<Fields extends FieldsRecord> =
-  Clean<{
-    [K in keyof Fields & string]?: InferColumn<Fields[K]>
-  }>
-// --- contexts (a query context whose phantom X carries the payload) ---
-export type MutationKind = "insert" | "update" | "delete"
-export interface InsertExtra {
-  readonly kind: "insert"
-  readonly rows: readonly Record<string, unknown>[]
-}
-export interface UpdateExtra {
-  readonly kind: "update"
-  readonly set: Record<string, unknown>
-}
-export interface DeleteExtra {
-  readonly kind: "delete"
-}
+/**
+ * Update-set values: a plain value, an expression over the row being
+ * updated (via a module-level accessor: `mul(b.price, 2)`), or
+ * `dbDefault` for the column's database default.
+ */
+export type SetValue<T extends Tableish, V> =
+  | V
+  | ColRef<V, any, any, T>
+  | ExprRef<V, T>
+  | DbDefault
+/** Set shape for update: every column optional, values or expressions. */
+export type UpdateInput<
+  T extends Tableish,
+  Fields extends FieldsRecord
+> = Clean<{
+  [K in keyof Fields & string]?: SetValue<
+    T,
+    InferColumn<Fields[K]>
+  >
+}>
+// --- contexts ---
 export type InsertContext<
   T extends Tableish,
   Items extends readonly unknown[] = readonly []
-> = QueryContext<T, "flat", Items, InsertExtra>
+> = QueryContext<T, "flat", Items, "insert">
 export type UpdateContext<
   T extends Tableish,
   Items extends readonly unknown[] = readonly []
-> = QueryContext<T, "flat", Items, UpdateExtra>
+> = QueryContext<T, "flat", Items, "update">
 export type DeleteContext<
   T extends Tableish,
   Items extends readonly unknown[] = readonly []
-> = QueryContext<T, "flat", Items, DeleteExtra>
+> = QueryContext<T, "flat", Items, "delete">
 export type MutationContext<
   T extends Tableish = Tableish,
   Items extends readonly unknown[] = readonly []
@@ -86,18 +96,6 @@ export type MutationContext<
   | InsertContext<T, Items>
   | UpdateContext<T, Items>
   | DeleteContext<T, Items>
-export type AnyMutationExtra =
-  | InsertExtra
-  | UpdateExtra
-  | DeleteExtra
-export type MutationResult<Ctx> =
-  Ctx extends QueryContext<any, any, infer Items, infer X>
-    ? X extends AnyMutationExtra
-      ? Items extends readonly []
-        ? void
-        : MergeAll<"flat", Items>[]
-      : never
-    : never
 // --- value validation (surfaces on the step's table argument) ---
 type UnknownCols<
   T extends Tableish,
@@ -122,10 +120,11 @@ type ValidInsert<T extends Tableish, Row> =
       }
 type ValidUpdate<T extends Tableish, S> =
   UnknownCols<T, S> extends never
-    ? S extends UpdateInput<TableishFields<T>>
+    ? S extends UpdateInput<T, TableishFields<T>>
       ? unknown
       : {
           readonly "update values do not fit this table": UpdateInput<
+            T,
             TableishFields<T>
           >
         }
@@ -145,42 +144,54 @@ export function insert<
   return <T extends Tableish>(
     table: T & ValidInsert<T, RowOf<R>>
   ): InsertContext<T> => ({
-    table,
+    kind: "insert",
+    source: { kind: "table", table },
     mode: "flat",
     selection: [],
     where: [],
-    orderBy: [],
-    kind: "insert",
-    rows: (Array.isArray(rows)
-      ? rows
-      : [rows]) as readonly Record<string, unknown>[]
+    order: [],
+    rows: (Array.isArray(rows) ? rows : [rows]).map(row =>
+      Object.fromEntries(
+        Object.entries(row).map(([k, v]) => [k, lit(v)])
+      )
+    )
   })
 }
+/**
+ * Update columns to plain values, or to expressions over the row
+ * being updated via a module-level accessor:
+ * `update({ price: mul(b.price, 2) })`.
+ */
 export function update<S extends Record<string, unknown>>(
   set: S
 ) {
   return <T extends Tableish>(
     table: T & ValidUpdate<T, S>
   ): UpdateContext<T> => ({
-    table,
+    kind: "update",
+    source: { kind: "table", table },
     mode: "flat",
     selection: [],
     where: [],
-    orderBy: [],
-    kind: "update",
-    set
+    order: [],
+    set: Object.entries(set).map(
+      ([col, v]): Assignment => ({
+        col,
+        value: dataOf(v) ?? lit(v)
+      })
+    )
   })
 }
 export function del<T extends Tableish>(
   table: T
 ): DeleteContext<T> {
   return {
-    table,
+    kind: "delete",
+    source: { kind: "table", table },
     mode: "flat",
     selection: [],
     where: [],
-    orderBy: [],
-    kind: "delete"
+    order: []
   }
 }
 /** RETURNING clause: select's machinery, gated to mutation contexts. */
@@ -193,29 +204,34 @@ export function returning<
   ) => CheckItems<NewItems, T> & RequireTuple<NewItems>
 ): <
   Items extends readonly unknown[],
-  X extends AnyMutationExtra
+  K extends "insert" | "update" | "delete"
 >(
-  ctx: QueryContext<T, "flat", Items, X>
+  ctx: QueryContext<T, "flat", Items, K>
 ) => QueryContext<
   T,
   "flat",
   readonly [...Items, ...NewItems],
-  X
+  K
 > {
   return ((ctx: QueryContext<T, "flat", any, any>) => ({
     ...ctx,
-    selection: appendSelection(ctx.selection, [
-      ...(fn(accessor(ctx.table)) as unknown as NewItems)
-    ])
+    selection: appendSelection(
+      ctx.selection,
+      (
+        fn(
+          accessor(ctx.source.table)
+        ) as unknown as NewItems
+      ).map(needData)
+    )
   })) as unknown as <
     Items extends readonly unknown[],
-    X extends AnyMutationExtra
+    K extends "insert" | "update" | "delete"
   >(
-    ctx: QueryContext<T, "flat", Items, X>
+    ctx: QueryContext<T, "flat", Items, K>
   ) => QueryContext<
     T,
     "flat",
     readonly [...Items, ...NewItems],
-    X
+    K
   >
 }

@@ -1,6 +1,8 @@
 import {
   buildRegistry,
+  Default,
   defaultPacks,
+  DefaultValue,
   hydrateRows,
   plan,
   planScope,
@@ -10,10 +12,8 @@ import {
   tableName,
   type EvalCtx,
   type EvalScope,
-  type LitData,
   type Mode,
   type NodeData,
-  type NoMutation,
   type OpPack,
   type Plan,
   type PlanJoin,
@@ -23,6 +23,7 @@ import {
   type Registry,
   type Relation,
   type Row,
+  type StatementKind,
   type StatementResult,
   type Tableish
 } from "yatra"
@@ -46,11 +47,11 @@ export interface Evaluator {
     T extends Tableish,
     M extends Mode,
     Items extends readonly unknown[],
-    X
+    K extends StatementKind
   >(
-    ctx: QueryContext<T, M, Items, X>,
+    ctx: QueryContext<T, M, Items, K>,
     data: DataSet
-  ): StatementResult<QueryContext<T, M, Items, X>>
+  ): StatementResult<QueryContext<T, M, Items, K>>
 }
 
 export interface EvaluatorConfig {
@@ -121,10 +122,13 @@ function expandNode(
 
 /** limit/offset are inert `lit` nodes — interpreters validate them. */
 function bound(
-  node: LitData | undefined,
+  node: NodeData | undefined,
   what: string
 ): number | undefined {
   if (node === undefined) return undefined
+  if (node.kind !== "lit") {
+    throw new Error(`${what} must be a literal`)
+  }
   const v = node.value
   if (
     typeof v !== "number" ||
@@ -157,7 +161,7 @@ export function makeEvaluator(
         ctx as QueryContext<any, any, any, any>
       )
       const out =
-        planned.kind !== undefined
+        planned.kind !== "select"
           ? runMutation(registry, planned, data)
           : runQuery(registry, planned, ctx, data)
       return out as StatementResult<typeof ctx>
@@ -225,7 +229,7 @@ function makeCtx(
       const join = resolveJoin(relation)
       if (join.kind === "m2m") {
         throw new Error(
-          "jsonAgg/count/whereExists over many-to-many relations is not supported yet"
+          "jsonAgg/count/exists over many-to-many relations is not supported yet"
         )
       }
       const parentRow = tuple[parentChain.join(".")]
@@ -305,9 +309,11 @@ function runQuery(
   let tuples = expandNode(
     planned.root,
     "",
-    (data[tableName(planned.table)] ?? []).map(r => ({
-      "": r
-    })),
+    (data[tableName(planned.source.table)] ?? []).map(
+      r => ({
+        "": r
+      })
+    ),
     data
   )
   if (planned.where.length > 0) {
@@ -316,8 +322,8 @@ function runQuery(
       return planned.where.every(w => c.pred(w) === true)
     })
   }
-  if (planned.orderBy.length > 0) {
-    const orders = planned.orderBy
+  if (planned.order.length > 0) {
+    const orders = planned.order
     tuples = [...tuples].sort((a, b) => {
       const ca = makeCtx(registry, a, data)
       const cb = makeCtx(registry, b, data)
@@ -364,7 +370,7 @@ function runQuery(
     planned.selection.length > 0
   ) {
     return hydrateRows(
-      ctx as QueryContext<any, "hydrate", any>,
+      ctx.source.table,
       rows,
       planned.projection
     )
@@ -373,26 +379,25 @@ function runQuery(
 }
 
 // --- mutations ---
+/** dbDefault in memory: the column's declared default, else null
+ * (no DEFAULT/AUTOINCREMENT synthesis beyond that). */
+function columnDefault(
+  table: Tableish,
+  col: string
+): unknown {
+  const field = tableFields(table)[col] as unknown as
+    | Record<symbol, unknown>
+    | undefined
+  return field?.[Default] ?? null
+}
 function runMutation(
   registry: Registry,
   planned: Plan,
   data: DataSet
 ): unknown {
-  if ((planned.mode as string) !== "flat") {
-    throw new Error("mutations do not support hydrate")
-  }
-  if (
-    planned.orderBy.length > 0 ||
-    planned.limit !== undefined ||
-    planned.offset !== undefined
-  ) {
-    throw new Error(
-      "mutations do not support orderBy/limit/offset"
-    )
-  }
-  const base = tableName(planned.table)
+  const base = tableName(planned.source.table)
   const table = (data[base] ??= [])
-  const fields = tableFields(planned.table)
+  const fields = tableFields(planned.source.table)
   const checkKeys = (keys: Iterable<string>) => {
     for (const k of keys) {
       if (!(k in fields)) {
@@ -406,30 +411,55 @@ function runMutation(
     const c = makeCtx(registry, { "": row }, data)
     return planned.where.every(w => c.pred(w) === true)
   }
+  /** insert values are lits (or dbDefault) — expressions can't
+   * reference a row that doesn't exist yet */
+  const insertValue = (
+    node: NodeData,
+    col: string
+  ): unknown => {
+    if (node.kind !== "lit") {
+      throw new Error("insert values must be plain values")
+    }
+    return node.value === DefaultValue
+      ? columnDefault(planned.source.table, col)
+      : node.value
+  }
   let affected: RowValue[]
   if (planned.kind === "insert") {
     const rows = planned.rows ?? []
-    if (planned.where.length > 0) {
-      throw new Error("insert does not take where")
-    }
     if (rows.length === 0) {
       throw new Error("insert needs at least one row")
     }
     for (const row of rows) checkKeys(Object.keys(row))
-    // No DEFAULT/AUTOINCREMENT synthesis: rows land as given.
-    affected = rows.map(r => ({ ...r }))
+    // No DEFAULT synthesis for absent keys: rows land as given.
+    affected = rows.map(r =>
+      Object.fromEntries(
+        Object.entries(r).map(([k, v]) => [
+          k,
+          insertValue(v, k)
+        ])
+      )
+    )
     table.push(...affected)
   } else if (planned.kind === "update") {
-    const set = planned.set ?? {}
-    const keys = Object.keys(set)
-    if (keys.length === 0) {
+    const set = planned.set ?? []
+    if (set.length === 0) {
       throw new Error(
         "update needs at least one column to set"
       )
     }
-    checkKeys(keys)
+    checkKeys(set.map(a => a.col))
     affected = table.filter(matchesWhere)
-    for (const row of affected) Object.assign(row, set)
+    for (const row of affected) {
+      const c = makeCtx(registry, { "": row }, data)
+      for (const a of set) {
+        row[a.col] =
+          a.value.kind === "lit" &&
+          a.value.value === DefaultValue
+            ? columnDefault(planned.source.table, a.col)
+            : c.value(a.value)
+      }
+    }
   } else {
     const matched = new Set(table.filter(matchesWhere))
     affected = [...matched]
@@ -464,11 +494,11 @@ export function evalQuery<
   T extends Tableish,
   M extends Mode,
   Items extends readonly unknown[],
-  X
+  K extends StatementKind
 >(
-  ctx: QueryContext<T, M, Items, X>,
+  ctx: QueryContext<T, M, Items, K>,
   data: DataSet
-): StatementResult<QueryContext<T, M, Items, X>> {
+): StatementResult<QueryContext<T, M, Items, K>> {
   return memory.eval(ctx, data)
 }
 /**
@@ -481,32 +511,27 @@ export function runMemory<
   T extends Tableish,
   M extends Mode,
   Items extends readonly unknown[],
-  X
+  K extends StatementKind
 >(
-  ctx: QueryContext<T, M, Items, X>
+  ctx: QueryContext<T, M, Items, K>
 ): (
   data: DataSet
-) => StatementResult<QueryContext<T, M, Items, X>> {
+) => StatementResult<QueryContext<T, M, Items, K>> {
   return data => evalQuery(ctx, data)
 }
 /** First matching row, or null. Queries only, like `runOne`. */
 export function runOneMemory<
   T extends Tableish,
   M extends Mode,
-  Items extends readonly unknown[],
-  X
+  Items extends readonly unknown[]
 >(
-  ctx: QueryContext<T, M, Items, X> &
-    NoMutation<
-      X,
-      "runOneMemory is only for queries — use runMemory for mutations"
-    >
+  ctx: QueryContext<T, M, Items, "select">
 ): (
   data: DataSet
-) => Row<QueryContext<T, M, Items, X>> | null {
+) => Row<QueryContext<T, M, Items, "select">> | null {
   return data => {
     const rows = evalQuery(ctx, data) as unknown as Row<
-      QueryContext<T, M, Items, X>
+      QueryContext<T, M, Items, "select">
     >[]
     return rows[0] ?? null
   }

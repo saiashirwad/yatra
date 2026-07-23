@@ -1,15 +1,14 @@
 import { ManyToManyRelation, Relation } from "./relation.ts"
 import { info, tableName } from "./table.ts"
 import type { Tableish } from "./utils.ts"
-import {
-  dataOf,
-  type LitData,
-  type Mode,
-  type NodeData,
-  type OrderData,
-  type PredData,
-  type RelData
+import type {
+  Mode,
+  NodeData,
+  OrderData,
+  PredData,
+  RelData
 } from "./ref.ts"
+import type { StatementData } from "./statement.ts"
 import type { QueryContext } from "./query.ts"
 /** Select-column alias convention. Core-owned and non-overridable —
  * hydrate decodes it; dialects own quote + param style only. */
@@ -226,69 +225,72 @@ export function projectionOf(
   return fields
 }
 // --- the plan ---
-export interface Plan {
-  readonly table: Tableish
-  readonly mode: Mode
-  readonly root: PlanNode
-  readonly selection: readonly NodeData[]
+/**
+ * A statement plus its resolved join tree and result projection: the
+ * output of planning, the input to every backend.
+ */
+export interface Plan extends StatementData {
   readonly where: readonly PredData[]
-  readonly orderBy: readonly OrderData[]
-  readonly limit?: LitData
-  readonly offset?: LitData
+  readonly order: readonly OrderData[]
+  readonly root: PlanNode
   readonly projection: readonly ProjectionField[]
-  // mutation payload (absent on plain queries)
-  readonly kind?: "insert" | "update" | "delete"
-  readonly rows?: readonly Record<string, unknown>[]
-  readonly set?: Record<string, unknown>
 }
 /**
- * One pure `QueryContext → Plan`: normalizes the statement to bare
- * nodes, resolves the join tree and join keys, and computes the result
- * projection. Backends are renderers/interpreters over this.
+ * One pure `QueryContext → Plan`: validates the statement's kind rules
+ * (once — the type-level `K` constraint is the front door, this is the
+ * backstop), resolves the join tree and join keys, and computes the
+ * result projection. Backends are renderers/interpreters over this.
  */
 export function plan(
   ctx: QueryContext<any, any, any, any>
 ): Plan {
-  const need = (item: unknown): NodeData => {
-    const d = dataOf(item)
-    if (!d) {
-      throw new Error(`Invalid node: ${String(item)}`)
+  if (ctx.kind !== "select") {
+    if ((ctx.mode as string) !== "flat") {
+      throw new Error("mutations do not support hydrate")
     }
-    return d
+    if (
+      ctx.order.length > 0 ||
+      ctx.limit !== undefined ||
+      ctx.offset !== undefined
+    ) {
+      throw new Error(
+        "mutations do not support orderBy/limit/offset"
+      )
+    }
+    if (ctx.materialize) {
+      throw new Error(
+        "materialize is only meaningful on selects"
+      )
+    }
+    if (ctx.kind === "insert" && ctx.where.length > 0) {
+      throw new Error("insert does not take where")
+    }
   }
-  const selection = ctx.selection.map(need)
+  const selection = ctx.selection as readonly NodeData[]
   const where = ctx.where.map(w => {
-    const d = need(w)
-    if (d.kind !== "pred") {
+    if (w.kind !== "pred") {
       throw new Error("Expected a predicate")
     }
-    return d
+    return w
   })
-  const orderBy = ctx.orderBy.map(o => {
-    const d = need(o)
-    if (d.kind !== "order") {
+  const order = ctx.order.map(o => {
+    if (o.kind !== "order") {
       throw new Error("Expected an ordering")
     }
-    return d
+    return o
   })
-  const root = planRoot(ctx.table)
+  const root = planRoot(ctx.source.table)
   const chains: Array<readonly string[]> = []
   for (const item of selection) collectChains(item, chains)
   for (const w of where) collectChains(w, chains)
-  for (const o of orderBy) collectChains(o, chains)
+  for (const o of order) collectChains(o, chains)
   for (const chain of chains) ensureChain(root, chain)
   return {
-    table: ctx.table,
-    mode: ctx.mode,
-    root,
+    ...ctx,
     selection,
     where,
-    orderBy,
-    limit: ctx.limit,
-    offset: ctx.offset,
-    projection: projectionOf(selection, ctx.mode),
-    kind: ctx.kind,
-    rows: ctx.rows,
-    set: ctx.set
+    order,
+    root,
+    projection: projectionOf(selection, ctx.mode)
   }
 }

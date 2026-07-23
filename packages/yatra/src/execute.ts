@@ -1,12 +1,8 @@
 import { postgres, type Compiler } from "./compile.ts"
 import { hydrateRows } from "./hydrate.ts"
-import type { AnyMutationExtra } from "./mutation.ts"
-import {
-  type NoMutation,
-  type QueryContext,
-  type Row
-} from "./query.ts"
+import { type QueryContext, type Row } from "./query.ts"
 import type { MergeAll, Mode } from "./ref.ts"
+import type { StatementKind } from "./statement.ts"
 import type { Tableish } from "./utils.ts"
 export interface Executor {
   query(
@@ -15,12 +11,12 @@ export interface Executor {
   ): Promise<readonly Record<string, unknown>[]>
 }
 export type StatementResult<C> =
-  C extends QueryContext<any, any, infer Items, infer X>
-    ? X extends AnyMutationExtra
-      ? Items extends readonly []
+  C extends QueryContext<any, any, infer Items, infer K>
+    ? K extends "select"
+      ? Row<C>[]
+      : Items extends readonly []
         ? void
         : MergeAll<"flat", Items>[]
-      : Row<C>[]
     : never
 /**
  * Terminal pipe step. The backend is explicit: pass a `Compiler`
@@ -34,26 +30,22 @@ export function run<E extends Executor>(
     const { sql, params, projection } =
       compiler.compile(ctx)
     const rows = await exec.query(sql, params)
-    if ("kind" in ctx) {
+    if (ctx.kind !== "select") {
       return ctx.selection.length > 0 ? rows : undefined
     }
     if (ctx.mode === "hydrate") {
-      return hydrateRows(
-        ctx as QueryContext<any, "hydrate", any>,
-        rows,
-        projection
-      )
+      return hydrateRows(ctx.source.table, rows, projection)
     }
     return rows
   }) as <
     T extends Tableish,
     M extends Mode,
     Items extends readonly unknown[],
-    X
+    K extends StatementKind
   >(
-    ctx: QueryContext<T, M, Items, X>
+    ctx: QueryContext<T, M, Items, K>
   ) => Promise<
-    StatementResult<QueryContext<T, M, Items, X>>
+    StatementResult<QueryContext<T, M, Items, K>>
   >
 }
 export function runOne<E extends Executor>(
@@ -63,20 +55,17 @@ export function runOne<E extends Executor>(
   return async <
     T extends Tableish,
     M extends Mode,
-    Items extends readonly unknown[],
-    X
+    Items extends readonly unknown[]
   >(
-    ctx: QueryContext<T, M, Items, X> &
-      NoMutation<
-        X,
-        "runOne is only for queries — use run(exec) for mutations"
-      >
-  ): Promise<Row<QueryContext<T, M, Items, X>> | null> => {
+    ctx: QueryContext<T, M, Items, "select">
+  ): Promise<Row<
+    QueryContext<T, M, Items, "select">
+  > | null> => {
     const rows = (await run(
       exec,
       compiler
     )(ctx)) as unknown as Row<
-      QueryContext<T, M, Items, X>
+      QueryContext<T, M, Items, "select">
     >[]
     return rows[0] ?? null
   }

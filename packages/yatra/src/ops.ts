@@ -169,10 +169,10 @@ export function not<P extends PredRef<any>>(
 // --- subqueries ---
 /**
  * EXISTS subquery: filter parents by their children without join
- * duplication. `where(t => whereExists(t.books, b => gt(b.price, 10)))`
+ * duplication. `where(t => exists(t.books, b => gt(b.price, 10)))`
  * returns each matching author once, however many books match.
  */
-export function whereExists<
+export function exists<
   D extends Tableish,
   K extends string,
   Root

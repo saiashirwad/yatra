@@ -98,7 +98,7 @@ export function hydrateRows<
   T extends Tableish,
   Items extends readonly unknown[]
 >(
-  ctx: QueryContext<T, "hydrate", Items>,
+  table: T,
   rows: readonly Record<string, unknown>[],
   projection: readonly ProjectionField[]
 ): Result<QueryContext<T, "hydrate", Items>> {
@@ -108,7 +108,7 @@ export function hydrateRows<
       QueryContext<T, "hydrate", Items>
     >
   }
-  const tree = buildTree(ctx.table, projection)
+  const tree = buildTree(table, projection)
   return group(tree, rows) as Result<
     QueryContext<T, "hydrate", Items>
   >

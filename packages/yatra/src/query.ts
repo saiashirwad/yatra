@@ -1,10 +1,9 @@
 import {
   accessor,
-  dataOf,
   lit,
+  needData,
   selectionKey,
   type CheckItems,
-  type LitData,
   type MergeAll,
   type Mode,
   type NodeData,
@@ -14,66 +13,56 @@ import {
   type RequireTuple
 } from "./ref.ts"
 import type {
-  AnyMutationExtra,
-  InsertExtra
-} from "./mutation.ts"
+  Assignment,
+  StatementKind
+} from "./statement.ts"
 import type { InferColumn } from "./table.ts"
 import type {
   Clean,
   Tableish,
   TableishFields
 } from "./utils.ts"
+
+/**
+ * The pipe context: a statement, narrowed at the type level. `T`, `M`,
+ * and `Items` are phantoms carried on the corresponding fields; `K` is
+ * a real discriminant — step legality (insert rejects where, mutations
+ * reject orderBy) is a plain constraint on it. Structurally a
+ * {@link StatementData}; declared standalone because `selection` holds
+ * typed refs at build time, not bare nodes.
+ */
 export interface QueryContext<
-  T extends Tableish,
+  T extends Tableish = Tableish,
   M extends Mode = "flat",
   Items extends readonly unknown[] = readonly [],
-  X = {}
+  K extends StatementKind = StatementKind
 > {
-  readonly table: T
+  readonly kind: K
+  readonly source: {
+    readonly kind: "table"
+    readonly table: T
+  }
   readonly mode: M
   readonly selection: Items
-  readonly where: readonly PredRef[]
-  readonly orderBy: readonly OrderRef[]
-  /** stored as inert `lit` nodes; compilers validate and parametrize */
-  readonly limit?: LitData
-  readonly offset?: LitData
-  /** phantom carrier for statement extras (InsertExtra & co.) */
-  readonly x?: X
-  // mutation payload (runtime side of X; absent on plain queries)
-  readonly kind?: "insert" | "update" | "delete"
-  readonly rows?: readonly Record<string, unknown>[]
-  readonly set?: Record<string, unknown>
+  readonly where: readonly NodeData[]
+  readonly order: readonly NodeData[]
+  readonly limit?: NodeData
+  readonly offset?: NodeData
+  readonly materialize?: boolean
+  readonly rows?: readonly Record<string, NodeData>[]
+  readonly set?: readonly Assignment[]
 }
-/**
- * Step gate: when X matches Forbidden the ctx must also carry an
- * impossible brand, so the offending pipe step fails to typecheck.
- */
-type StepGate<
-  X,
-  Forbidden,
-  Msg extends string
-> = X extends Forbidden ? Record<Msg, never> : unknown
-/** Queries only: rejects insert/update/delete contexts. */
-export type NoMutation<X, Msg extends string> = StepGate<
-  X,
-  AnyMutationExtra,
-  Msg
->
-/** Inserts reject where; updates/deletes allow it. */
-type NoInsert<X, Msg extends string> = StepGate<
-  X,
-  InsertExtra,
-  Msg
->
+
 export function query<T extends Tableish>(
   table: T
-): QueryContext<T> {
+): QueryContext<T, "flat", readonly [], "select"> {
   return {
-    table,
+    kind: "select",
+    source: { kind: "table", table },
     mode: "flat",
     selection: [],
     where: [],
-    orderBy: []
+    order: []
   }
 }
 /**
@@ -81,19 +70,13 @@ export function query<T extends Tableish>(
  * two fragments contributing `t.id` produce one column, not two.
  */
 export function appendSelection(
-  selection: readonly unknown[],
-  items: readonly unknown[]
-): unknown[] {
-  const seen = new Set(
-    selection.map(item => {
-      const d = dataOf(item)
-      return d ? selectionKey(d) : undefined
-    })
-  )
+  selection: readonly NodeData[],
+  items: readonly NodeData[]
+): NodeData[] {
+  const seen = new Set(selection.map(selectionKey))
   const out = [...selection]
   for (const item of items) {
-    const d: NodeData | undefined = dataOf(item)
-    const key = d ? selectionKey(d) : undefined
+    const key = selectionKey(item)
     if (key !== undefined) {
       if (seen.has(key)) continue
       seen.add(key)
@@ -109,119 +92,129 @@ export function select<
   fn: (
     t: QueryAccessor<T>
   ) => CheckItems<NewItems, T> & RequireTuple<NewItems>
-): <M extends Mode, Items extends readonly unknown[], X>(
-  ctx: QueryContext<T, M, Items, X>
+): <
+  M extends Mode,
+  Items extends readonly unknown[],
+  K extends StatementKind
+>(
+  ctx: QueryContext<T, M, Items, K>
 ) => QueryContext<
   T,
   M,
   readonly [...Items, ...NewItems],
-  X
+  K
 > {
   return ((ctx: QueryContext<T, any, any, any>) => ({
     ...ctx,
-    selection: appendSelection(ctx.selection, [
-      ...(fn(accessor(ctx.table)) as unknown as NewItems)
-    ])
+    selection: appendSelection(
+      ctx.selection,
+      (
+        fn(
+          accessor(ctx.source.table)
+        ) as unknown as NewItems
+      ).map(needData)
+    )
   })) as unknown as <
     M extends Mode,
     Items extends readonly unknown[],
-    X
+    K extends StatementKind
   >(
-    ctx: QueryContext<T, M, Items, X>
+    ctx: QueryContext<T, M, Items, K>
   ) => QueryContext<
     T,
     M,
     readonly [...Items, ...NewItems],
-    X
+    K
   >
 }
 export function where<T extends Tableish>(
   fn: (
     t: QueryAccessor<T>
   ) => PredRef<T> | readonly PredRef<T>[]
-): <M extends Mode, Items extends readonly unknown[], X>(
-  ctx: QueryContext<T, M, Items, X> &
-    NoInsert<X, "insert does not take where">
-) => QueryContext<T, M, Items, X> {
+): <
+  M extends Mode,
+  Items extends readonly unknown[],
+  K extends "select" | "update" | "delete"
+>(
+  ctx: QueryContext<T, M, Items, K>
+) => QueryContext<T, M, Items, K> {
   return (ctx => {
-    const p = fn(accessor(ctx.table))
+    const p = fn(accessor(ctx.source.table))
     return {
       ...ctx,
       where: [
         ...ctx.where,
-        ...(Array.isArray(p) ? p : [p])
-      ] as readonly PredRef[]
+        ...(Array.isArray(p) ? p : [p]).map(needData)
+      ]
     }
   }) as <
     M extends Mode,
     Items extends readonly unknown[],
-    X
+    K extends "select" | "update" | "delete"
   >(
-    ctx: QueryContext<T, M, Items, X> &
-      NoInsert<X, "insert does not take where">
-  ) => QueryContext<T, M, Items, X>
+    ctx: QueryContext<T, M, Items, K>
+  ) => QueryContext<T, M, Items, K>
 }
 export function orderBy<T extends Tableish>(
   fn: (
     t: QueryAccessor<T>
   ) => OrderRef<T> | readonly OrderRef<T>[]
-): <M extends Mode, Items extends readonly unknown[], X>(
-  ctx: QueryContext<T, M, Items, X> &
-    NoMutation<X, "mutations do not support orderBy">
-) => QueryContext<T, M, Items, X> {
+): <M extends Mode, Items extends readonly unknown[]>(
+  ctx: QueryContext<T, M, Items, "select">
+) => QueryContext<T, M, Items, "select"> {
   return (ctx => {
-    const o = fn(accessor(ctx.table))
+    const o = fn(accessor(ctx.source.table))
     return {
       ...ctx,
-      orderBy: [
-        ...ctx.orderBy,
-        ...(Array.isArray(o) ? o : [o])
-      ] as readonly OrderRef[]
+      order: [
+        ...ctx.order,
+        ...(Array.isArray(o) ? o : [o]).map(needData)
+      ]
     }
-  }) as <
-    M extends Mode,
-    Items extends readonly unknown[],
-    X
-  >(
-    ctx: QueryContext<T, M, Items, X> &
-      NoMutation<X, "mutations do not support orderBy">
-  ) => QueryContext<T, M, Items, X>
+  }) as <M extends Mode, Items extends readonly unknown[]>(
+    ctx: QueryContext<T, M, Items, "select">
+  ) => QueryContext<T, M, Items, "select">
 }
 export function hydrate<
   T extends Tableish,
-  Items extends readonly unknown[],
-  X
+  Items extends readonly unknown[]
 >(
-  ctx: QueryContext<T, "flat", Items, X> &
-    NoMutation<X, "mutations do not support hydrate">
-): QueryContext<T, "hydrate", Items, X> {
+  ctx: QueryContext<T, "flat", Items, "select">
+): QueryContext<T, "hydrate", Items, "select"> {
   return { ...ctx, mode: "hydrate" }
 }
 export function limit<const N extends number>(n: N) {
   return <
     T extends Tableish,
-    M extends Mode,
-    Items extends readonly unknown[],
-    X
+    Items extends readonly unknown[]
   >(
-    ctx: QueryContext<T, M, Items, X> &
-      NoMutation<X, "mutations do not support limit">
-  ): QueryContext<T, M, Items, X> => {
-    return { ...ctx, limit: lit(n) }
-  }
+    ctx: QueryContext<T, "flat", Items, "select">
+  ): QueryContext<T, "flat", Items, "select"> => ({
+    ...ctx,
+    limit: lit(n)
+  })
 }
 export function offset<const N extends number>(n: N) {
   return <
     T extends Tableish,
-    M extends Mode,
-    Items extends readonly unknown[],
-    X
+    Items extends readonly unknown[]
   >(
-    ctx: QueryContext<T, M, Items, X> &
-      NoMutation<X, "mutations do not support offset">
-  ): QueryContext<T, M, Items, X> => {
-    return { ...ctx, offset: lit(n) }
-  }
+    ctx: QueryContext<T, "flat", Items, "select">
+  ): QueryContext<T, "flat", Items, "select"> => ({
+    ...ctx,
+    offset: lit(n)
+  })
+}
+/** Hint: prefer materializing this statement (CTE / temp / client
+ * cache) when it appears as an intermediate. Backends may ignore it. */
+export function materialize<
+  T extends Tableish,
+  M extends Mode,
+  Items extends readonly unknown[]
+>(
+  ctx: QueryContext<T, M, Items, "select">
+): QueryContext<T, M, Items, "select"> {
+  return { ...ctx, materialize: true }
 }
 /** Every column of the table as a result row (SELECT t.* shape). */
 export type TableRow<T extends Tableish> = Clean<{

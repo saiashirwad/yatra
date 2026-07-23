@@ -44,7 +44,7 @@ import {
   update,
   uuid,
   where,
-  whereExists
+  exists
 } from "yatra"
 import {
   evalQuery,
@@ -451,12 +451,12 @@ test("runOneMemory returns one row or null", () => {
   )(seed())
   assert.equal(nobody, null)
 })
-test("whereExists filters parents without join duplication", () => {
+test("exists filters parents without join duplication", () => {
   const withBooks = pipe(
     Author,
     query,
     select(t => [t.name]),
-    where(t => whereExists(t.books)),
+    where(t => exists(t.books)),
     orderBy(t => asc(t.name)),
     runMemory
   )(seed())
@@ -469,7 +469,7 @@ test("whereExists filters parents without join duplication", () => {
     Author,
     query,
     select(t => [t.name]),
-    where(t => whereExists(t.books, b => gt(b.price, 10))),
+    where(t => exists(t.books, b => gt(b.price, 10))),
     runMemory
   )(seed())
   assert.deepEqual(withPricey, [{ name: "Ursula" }])
@@ -477,7 +477,7 @@ test("whereExists filters parents without join duplication", () => {
     Author,
     query,
     select(t => [t.name]),
-    where(t => not(whereExists(t.books))),
+    where(t => not(exists(t.books))),
     runMemory
   )(seed())
   assert.deepEqual(bookless, [])
@@ -485,9 +485,7 @@ test("whereExists filters parents without join duplication", () => {
     Author,
     query,
     select(t => [t.name]),
-    where(t =>
-      not(whereExists(t.books, b => isNull(b.price)))
-    ),
+    where(t => not(exists(t.books, b => isNull(b.price)))),
     orderBy(t => asc(t.name)),
     runMemory
   )(seed())

@@ -36,7 +36,7 @@ import {
   update,
   uuid,
   where,
-  whereExists,
+  exists,
   type Compiler
 } from "yatra"
 import { pgliteExecutor } from "../src/index.ts"
@@ -231,12 +231,12 @@ test("expressions: aliased select and where on an expr", async () => {
   )
   assert.deepEqual(priceyDoubled, [{ name: "Earthsea" }])
 })
-test("whereExists filters parents without join duplication", async () => {
+test("exists filters parents without join duplication", async () => {
   const withBooks = await pipe(
     Author,
     query,
     select(t => [t.name]),
-    where(t => whereExists(t.books)),
+    where(t => exists(t.books)),
     orderBy(t => asc(t.name)),
     run(exec)
   )
@@ -246,7 +246,7 @@ test("whereExists filters parents without join duplication", async () => {
     Author,
     query,
     select(t => [t.name]),
-    where(t => whereExists(t.books, b => gt(b.price, 10))),
+    where(t => exists(t.books, b => gt(b.price, 10))),
     run(exec)
   )
   assert.deepEqual(withPricey, [{ name: "Ursula" }])
@@ -254,7 +254,7 @@ test("whereExists filters parents without join duplication", async () => {
     Author,
     query,
     select(t => [t.name]),
-    where(t => not(whereExists(t.books))),
+    where(t => not(exists(t.books))),
     run(exec)
   )
   assert.deepEqual(bookless, [{ name: "Octavia" }])

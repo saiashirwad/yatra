@@ -38,7 +38,7 @@ import {
   type ChainLink,
   type ColRef,
   type Executor,
-  type MutationResult,
+  type StatementResult,
   type QueryAccessor,
   type Result
 } from "../src/index.ts"
@@ -321,7 +321,7 @@ const ins = pipe(
 )
 type _ins = Expect<
   Equal<
-    MutationResult<typeof ins>,
+    StatementResult<typeof ins>,
     Array<{ id: number; label: string }>
   >
 >
@@ -355,7 +355,7 @@ const upd = pipe(
 )
 type _upd = Expect<
   Equal<
-    MutationResult<typeof upd>,
+    StatementResult<typeof upd>,
     Array<{ id: number; name: string }>
   >
 >
@@ -374,7 +374,9 @@ const delQ = pipe(
   del,
   where(t => eq(t.name, "x"))
 )
-type _del = Expect<Equal<MutationResult<typeof delQ>, void>>
+type _del = Expect<
+  Equal<StatementResult<typeof delQ>, void>
+>
 const delReturning = pipe(
   Widget,
   del,
@@ -383,7 +385,7 @@ const delReturning = pipe(
 )
 type _delReturning = Expect<
   Equal<
-    MutationResult<typeof delReturning>,
+    StatementResult<typeof delReturning>,
     Array<{ id: number }>
   >
 >
