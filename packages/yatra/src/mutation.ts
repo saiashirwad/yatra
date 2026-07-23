@@ -21,7 +21,7 @@ import {
   appendSelection,
   type QueryContext
 } from "./query.ts"
-import type { FieldsRecord, InferColumn } from "./table.ts"
+import type { FieldsRecord } from "./table.ts"
 import type {
   Clean,
   Tableish,

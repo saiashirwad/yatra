@@ -24,7 +24,6 @@ import type {
   StatementData,
   StatementKind
 } from "./statement.ts"
-import type { InferColumn } from "./table.ts"
 import type {
   Clean,
   Tableish,

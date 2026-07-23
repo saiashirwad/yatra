@@ -478,7 +478,7 @@ const queryCases: Record<
       n: count(),
       total: sum(b.price)
     })),
-    having(b => gt(count(), 1))
+    having(() => gt(count(), 1))
   ),
   "bare aggregates count the whole table": pipe(
     Book,
@@ -493,7 +493,7 @@ const queryCases: Record<
   "bare count over an empty match": pipe(
     Book,
     query,
-    select(b => ({ n: count() })),
+    select(() => ({ n: count() })),
     where(b => eq(b.name, "Nobody"))
   ),
   "distinct collapses duplicates": pipe(

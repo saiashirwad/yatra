@@ -669,7 +669,7 @@ const groupedQ = pipe(
     n: count(),
     avgPrice: avg(b.price)
   })),
-  having(b => gt(count(), 1))
+  having(() => gt(count(), 1))
 )
 type _grouped = Expect<
   Equal<
