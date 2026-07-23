@@ -191,19 +191,6 @@ const program = Effect.gen(function* () {
     runEffect
   )
 
-  const lol = yield* pipe(
-    Author,
-    query,
-    select(a => [
-      a.name,
-      a.books.name,
-      a.books.price,
-      as(count(a.books), "bookCount")
-    ]),
-    orderBy(a => asc(a.name)),
-    hydrate,
-    runEffect
-  )
 
   yield* show(
     "aggregations: jsonAgg and count",
