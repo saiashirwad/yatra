@@ -9,8 +9,11 @@ import {
   planScope,
   projectionOf,
   resolveJoin,
+  setopCanonicalOrder,
+  setopOrderKey,
   tableFields,
   tableName,
+  validateGroup,
   type EvalCtx,
   type EvalScope,
   type Mode,
@@ -143,19 +146,27 @@ export function makeEvaluator(
       const out =
         planned.kind !== "select"
           ? runMutation(registry, planned, data)
-          : runQuery(registry, planned, ctx, data)
+          : runQuery(registry, planned, data)
       return out as StatementResult<typeof ctx>
     }
   }
 }
 
-/** Eval services for one scope (root query or a sub-scope). */
+/** Eval services for one scope (root query or a sub-scope). In a
+ * grouped statement, `groupTuples` carries the group's tuples. */
 function makeCtx(
   registry: Registry,
   tuple: Tuple,
-  data: DataSet
+  data: DataSet,
+  groupTuples?: readonly Tuple[]
 ): EvalCtx {
   const ctx: EvalCtx = {
+    ...(groupTuples
+      ? {
+          group: () =>
+            groupTuples.map(t => makeCtx(registry, t, data))
+        }
+      : {}),
     value(node) {
       switch (node.kind) {
         case "col": {
@@ -306,9 +317,10 @@ function projectRow(
   tuple: Tuple,
   selection: readonly NodeData[],
   projection: readonly ProjectionField[],
-  data: DataSet
+  data: DataSet,
+  groupTuples?: readonly Tuple[]
 ): RowValue {
-  const c = makeCtx(registry, tuple, data)
+  const c = makeCtx(registry, tuple, data, groupTuples)
   const row: RowValue = {}
   for (let i = 0; i < selection.length; i++) {
     row[projection[i].col] = c.value(selection[i])
@@ -372,44 +384,201 @@ function compareJson(a: unknown, b: unknown): number {
   return ak.length - bk.length
 }
 
-/** nulls sort last for ASC (postgres default), first for DESC. */ function compareTuples(
+/** nulls sort last for ASC (postgres default), first for DESC. */
+function compareCtx(
+  ca: EvalCtx,
+  cb: EvalCtx,
+  orders: readonly OrderData[]
+): number {
+  for (const o of orders) {
+    const va = ca.value(o.ref) as any
+    const vb = cb.value(o.ref) as any
+    const cmp =
+      va == null && vb == null
+        ? 0
+        : va == null
+          ? 1
+          : vb == null
+            ? -1
+            : va < vb
+              ? -1
+              : va > vb
+                ? 1
+                : 0
+    if (cmp !== 0) {
+      return o.direction === "desc" ? -cmp : cmp
+    }
+  }
+  return 0
+}
+function compareTuples(
   registry: Registry,
   data: DataSet,
   orders: readonly OrderData[]
 ) {
-  return (a: Tuple, b: Tuple): number => {
-    const ca = makeCtx(registry, a, data)
-    const cb = makeCtx(registry, b, data)
-    for (const o of orders) {
-      const va = ca.value(o.ref) as any
-      const vb = cb.value(o.ref) as any
-      const cmp =
-        va == null && vb == null
-          ? 0
-          : va == null
-            ? 1
-            : vb == null
-              ? -1
-              : va < vb
-                ? -1
-                : va > vb
-                  ? 1
-                  : 0
-      if (cmp !== 0) {
-        return o.direction === "desc" ? -cmp : cmp
-      }
-    }
-    return 0
-  }
+  return (a: Tuple, b: Tuple): number =>
+    compareCtx(
+      makeCtx(registry, a, data),
+      makeCtx(registry, b, data),
+      orders
+    )
 }
 
 // --- queries ---
+/** Grouped evaluation: partition tuples, then having/order/slice/
+ * project per group. Aggregate functions reduce over `EvalCtx.group`. */
+function runGrouped(
+  registry: Registry,
+  planned: Plan,
+  tuples: Tuple[],
+  data: DataSet
+): RowValue[] {
+  const groups = new Map<string, Tuple[]>()
+  if (planned.group.length === 0) {
+    // no keys: the whole table is one group (bare aggregate select)
+    groups.set("", tuples)
+  } else {
+    for (const t of tuples) {
+      const c = makeCtx(registry, t, data)
+      const k = JSON.stringify(
+        planned.group.map(g => c.value(g))
+      )
+      const arr = groups.get(k)
+      if (arr) arr.push(t)
+      else groups.set(k, [t])
+    }
+  }
+  let gs = [...groups.values()]
+  if (planned.having.length > 0) {
+    gs = gs.filter(g => {
+      const c = makeCtx(registry, g[0] ?? {}, data, g)
+      return planned.having.every(h => c.pred(h) === true)
+    })
+  }
+  if (planned.order.length > 0) {
+    const orders = planned.order
+    gs = [...gs].sort((ga, gb) =>
+      compareCtx(
+        makeCtx(registry, ga[0] ?? {}, data, ga),
+        makeCtx(registry, gb[0] ?? {}, data, gb),
+        orders
+      )
+    )
+  }
+  return gs.map(g =>
+    projectRow(
+      registry,
+      g[0] ?? {},
+      planned.selection,
+      planned.projection,
+      data,
+      g
+    )
+  )
+}
+/** A set operation: both sides evaluate as full queries; the op's
+ * order/limit apply to the combined result. */
+function runSetop(
+  registry: Registry,
+  planned: Plan,
+  data: DataSet
+): unknown {
+  const so = planned.setop!
+  const l = runQuery(registry, so.left, data) as RowValue[]
+  const r = runQuery(registry, so.right, data) as RowValue[]
+  const key = (row: RowValue) => JSON.stringify(row)
+  let rows: RowValue[]
+  if (so.op === "union") {
+    const seen = new Set<string>()
+    rows = [...l, ...r].filter(row => {
+      const k = key(row)
+      if (seen.has(k)) return false
+      seen.add(k)
+      return true
+    })
+  } else {
+    const rKeys = new Set(r.map(key))
+    const seen = new Set<string>()
+    rows = l.filter(row => {
+      const k = key(row)
+      const keep =
+        so.op === "intersect" ? rKeys.has(k) : !rKeys.has(k)
+      if (!keep || seen.has(k)) return false
+      seen.add(k)
+      return true
+    })
+  }
+  if (planned.order.length > 0) {
+    rows = [...rows].sort((a, b) => {
+      for (const o of planned.order) {
+        const k = setopOrderKey(planned, o)
+        const va = a[k] as any
+        const vb = b[k] as any
+        const cmp =
+          va == null && vb == null
+            ? 0
+            : va == null
+              ? 1
+              : vb == null
+                ? -1
+                : va < vb
+                  ? -1
+                  : va > vb
+                    ? 1
+                    : 0
+        if (cmp !== 0) {
+          return o.direction === "desc" ? -cmp : cmp
+        }
+      }
+      return 0
+    })
+  } else {
+    const canonical = setopCanonicalOrder(planned)
+    if (canonical !== undefined) {
+      rows = [...rows].sort((a, b) => {
+        for (const k of canonical) {
+          const va = a[k] as any
+          const vb = b[k] as any
+          const cmp =
+            va == null && vb == null
+              ? 0
+              : va == null
+                ? 1
+                : vb == null
+                  ? -1
+                  : va < vb
+                    ? -1
+                    : va > vb
+                      ? 1
+                      : 0
+          if (cmp !== 0) return cmp
+        }
+        return 0
+      })
+    }
+  }
+  const start = litBound(planned.offset, "offset") ?? 0
+  const limitN = litBound(planned.limit, "limit")
+  const end =
+    limitN !== undefined ? start + limitN : undefined
+  rows = rows.slice(start, end)
+  if (planned.mode === "hydrate") {
+    return hydrateRows(
+      planned.source.table,
+      rows,
+      planned.projection
+    )
+  }
+  return rows
+}
 function runQuery(
   registry: Registry,
   planned: Plan,
-  ctx: QueryContext<any, any, any, any>,
   data: DataSet
 ): unknown {
+  if (planned.setop) {
+    return runSetop(registry, planned, data)
+  }
   let tuples = expandNode(
     planned.root,
     "",
@@ -420,40 +589,58 @@ function runQuery(
     ),
     data
   )
+  const grouped = validateGroup(
+    planned,
+    op => registry.expr[op]?.aggregate === true
+  )
   if (planned.where.length > 0) {
     tuples = tuples.filter(t => {
       const c = makeCtx(registry, t, data)
       return planned.where.every(w => c.pred(w) === true)
     })
   }
-  if (planned.order.length > 0) {
-    tuples = [...tuples].sort(
-      compareTuples(registry, data, planned.order)
-    )
+  let rows: RowValue[]
+  if (grouped) {
+    rows = runGrouped(registry, planned, tuples, data)
+  } else {
+    if (planned.order.length > 0) {
+      tuples = [...tuples].sort(
+        compareTuples(registry, data, planned.order)
+      )
+    }
+    rows =
+      planned.selection.length > 0
+        ? tuples.map(t =>
+            projectRow(
+              registry,
+              t,
+              planned.selection,
+              planned.projection,
+              data
+            )
+          )
+        : tuples.map(t => ({ ...t[""] }))
+  }
+  if (planned.distinct) {
+    const seen = new Set<string>()
+    rows = rows.filter(r => {
+      const k = JSON.stringify(r)
+      if (seen.has(k)) return false
+      seen.add(k)
+      return true
+    })
   }
   const start = litBound(planned.offset, "offset") ?? 0
   const limitN = litBound(planned.limit, "limit")
   const end =
     limitN !== undefined ? start + limitN : undefined
-  tuples = tuples.slice(start, end)
-  const rows =
-    planned.selection.length > 0
-      ? tuples.map(t =>
-          projectRow(
-            registry,
-            t,
-            planned.selection,
-            planned.projection,
-            data
-          )
-        )
-      : tuples.map(t => ({ ...t[""] }))
+  rows = rows.slice(start, end)
   if (
     planned.mode === "hydrate" &&
     planned.selection.length > 0
   ) {
     return hydrateRows(
-      ctx.source.table,
+      planned.source.table,
       rows,
       planned.projection
     )

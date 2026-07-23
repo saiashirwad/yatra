@@ -198,6 +198,44 @@ export function exists<
   const preds = p ? (Array.isArray(p) ? p : [p]) : []
   return pred("exists", [d, ...preds.map(needData)])
 }
+// --- aggregate functions (docs/shapes.md) ---
+// Free-standing aggregates over the statement's groups — ordinary
+// expr ops; the facets live in the coreAggFns pack. Legal wherever
+// group keys are: a bare `select(t => ({ n: count() }))` counts the
+// whole table as one group.
+const aggFn = <V, Root>(
+  op: string,
+  args: readonly NodeData[]
+): ExprRef<V, Root> => mk({ kind: "expr", op, args })
+export function sum<
+  R extends
+    | ColRef<number | null, any, any>
+    | ExprRef<number | null, any>
+>(ref: R): ExprRef<number | null, RootOf<R>> {
+  return aggFn("sum", [needData(ref)])
+}
+export function avg<
+  R extends
+    | ColRef<number | null, any, any>
+    | ExprRef<number | null, any>
+>(ref: R): ExprRef<number | null, RootOf<R>> {
+  return aggFn("avg", [needData(ref)])
+}
+export function min<
+  R extends
+    | ColRef<number | null, any, any>
+    | ExprRef<number | null, any>
+>(ref: R): ExprRef<number | null, RootOf<R>> {
+  return aggFn("min", [needData(ref)])
+}
+export function max<
+  R extends
+    | ColRef<number | null, any, any>
+    | ExprRef<number | null, any>
+>(ref: R): ExprRef<number | null, RootOf<R>> {
+  return aggFn("max", [needData(ref)])
+}
+
 // --- ordering ---
 export function asc<R extends AnyValueRef>(
   ref: R
@@ -246,11 +284,19 @@ export function jsonAgg<
   }
   return mk(data)
 }
+/** Count rows in the group: `select(t => ({ n: count() }))` counts
+ * the whole table as one group; with `group(...)` it counts per
+ * group. Over a relation it counts related rows. */
+export function count(): ExprRef<number, any>
 export function count<
   D extends Tableish,
   K extends string,
   Root
->(rel: RelRef<D, K, Root>): AggRef<number, K, Root> {
+>(rel: RelRef<D, K, Root>): AggRef<number, K, Root>
+export function count(rel?: unknown): unknown {
+  if (rel === undefined) {
+    return aggFn("count", [])
+  }
   const d = dataOf(rel) as RelData
   const data: AggData = {
     kind: "agg",

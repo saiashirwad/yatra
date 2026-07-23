@@ -63,6 +63,10 @@ export interface EvalCtx {
     relation: Relation<any, any>,
     parentChain: readonly string[]
   ): EvalScope
+  /** one child ctx per tuple of the current group — only present in
+   * a grouped statement's selection/having/order. Aggregate-function
+   * handlers reduce over it; anything else should not call it */
+  group?(): readonly EvalCtx[]
 }
 
 export interface PredFacets {
@@ -84,6 +88,9 @@ export interface ExprFacets {
     args: readonly NodeData[],
     c: EvalCtx
   ) => unknown
+  /** an aggregate function (count, sum, …): reduces over the group,
+   * legal wherever group keys are (docs/shapes.md) */
+  readonly aggregate?: boolean
 }
 export interface AggFacets {
   readonly sql?: (spec: AggData, c: SqlCtx) => string

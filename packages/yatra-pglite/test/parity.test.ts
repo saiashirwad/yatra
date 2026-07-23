@@ -7,17 +7,23 @@ import {
   as,
   asc,
   asId,
+  avg,
   count,
   dbDefault,
   del,
   desc,
+  distinct,
   eq,
+  except,
   gt,
   gte,
+  group,
+  having,
   hydrate,
   ilike,
   inArray,
   insert,
+  intersect,
   isNotNull,
   isNull,
   jsonAgg,
@@ -29,6 +35,8 @@ import {
   lte,
   many,
   manyToOne,
+  max,
+  min,
   mul,
   ne,
   not,
@@ -46,7 +54,10 @@ import {
   run,
   select,
   string,
+  sum,
   Table,
+  toSQL,
+  union,
   update,
   uuid,
   where,
@@ -187,6 +198,26 @@ async function bothAgree(
   const memRows = evalQuery(ctx, seed())
   assert.deepEqual(memRows, sqlRows)
 }
+
+// shared query values for the set-op cases
+const cheapBooks = pipe(
+  Book,
+  query,
+  select(b => [b.name]),
+  where(b => lt(b.price, 10))
+)
+const priceyBooks = pipe(
+  Book,
+  query,
+  select(b => [b.name]),
+  where(b => gt(b.price, 10))
+)
+const authorBooks = pipe(
+  Author,
+  query,
+  select(t => [t.name, t.books.name]),
+  where(t => eq(t.name, "Ursula"))
+)
 
 // --- read-only cases: built once, asserted identical ---
 const queryCases: Record<
@@ -430,6 +461,88 @@ const queryCases: Record<
       author: one(b.author, a => ({ name: a.name }))
     })),
     orderBy(b => asc(b.name))
+  ),
+  "group + count per group": pipe(
+    Book,
+    query,
+    group(b => [b.authorId]),
+    select(b => ({ authorId: b.authorId, n: count() })),
+    orderBy(b => asc(b.authorId))
+  ),
+  "group + having + sum": pipe(
+    Book,
+    query,
+    group(b => [b.authorId]),
+    select(b => ({
+      authorId: b.authorId,
+      n: count(),
+      total: sum(b.price)
+    })),
+    having(b => gt(count(), 1))
+  ),
+  "bare aggregates count the whole table": pipe(
+    Book,
+    query,
+    select(b => ({
+      n: count(),
+      avgPrice: avg(b.price),
+      lo: min(b.price),
+      hi: max(b.price)
+    }))
+  ),
+  "bare count over an empty match": pipe(
+    Book,
+    query,
+    select(b => ({ n: count() })),
+    where(b => eq(b.name, "Nobody"))
+  ),
+  "distinct collapses duplicates": pipe(
+    Book,
+    query,
+    select(b => [b.authorId]),
+    distinct,
+    orderBy(b => asc(b.authorId))
+  ),
+  "union, ordered after the op": pipe(
+    cheapBooks,
+    union(priceyBooks),
+    orderBy(b => asc(b.name))
+  ),
+  "union dedupes overlap": pipe(
+    cheapBooks,
+    union(
+      pipe(
+        Book,
+        query,
+        select(b => [b.name]),
+        where(b => lte(b.price, 9.99))
+      )
+    ),
+    orderBy(b => asc(b.name))
+  ),
+  intersect: pipe(
+    cheapBooks,
+    intersect(
+      pipe(
+        Book,
+        query,
+        select(b => [b.name]),
+        where(b => gt(b.price, 5))
+      )
+    )
+  ),
+  except: pipe(cheapBooks, except(priceyBooks)),
+  "union + hydrate the combined result": pipe(
+    authorBooks,
+    union(
+      pipe(
+        Author,
+        query,
+        select(t => [t.name, t.books.name]),
+        where(t => eq(t.name, "Octavia"))
+      )
+    ),
+    hydrate
   )
 }
 
@@ -523,3 +636,37 @@ test("parity: update to the column default", () =>
       returning(t => [t.name, t.price])
     )
   ))
+
+// plan-time validation fails identically on both backends
+test("parity: grouped statements reject non-key selections", () => {
+  const ctx = pipe(
+    Book,
+    query,
+    group(t => [t.authorId]),
+    select(t => ({ name: t.name, n: count() }))
+  )
+  assert.throws(
+    () => evalQuery(ctx, seed()),
+    /group keys or aggregates/
+  )
+  assert.throws(
+    () => toSQL(ctx),
+    /group keys or aggregates/
+  )
+})
+test("parity: aggregates outside a group are rejected in where", () => {
+  const ctx = pipe(
+    Book,
+    query,
+    select(t => [t.name]),
+    where(() => gt(count(), 1))
+  )
+  assert.throws(
+    () => evalQuery(ctx, seed()),
+    /aggregate functions are not allowed in where/
+  )
+  assert.throws(
+    () => toSQL(ctx),
+    /aggregate functions are not allowed in where/
+  )
+})

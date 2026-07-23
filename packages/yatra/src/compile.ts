@@ -5,6 +5,9 @@ import {
   plan,
   planScope,
   resolveJoin,
+  setopCanonicalOrder,
+  setopOrderKey,
+  validateGroup,
   type Plan,
   type PlanNode,
   type ProjectionField
@@ -340,7 +343,47 @@ export function makeCompiler(
     return clauses.join("\n")
   }
 
+  /** A set operation: both sides render as full selects; the op's
+   * order/limit apply to the combined result. */
+  function setopSql(planned: Plan, p: AddParam): string {
+    const so = planned.setop!
+    const clauses = [
+      `(${querySql(so.left, p)}) ${so.op.toUpperCase()} (${querySql(so.right, p)})`
+    ]
+    if (planned.order.length > 0) {
+      clauses.push(
+        `ORDER BY ${planned.order
+          .map(
+            o =>
+              `${qi(setopOrderKey(planned, o))} ${o.direction.toUpperCase()}`
+          )
+          .join(", ")}`
+      )
+    } else {
+      const canonical = setopCanonicalOrder(planned)
+      if (canonical !== undefined && canonical.length > 0) {
+        clauses.push(
+          `ORDER BY ${canonical.map(qi).join(", ")}`
+        )
+      }
+    }
+    if (planned.limit !== undefined) {
+      clauses.push(
+        `LIMIT ${p(litBound(planned.limit, "limit")!)}`
+      )
+    }
+    if (planned.offset !== undefined) {
+      clauses.push(
+        `OFFSET ${p(litBound(planned.offset, "offset")!)}`
+      )
+    }
+    return clauses.join("\n")
+  }
+
   function querySql(planned: Plan, p: AddParam): string {
+    if (planned.setop) {
+      return setopSql(planned, p)
+    }
     const base = tableName(planned.source.table)
     const aliases: Aliases = new Map()
     aliasSubTree(planned.root, base, aliases)
@@ -354,12 +397,22 @@ export function makeCompiler(
           )
         : `${qi(base)}.*`
     const clauses = [
-      `SELECT ${list}`,
+      `SELECT ${planned.distinct ? "DISTINCT " : ""}${list}`,
       `FROM ${qi(base)} ${qi(base)}${renderJoins(aliases, planned.root)}`
     ]
     if (planned.where.length > 0) {
       clauses.push(
         `WHERE ${planned.where.map(w => c.pred(w)).join(" AND ")}`
+      )
+    }
+    if (planned.group.length > 0) {
+      clauses.push(
+        `GROUP BY ${planned.group.map(g => c.value(g)).join(", ")}`
+      )
+    }
+    if (planned.having.length > 0) {
+      clauses.push(
+        `HAVING ${planned.having.map(h => c.pred(h)).join(" AND ")}`
       )
     }
     if (planned.order.length > 0) {
@@ -394,6 +447,10 @@ export function makeCompiler(
         return param(params.length)
       }
       const planned = plan(ctx)
+      validateGroup(
+        planned,
+        op => registry.expr[op]?.aggregate === true
+      )
       const sql =
         planned.kind !== "select"
           ? mutationSql(planned, p)

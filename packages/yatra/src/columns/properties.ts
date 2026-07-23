@@ -105,7 +105,9 @@ export const Min = Symbol.for("Yatra/Min")
 export type Min<T extends number> = {
   readonly [Min]: T
 }
-export const min =
+/** Minimum allowed value for a numeric column (the constraint; the
+ * aggregate over query rows is `min` in ops). */
+export const minValue =
   <
     Col extends Column<"number", any>,
     const M extends number
@@ -118,7 +120,8 @@ export const Max = Symbol.for("Yatra/Max")
 export type Max<T extends number> = {
   readonly [Max]: T
 }
-export const max =
+/** Maximum allowed value for a numeric column. */
+export const maxValue =
   <
     Col extends Column<"number", any>,
     const M extends number

@@ -156,6 +156,8 @@ export function insert<
     selection: [],
     where: [],
     order: [],
+    group: [],
+    having: [],
     rows: (Array.isArray(rows) ? rows : [rows]).map(row =>
       Object.fromEntries(
         Object.entries(row).map(([k, v]) => [k, lit(v)])
@@ -180,6 +182,8 @@ export function update<S extends Record<string, unknown>>(
     selection: [],
     where: [],
     order: [],
+    group: [],
+    having: [],
     set: Object.entries(set).map(
       ([col, v]): Assignment => ({
         col,
@@ -197,7 +201,9 @@ export function del<T extends Tableish>(
     mode: "flat",
     selection: [],
     where: [],
-    order: []
+    order: [],
+    group: [],
+    having: []
   }
 }
 /** RETURNING clause: select's machinery, gated to mutation contexts. */

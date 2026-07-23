@@ -234,6 +234,11 @@ export interface Plan extends StatementData {
   readonly order: readonly OrderData[]
   readonly root: PlanNode
   readonly projection: readonly ProjectionField[]
+  readonly setop?: {
+    readonly op: "union" | "intersect" | "except"
+    readonly left: Plan
+    readonly right: Plan
+  }
 }
 /**
  * One pure `QueryContext → Plan`: validates the statement's kind rules
@@ -244,6 +249,16 @@ export interface Plan extends StatementData {
 export function plan(
   ctx: QueryContext<any, any, any, any>
 ): Plan {
+  const selection = ctx.selection as readonly NodeData[]
+  const order = ctx.order.map(o => {
+    if (o.kind !== "order") {
+      throw new Error("Expected an ordering")
+    }
+    return o
+  })
+  if (ctx.setop) {
+    return planSetop(ctx, selection, order)
+  }
   if (ctx.kind !== "select") {
     if ((ctx.mode as string) !== "flat") {
       throw new Error("mutations do not support hydrate")
@@ -257,6 +272,15 @@ export function plan(
         "mutations do not support orderBy/limit/offset"
       )
     }
+    if (
+      ctx.group.length > 0 ||
+      ctx.having.length > 0 ||
+      ctx.distinct
+    ) {
+      throw new Error(
+        "mutations do not support group/having/distinct"
+      )
+    }
     if (ctx.materialize) {
       throw new Error(
         "materialize is only meaningful on selects"
@@ -266,31 +290,201 @@ export function plan(
       throw new Error("insert does not take where")
     }
   }
-  const selection = ctx.selection as readonly NodeData[]
   const where = ctx.where.map(w => {
     if (w.kind !== "pred") {
       throw new Error("Expected a predicate")
     }
     return w
   })
-  const order = ctx.order.map(o => {
-    if (o.kind !== "order") {
-      throw new Error("Expected an ordering")
-    }
-    return o
-  })
   const root = planRoot(ctx.source.table)
   const chains: Array<readonly string[]> = []
   for (const item of selection) collectChains(item, chains)
   for (const w of where) collectChains(w, chains)
   for (const o of order) collectChains(o, chains)
+  for (const g of ctx.group) collectChains(g, chains)
+  for (const h of ctx.having) collectChains(h, chains)
   for (const chain of chains) ensureChain(root, chain)
   return {
     ...ctx,
+    // this branch only runs when there is no set operation
+    setop: undefined,
     selection,
     where,
     order,
     root,
     projection: projectionOf(selection, ctx.mode)
   }
+}
+/**
+ * Plan a set operation: both sides plan as their own statements.
+ * Only order/limit/offset may follow the op (they apply to the
+ * combined result); the result decodes with the left side's
+ * projection (SQL takes the union's column names from the left).
+ */
+function planSetop(
+  ctx: QueryContext<any, any, any, any>,
+  selection: readonly NodeData[],
+  order: readonly OrderData[]
+): Plan {
+  const { op, left, right } = ctx.setop!
+  const l = left as QueryContext<any, any, any, any>
+  const r = right as QueryContext<any, any, any, any>
+  if (l.mode !== "flat" || r.mode !== "flat") {
+    throw new Error(
+      "set operation sides must be flat — hydrate the combined result"
+    )
+  }
+  if (
+    ctx.where.length > 0 ||
+    ctx.group.length > 0 ||
+    ctx.having.length > 0
+  ) {
+    throw new Error(
+      "where/group/having after a set operation needs a query source — filter inside each side"
+    )
+  }
+  if (ctx.selection.length !== l.selection.length) {
+    throw new Error(
+      "select after a set operation is not supported — select in each side"
+    )
+  }
+  const leftPlan = plan(l)
+  const rightPlan = plan(r)
+  const lc = leftPlan.projection.map(f => f.col)
+  const rc = rightPlan.projection.map(f => f.col)
+  if (
+    lc.length !== rc.length ||
+    lc.some((c, i) => c !== rc[i])
+  ) {
+    throw new Error(
+      "set operation sides must produce the same columns"
+    )
+  }
+  return {
+    ...ctx,
+    selection,
+    where: [],
+    order,
+    root: planRoot(ctx.source.table),
+    projection: leftPlan.projection,
+    setop: { op, left: leftPlan, right: rightPlan }
+  }
+}
+/**
+ * The result-column key a set-operation orderBy resolves to: plain
+ * columns only, matched by their output key.
+ */
+export function setopOrderKey(
+  planned: Plan,
+  o: OrderData
+): string {
+  const r = o.ref
+  if (r.kind !== "col" || r.chain.length > 0) {
+    throw new Error(
+      "set operation orderBy only supports plain columns"
+    )
+  }
+  const f = planned.projection.find(
+    f => f.outKey === r.key && f.chain.length === 0
+  )
+  if (!f) {
+    throw new Error(
+      `set operation orderBy: '${r.key}' is not a result column`
+    )
+  }
+  return f.col
+}
+/**
+ * Set operations are sets — SQL gives no row order without ORDER BY.
+ * Without an explicit orderBy, both backends order by the result
+ * columns (asc), so the combined result is deterministic.
+ */
+export function setopCanonicalOrder(
+  planned: Plan
+): readonly string[] | undefined {
+  return planned.setop !== undefined &&
+    planned.order.length === 0
+    ? planned.projection.map(f => f.col)
+    : undefined
+}
+// --- grouped statements (docs/shapes.md) ---
+/**
+ * A grouped statement's selection, having, and order may only mention
+ * group keys and aggregates — Postgres enforces this with a planner
+ * error; validating here gives every backend the same honest failure.
+ * `isAgg` names the aggregate-function ops from the backend's packs.
+ * Returns whether the statement is grouped (explicit keys, or
+ * aggregate functions in selection/having — a bare aggregate select
+ * treats the whole table as one group).
+ */
+export function validateGroup(
+  planned: Plan,
+  isAgg: (op: string) => boolean
+): boolean {
+  if (planned.kind !== "select" || planned.setop) {
+    return false
+  }
+  const hasAgg = (nodes: readonly NodeData[]): boolean =>
+    nodes.some(
+      n =>
+        (n.kind === "expr" && isAgg(n.op)) ||
+        ((n.kind === "expr" || n.kind === "pred") &&
+          hasAgg(n.args)) ||
+        (n.kind === "as" && hasAgg([n.target]))
+    )
+  if (hasAgg(planned.where)) {
+    throw new Error(
+      "aggregate functions are not allowed in where — use having"
+    )
+  }
+  const grouped =
+    planned.group.length > 0 ||
+    hasAgg(planned.selection) ||
+    hasAgg(planned.having)
+  if (!grouped) return false
+  if (planned.selection.length === 0) {
+    throw new Error(
+      "grouped statements need an explicit selection (t.* is not a group key)"
+    )
+  }
+  const keys = new Set(
+    planned.group.map(g => JSON.stringify(g))
+  )
+  const offenders: string[] = []
+  const walk = (node: NodeData, underAgg: boolean) => {
+    switch (node.kind) {
+      case "col":
+        if (!underAgg && !keys.has(JSON.stringify(node))) {
+          offenders.push(
+            [...node.chain, node.key].join(".")
+          )
+        }
+        break
+      case "expr":
+        for (const a of node.args) {
+          walk(a, underAgg || isAgg(node.op))
+        }
+        break
+      case "as":
+        walk(node.target, underAgg)
+        break
+      case "pred":
+        for (const a of node.args) walk(a, underAgg)
+        break
+      case "order":
+        walk(node.ref, underAgg)
+        break
+      default:
+        break
+    }
+  }
+  for (const n of planned.selection) walk(n, false)
+  for (const n of planned.having) walk(n, false)
+  for (const n of planned.order) walk(n, false)
+  if (offenders.length > 0) {
+    throw new Error(
+      `grouped statements may only select group keys or aggregates — '${offenders[0]}' is neither`
+    )
+  }
+  return true
 }

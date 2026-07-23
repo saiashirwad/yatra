@@ -4,7 +4,9 @@ import {
   needData,
   selectionKey,
   type CheckItems,
+  type ColRef,
   type ColumnValue,
+  type ExprRef,
   type MergeAll,
   type Mode,
   type NodeData,
@@ -19,6 +21,7 @@ import {
 import { shapeItems } from "./ops.ts"
 import type {
   Assignment,
+  StatementData,
   StatementKind
 } from "./statement.ts"
 import type { InferColumn } from "./table.ts"
@@ -54,6 +57,14 @@ export interface QueryContext<
   readonly limit?: NodeData
   readonly offset?: NodeData
   readonly materialize?: boolean
+  readonly group: readonly NodeData[]
+  readonly having: readonly NodeData[]
+  readonly distinct?: boolean
+  readonly setop?: {
+    readonly op: "union" | "intersect" | "except"
+    readonly left: StatementData
+    readonly right: StatementData
+  }
   readonly rows?: readonly Record<string, NodeData>[]
   readonly set?: readonly Assignment[]
 }
@@ -67,7 +78,9 @@ export function query<T extends Tableish>(
     mode: "flat",
     selection: [],
     where: [],
-    order: []
+    order: [],
+    group: [],
+    having: []
   }
 }
 /**
@@ -237,6 +250,105 @@ export function materialize<
 ): QueryContext<T, M, Items, "select"> {
   return { ...ctx, materialize: true }
 }
+/**
+ * GROUP BY: changes row cardinality — each group is one row. Appends
+ * like `where`, so fragments compose. Selections on a grouped
+ * statement must be group keys or aggregates (`count()`, `sum(x)`, …).
+ */
+export function group<T extends Tableish>(
+  fn: (
+    t: QueryAccessor<T>
+  ) =>
+    | ColRef<any, any, any, T>
+    | ExprRef<any, T>
+    | readonly (
+        | ColRef<any, any, any, T>
+        | ExprRef<any, T>
+      )[]
+): <M extends Mode, Items extends readonly unknown[]>(
+  ctx: QueryContext<T, M, Items, "select">
+) => QueryContext<T, M, Items, "select"> {
+  return (ctx => {
+    const g = fn(accessor(ctx.source.table))
+    return {
+      ...ctx,
+      group: [
+        ...ctx.group,
+        ...(Array.isArray(g) ? g : [g]).map(needData)
+      ]
+    }
+  }) as <M extends Mode, Items extends readonly unknown[]>(
+    ctx: QueryContext<T, M, Items, "select">
+  ) => QueryContext<T, M, Items, "select">
+}
+/** Predicates over groups — same append semantics as `where`. */
+export function having<T extends Tableish>(
+  fn: (
+    t: QueryAccessor<T>
+  ) => PredRef<T> | readonly (PredRef<T> | Falsy)[]
+): <M extends Mode, Items extends readonly unknown[]>(
+  ctx: QueryContext<T, M, Items, "select">
+) => QueryContext<T, M, Items, "select"> {
+  return (ctx => {
+    const p = fn(accessor(ctx.source.table))
+    return {
+      ...ctx,
+      having: [
+        ...ctx.having,
+        ...(Array.isArray(p) ? p : [p])
+          .filter(Boolean)
+          .map(needData)
+      ]
+    }
+  }) as <M extends Mode, Items extends readonly unknown[]>(
+    ctx: QueryContext<T, M, Items, "select">
+  ) => QueryContext<T, M, Items, "select">
+}
+/** SELECT DISTINCT — one field on the statement, not an emulation
+ * with `group`. */
+export function distinct<
+  T extends Tableish,
+  M extends Mode,
+  Items extends readonly unknown[]
+>(
+  ctx: QueryContext<T, M, Items, "select">
+): QueryContext<T, M, Items, "select"> {
+  return { ...ctx, distinct: true }
+}
+/**
+ * Set ops (docs/shapes.md): relational-algebra closure over query
+ * values. The piped statement is the left side; order/limit/offset
+ * after the op apply to the combined result; filtering belongs inside
+ * each side. `recursive` is fixpoint over union
+ * (docs/query-values-and-scopes.md).
+ */
+const setopStep =
+  (op: "union" | "intersect" | "except") =>
+  <R extends QueryContext<any, any, any, "select">>(
+    right: R
+  ) =>
+  <
+    T extends Tableish,
+    M extends Mode,
+    Items extends readonly unknown[]
+  >(
+    left: QueryContext<T, M, Items, "select">
+  ): QueryContext<T, M, Items, "select"> =>
+    ({
+      ...left,
+      where: [],
+      order: [],
+      group: [],
+      having: [],
+      limit: undefined,
+      offset: undefined,
+      distinct: undefined,
+      materialize: undefined,
+      setop: { op, left, right }
+    }) as QueryContext<T, M, Items, "select">
+export const union = setopStep("union")
+export const intersect = setopStep("intersect")
+export const except = setopStep("except")
 /** Every column of the table as a result row (SELECT t.* shape). */
 export type TableRow<T extends Tableish> = Clean<{
   [K in keyof TableishFields<T> & string]: ColumnValue<T, K>

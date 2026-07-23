@@ -65,6 +65,21 @@ export interface StatementData {
   readonly offset?: NodeData
   /** hint: prefer CTE / temp / client cache (backends may ignore) */
   readonly materialize?: boolean
+  /** GROUP BY keys (docs/shapes.md) */
+  readonly group: readonly NodeData[]
+  /** predicates over groups */
+  readonly having: readonly NodeData[]
+  readonly distinct?: boolean
+  /**
+   * A set operation (docs/shapes.md): both sides are frozen
+   * statements. order/limit/offset on this statement apply to the
+   * combined result.
+   */
+  readonly setop?: {
+    readonly op: "union" | "intersect" | "except"
+    readonly left: StatementData
+    readonly right: StatementData
+  }
   // insert rows / update sets: node-valued
   readonly rows?: readonly Record<string, NodeData>[]
   readonly set?: readonly Assignment[]

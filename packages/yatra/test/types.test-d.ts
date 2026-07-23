@@ -5,12 +5,15 @@ import {
   asc,
   asId,
   autoIncrement,
+  avg,
   count,
   defaultValue,
   del,
   desc,
   eq,
+  group,
   gt,
+  having,
   hydrate,
   ilike,
   inArray,
@@ -655,6 +658,29 @@ pipe(
   // @ts-expect-error a pinned predicate rejects the wrong table
   isUrsula
 )
+
+// --- grouping and free-standing aggregates ---
+const groupedQ = pipe(
+  Book,
+  query,
+  group(b => [b.authorId]),
+  select(b => ({
+    authorId: b.authorId,
+    n: count(),
+    avgPrice: avg(b.price)
+  })),
+  having(b => gt(count(), 1))
+)
+type _grouped = Expect<
+  Equal<
+    Result<typeof groupedQ>,
+    Array<{
+      authorId: IdOf<typeof Author>
+      n: number
+      avgPrice: number | null
+    }>
+  >
+>
 
 // --- branded ids: write-back can't mix entities ---
 declare const authorRow: {

@@ -311,10 +311,90 @@ export const pgText: OpPack = {
   }
 }
 
+// --- free-standing aggregates (docs/shapes.md) ---
+// Aggregate functions over the statement's groups: ordinary expr ops
+// marked `aggregate`, legal wherever group keys are.
+function groupOf(c: EvalCtx): readonly EvalCtx[] {
+  const g = c.group?.()
+  if (!g) {
+    throw new Error(
+      "aggregate functions need a grouped statement or a bare aggregate select"
+    )
+  }
+  return g
+}
+/** reduce the group's non-null values; empty/all-null is null (SQL) */
+function reduceNums(
+  c: EvalCtx,
+  arg: NodeData,
+  f: (acc: number, v: number) => number
+): number | null {
+  let acc: number | null = null
+  for (const t of groupOf(c)) {
+    const v = t.value(arg)
+    if (v != null) {
+      acc = acc === null ? Number(v) : f(acc, Number(v))
+    }
+  }
+  return acc
+}
+export const coreAggFns: OpPack = {
+  name: "core/agg-fns",
+  expr: {
+    count: {
+      aggregate: true,
+      sql: (a, c) =>
+        a.length === 0
+          ? "count(*)::int"
+          : `count(${c.value(a[0])})::int`,
+      eval: (a, c) =>
+        a.length === 0
+          ? groupOf(c).length
+          : groupOf(c).filter(t => t.value(a[0]) != null)
+              .length
+    },
+    sum: {
+      aggregate: true,
+      sql: (a, c) => `sum(${c.value(a[0])})`,
+      eval: (a, c) =>
+        reduceNums(c, a[0], (acc, v) => acc + v)
+    },
+    avg: {
+      aggregate: true,
+      sql: (a, c) => `avg(${c.value(a[0])})`,
+      eval: (a, c) => {
+        let n = 0
+        let acc = 0
+        for (const t of groupOf(c)) {
+          const v = t.value(a[0])
+          if (v != null) {
+            n++
+            acc += Number(v)
+          }
+        }
+        return n === 0 ? null : acc / n
+      }
+    },
+    min: {
+      aggregate: true,
+      sql: (a, c) => `min(${c.value(a[0])})`,
+      eval: (a, c) =>
+        reduceNums(c, a[0], (acc, v) => Math.min(acc, v))
+    },
+    max: {
+      aggregate: true,
+      sql: (a, c) => `max(${c.value(a[0])})`,
+      eval: (a, c) =>
+        reduceNums(c, a[0], (acc, v) => Math.max(acc, v))
+    }
+  }
+}
+
 /** The standard assembly `postgres` and yatra-memory are built from. */
 export const defaultPacks: readonly OpPack[] = [
   corePred,
   coreExpr,
   coreAgg,
+  coreAggFns,
   pgText
 ]
