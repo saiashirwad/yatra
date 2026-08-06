@@ -271,6 +271,14 @@ const program = Effect.gen(function* () {
     )
   )
 
+  const lol = yield* pipe(
+    Book,
+    update({ price: 8.5 }),
+    where(b => isNull(b.price)),
+    returning(b => [b.name, b.price]),
+    runEffect
+  )
+
   yield* show(
     "update with where and returning",
     pipe(
