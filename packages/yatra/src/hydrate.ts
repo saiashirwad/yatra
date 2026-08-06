@@ -1,7 +1,6 @@
-import { flatAlias } from "./compile.ts"
-import { isAggSpec } from "./query.ts"
 import { info } from "./table.ts"
 import type { Tableish } from "./utils.ts"
+import type { ProjectionField } from "./plan.ts"
 import type { QueryContext, Result } from "./query.ts"
 interface FieldSpec {
   outKey: string
@@ -19,28 +18,18 @@ const emptyTree = (): SelTree => ({
   fields: [],
   children: []
 })
+// The nesting tree comes from the projection descriptor the emitter
+// produced — hydrate decodes what was emitted, it never re-derives
+// result column names.
 function buildTree(
   table: Tableish,
-  items: readonly unknown[]
+  projection: readonly ProjectionField[]
 ): SelTree {
   const root = emptyTree()
-  for (const item of items) {
-    if (isAggSpec(item)) {
-      const key = item.alias ?? item.relation
-      root.fields.push({ outKey: key, col: key })
-      continue
-    }
-    if (typeof item !== "string") continue
-    const aliasIdx = item.indexOf(" as ")
-    if (aliasIdx !== -1) {
-      const alias = item.slice(aliasIdx + 4)
-      root.fields.push({ outKey: alias, col: alias })
-      continue
-    }
-    const segments = item.split(".")
+  for (const field of projection) {
     let tree = root
     let current = table
-    for (const seg of segments.slice(0, -1)) {
+    for (const seg of field.chain) {
       let child = tree.children.find(c => c.name === seg)
       if (!child) {
         const relation = info(current).relations[seg]
@@ -56,10 +45,9 @@ function buildTree(
       }
       tree = child.tree
     }
-    const leaf = segments[segments.length - 1]
     tree.fields.push({
-      outKey: leaf,
-      col: segments.length > 1 ? flatAlias(item) : leaf
+      outKey: field.outKey,
+      col: field.col
     })
   }
   return root
@@ -110,10 +98,17 @@ export function hydrateRows<
   T extends Tableish,
   Items extends readonly unknown[]
 >(
-  ctx: QueryContext<T, "hydrate", Items>,
-  rows: readonly Record<string, unknown>[]
+  table: T,
+  rows: readonly Record<string, unknown>[],
+  projection: readonly ProjectionField[]
 ): Result<QueryContext<T, "hydrate", Items>> {
-  const tree = buildTree(ctx.table, ctx.selection)
+  if (projection.length === 0) {
+    // SELECT t.* with no joins: rows are already the full row shape
+    return rows as unknown as Result<
+      QueryContext<T, "hydrate", Items>
+    >
+  }
+  const tree = buildTree(table, projection)
   return group(tree, rows) as Result<
     QueryContext<T, "hydrate", Items>
   >

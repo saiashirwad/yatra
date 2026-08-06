@@ -56,9 +56,14 @@ export interface TableInfo {
   fields: FieldsRecord
   relations: Record<string, Relation<any, any>>
 }
+// Relations never change after class definition, so scan the prototype
+// chain once per table class — plan building hits this per chain step.
+const infoCache = new WeakMap<Tableish, TableInfo>()
 export function info<T extends Tableish>(
   table: T
 ): TableInfo {
+  const cached = infoCache.get(table)
+  if (cached) return cached
   const relations: Record<string, Relation<any, any>> = {}
   for (const key of Reflect.ownKeys(table.prototype)) {
     const value = table.prototype[key]
@@ -66,11 +71,13 @@ export function info<T extends Tableish>(
       relations[key as string] = value
     }
   }
-  return {
+  const result = {
     name: tableName(table),
     fields: tableFields(table),
     relations
   }
+  infoCache.set(table, result)
+  return result
 }
 export type InferColumn<C> =
   C extends Column<any, infer T>
