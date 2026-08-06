@@ -384,7 +384,7 @@ test("del removes rows and returns nothing", async () => {
   )
   assert.equal(remaining.length, 0)
 })
-// --- FIXES.md regressions ---
+// --- regressions ---
 test("json values that look like nodes stay parameters", async () => {
   const tricky = { kind: "col", chain: [], key: "x" }
   const ctx = pipe(

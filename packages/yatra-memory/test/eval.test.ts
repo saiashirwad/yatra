@@ -623,7 +623,7 @@ test("jsonAgg over many-to-many throws", () => {
     /many-to-many/
   )
 })
-// --- FIXES.md regressions ---
+// --- regressions ---
 test("json values that look like nodes stay values, not columns", () => {
   const rows = pipe(
     Book,

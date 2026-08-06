@@ -83,8 +83,8 @@ Node kinds drop from seven to about five: `col`, `lit`, `expr`, `as`, `order`, p
 
 ## Status
 
-Partially implemented. Done: `lit` + uniform args + open op tags
-(FIXES.md), and statements as nodes — `QueryContext` is a
+Partially implemented. Done: `lit` + uniform args + open op tags,
+and statements as nodes — `QueryContext` is a
 `StatementData` with a real `kind` discriminant; the `X` phantom and
 `StepGate` are deleted, step gating is a plain constraint on `K`,
 mutation payloads are node-valued (expression update sets,
